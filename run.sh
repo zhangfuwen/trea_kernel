@@ -23,5 +23,4 @@ echo "启动CustomKernel..."
 qemu-system-i386 \
     -cdrom build/kernel.iso \
     -m 512M \
-    -monitor stdio \
-    -serial file:serial.log
+    -serial stdio 

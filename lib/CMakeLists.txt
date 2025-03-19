@@ -1,6 +1,8 @@
 # 创建内核库
 add_library(kernel_lib
     string.cpp
+    console.cpp
+    serial.cpp
 )
 
 # 添加包含目录
