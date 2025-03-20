@@ -123,6 +123,82 @@ inline void format_string(char* buffer, size_t size, const char* format, ...) {
     va_end(args);
 }
 
+// 接受va_list参数的格式化函数
+inline void format_string_v(char* buffer, size_t size, const char* format, va_list args) {
+    size_t i = 0;
+    const char* p = format;
+    
+    while (*p && i < size - 1) {
+        if (*p != '%') {
+            buffer[i++] = *p++;
+            continue;
+        }
+        
+        p++; // 跳过%
+        if (!*p) break;
+        
+        switch (*p) {
+            case 'd': { // 十进制整数
+                int val = va_arg(args, int);
+                char num_buffer[32];
+                int j = 0;
+                
+                if (val < 0) {
+                    buffer[i++] = '-';
+                    val = -val;
+                }
+                
+                do {
+                    num_buffer[j++] = '0' + (val % 10);
+                    val /= 10;
+                } while (val && j < 31);
+                
+                while (j > 0 && i < size - 1) {
+                    buffer[i++] = num_buffer[--j];
+                }
+                break;
+            }
+            case 'x': { // 十六进制整数
+                unsigned int val = va_arg(args, unsigned int);
+                char num_buffer[32];
+                int j = 0;
+                
+                do {
+                    int digit = val % 16;
+                    num_buffer[j++] = digit < 10 ? '0' + digit : 'a' + digit - 10;
+                    val /= 16;
+                } while (val && j < 31);
+                
+                while (j > 0 && i < size - 1) {
+                    buffer[i++] = num_buffer[--j];
+                }
+                break;
+            }
+            case 's': { // 字符串
+                const char* str = va_arg(args, const char*);
+                if (!str) str = "(null)";
+                
+                while (*str && i < size - 1) {
+                    buffer[i++] = *str++;
+                }
+                break;
+            }
+            case 'c': { // 字符
+                char c = (char)va_arg(args, int);
+                buffer[i++] = c;
+                break;
+            }
+            default: // 未知格式，原样输出
+                buffer[i++] = *p;
+                break;
+        }
+        
+        p++;
+    }
+    
+    buffer[i] = '\0';
+}
+
 // 核心打印函数
 inline void _debug_print(LogLevel level, const char* file, int line, const char* func, const char* format, ...) {
     if (level > current_log_level) return;
@@ -146,8 +222,8 @@ inline void _debug_print(LogLevel level, const char* file, int line, const char*
     va_list args;
     va_start(args, format);
     
-    // 简单实现，实际可以使用更复杂的格式化
-    format_string(msg_buffer, sizeof(msg_buffer), format, args);
+    // 使用接受va_list的格式化函数
+    format_string_v(msg_buffer, sizeof(msg_buffer), format, args);
     va_end(args);
     
     Console::print(msg_buffer);

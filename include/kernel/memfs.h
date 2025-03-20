@@ -43,6 +43,8 @@ public:
     
     // 初始化内存文件系统
     void init();
+
+    char *get_name() override;
     
     // 加载initramfs数据
     int load_initramfs(const void* data, size_t size);

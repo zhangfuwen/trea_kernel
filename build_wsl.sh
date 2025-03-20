@@ -60,6 +60,8 @@ cmake .. \
     -DCMAKE_ASM_NASM_COMPILER=nasm \
     -DCMAKE_ASM_NASM_FLAGS="-f elf32"
 
+#    -DCMAKE_VERBOSE_MAKEFILE=ON \
+
 # 编译项目
 echo "编译项目..."
 make -j$JOBS

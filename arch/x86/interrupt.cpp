@@ -2,6 +2,7 @@
 
 #include "lib/ioport.h"
 #include "arch/x86/interrupt.h"
+#include "lib/debug.h"
 
 
 void InterruptManager::init() {
@@ -24,6 +25,7 @@ void InterruptManager::init() {
 }
 
 void InterruptManager::registerISRHandler(uint8_t interrupt, ISRHandler handler) {
+    debug_debug("registerISRHandler called with interrupt: %d\n", interrupt);
     isrHandlers[interrupt] = handler;
 }
 
@@ -52,7 +54,7 @@ void InterruptManager::handleIRQ(uint8_t irq) {
 }
 
 
-ISRHandler InterruptManager::isrHandlers[32];
+ISRHandler InterruptManager::isrHandlers[256];
 IRQHandler InterruptManager::irqHandlers[16];
 
 void InterruptManager::defaultISRHandler() {

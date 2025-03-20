@@ -1,4 +1,5 @@
 #include "buddy_allocator.h"
+#include "lib/debug.h"
 
 // 静态成员初始化
 BuddyAllocator::FreeBlock* BuddyAllocator::free_lists[MAX_ORDER + 1];
@@ -20,35 +21,51 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size) {
     FreeBlock* block = (FreeBlock*)start_addr;
     block->next = nullptr;
     block->size = 1 << order;
+    debug_debug("BuddyAllocator: init, block size: %d, order:%d\n", block->size, order);
     free_lists[order] = block;
 }
 
 uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages) {
     // 计算需要的块大小的order
     uint32_t order = get_block_order(num_pages);
-    if (order > MAX_ORDER) return 0;
+    debug_debug("order: %d\n", order);
+    if (order > MAX_ORDER) {
+        debug_debug("BuddyAllocator: Requested size is too large!\n");    
+        return 0;
+    }
 
     // 查找可用的最小块
     uint32_t current_order = order;
     while (current_order <= MAX_ORDER && !free_lists[current_order]) {
         current_order++;
     }
+    debug_debug("current order: %d\n", current_order);
 
     // 如果没有找到足够大的块
-    if (current_order > MAX_ORDER) return 0;
+    if (current_order > MAX_ORDER) {
+        debug_debug("BuddyAllocator: No available blocks!, current order: %d, order:%d\n", current_order, order);
+        return 0;
+    }
 
     // 获取块并从空闲链表中移除
     FreeBlock* block = free_lists[current_order];
+    if(block == nullptr) {
+        debug_debug("BuddyAllocator:  invalid block, current_order: %d!\n", current_order);
+    }
     free_lists[current_order] = block->next;
 
     // 如果块太大，需要分割
     while (current_order > order) {
         current_order--;
+        debug_debug("start current order:%d\n", current_order);
         uint32_t buddy_addr = (uint32_t)block + (1 << current_order) * PAGE_SIZE;
+        block->size = 1 << current_order;
         FreeBlock* buddy = (FreeBlock*)buddy_addr;
+        debug_debug("buddy addr: %x\n", buddy_addr);
         buddy->size = 1 << current_order;
         buddy->next = free_lists[current_order];
         free_lists[current_order] = buddy;
+        debug_debug("end");
     }
 
     return (uint32_t)block;

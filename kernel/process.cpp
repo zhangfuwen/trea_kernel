@@ -7,6 +7,7 @@
 #include "process.h"
 #include "buddy_allocator.h"
 #include <cstdint>
+#include "arch/x86/gdt.h"
 
 // 创建新的页目录
 uint32_t ProcessManager::create_page_directory() {
@@ -196,6 +197,89 @@ void ProcessManager::schedule() {
         }
         next = (next + 1) % MAX_PROCESSES;
     }
+}
+
+// 进程切换函数，切换到指定进程
+void ProcessManager::switch_process(uint32_t pid) {
+    if (pid >= MAX_PROCESSES || processes[pid].state != PROCESS_READY) {
+        return; // 无效的进程ID或进程不处于就绪状态
+    }
+
+    // 保存当前进程上下文
+    if (current_process != 0) {
+        ProcessControlBlock* current = &processes[current_process];
+        // 保存当前进程状态
+        asm volatile(
+            "mov %%esp, %0\n"
+            "mov %%ebp, %1\n"
+            : "=m"(current->esp), "=m"(current->ebp)
+        );
+        
+        // 获取当前eip（通过栈上的返回地址）
+        asm volatile(
+            "mov 4(%%ebp), %0\n"
+            : "=r"(current->eip)
+        );
+        
+        // 将当前进程状态设为就绪
+        current->state = PROCESS_READY;
+    }
+
+    // 切换到新进程
+    current_process = pid;
+    ProcessControlBlock* next = &processes[current_process];
+    next->state = PROCESS_RUNNING;
+    
+    // 更新TSS中的内核栈指针
+    GDT::tss.esp0 = next->esp0;
+    GDT::tss.ss0 = 0x10; // 内核数据段选择子
+
+    
+    // 切换页目录
+    asm volatile("mov %0, %%cr3" : : "r"(next->cr3));
+    
+    // 恢复新进程上下文并跳转
+    asm volatile(
+        "mov %0, %%esp\n"
+        "mov %1, %%ebp\n"
+        "jmp *%2\n"
+        : 
+        : "m"(next->esp), "m"(next->ebp), "m"(next->eip)
+    );
+}
+
+// 切换到用户模式函数
+void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_stack) {
+    // 准备用户态栈
+    uint32_t esp = user_stack;
+    
+    // 设置用户态段选择子
+    uint16_t user_cs = 0x1B; // 用户代码段选择子（RPL=3）
+    uint32_t user_ds = 0x23; // 用户数据段选择子（RPL=3）
+    
+    // 使用iret指令切换到用户态
+    // 需要在栈上按顺序准备：ss, esp, eflags, cs, eip
+    asm volatile(
+        "cli\n"                  // 关中断
+        "mov %0, %%eax\n"        // 用户数据段选择子
+        "mov %%ax, %%ds\n"
+        "mov %%ax, %%es\n"
+        "mov %%ax, %%fs\n"
+        "mov %%ax, %%gs\n"
+        
+        "push %0\n"              // 用户栈段选择子(ss)
+        "push %1\n"              // 用户栈指针(esp)
+        "pushf\n"                // 标志寄存器(eflags)
+        "pop %%eax\n"            // 获取当前eflags
+        "or $0x200, %%eax\n"     // 设置IF位（启用中断）
+        "push %%eax\n"           // 压入修改后的eflags
+        "push %2\n"              // 用户代码段选择子(cs)
+        "push %3\n"              // 用户代码入口点(eip)
+        "iret\n"                 // 特权级转换并跳转到用户代码
+        : 
+        : "r"(user_ds), "r"(esp), "r"(user_cs), "r"(entry_point)
+        : "eax"
+    );
 }
 
 // 静态成员初始化

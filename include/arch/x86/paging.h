@@ -17,7 +17,8 @@ class PageManager {
 public:
     static void init();
     static uint32_t allocPage();
-    static void mapKernelSpace(PageDirectory* dir);
+    static uint32_t allocPages(int count);
+    static void mapKernelSpace(PageDirectory* dir, int count);
     static void loadPageDirectory(uint32_t dir);
     static void enablePaging();
 

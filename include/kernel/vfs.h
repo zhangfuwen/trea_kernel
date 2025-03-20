@@ -41,6 +41,8 @@ public:
 class FileSystem {
 public:
     virtual ~FileSystem() = default;
+
+    virtual char *get_name() = 0;
     
     // 打开文件，返回文件描述符
     virtual FileDescriptor* open(const char* path) = 0;

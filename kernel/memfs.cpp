@@ -55,6 +55,10 @@ int MemFSFileDescriptor::close() {
 
 MemFS::MemFS() : root(nullptr) {}
 
+char * MemFS::get_name() {
+    return "memfs";
+}
+
 MemFS::~MemFS() {
     if (root) free_inode(root);
 }
@@ -78,35 +82,67 @@ int MemFS::load_initramfs(const void* data, size_t size) {
     debug_notice("Initramfs size validation passed: %d bytes", size);
     
     while (ptr + sizeof(CPIOHeader) <= end) {
+        debug_debug("Processing CPIO header at %x", (unsigned int)ptr);
         const CPIOHeader* header = reinterpret_cast<const CPIOHeader*>(ptr);
-        if (header->magic != CPIO_MAGIC) break;
+//        debug_info(header->magic);
+        if (!magic_match(header->magic)) {
+            debug_err("Invalid CPIO header magic: %c %c %c", header->magic[0], header->magic[1], header->magic[2]);
+            debug_err("magic[3..6]: %c %c %c", header->magic[3], header->magic[4], header->magic[5]);
+        //    break;
+        }
         
         ptr += sizeof(CPIOHeader);
-        if (ptr >= end) break;
+        if (ptr >= end) {
+            debug_err("Unexpected end of initramfs");
+            break;
+        }
         
         // 获取文件名
         uint16_t namesize = get_namesize(header);
-        if (ptr + namesize > end) break;
+        debug_info("namesize: %d", namesize);
+        if (ptr + namesize > end) {
+            debug_err("Unexpected end of initramfs");
+            break;
+        }
         
         const char* name = reinterpret_cast<const char*>(ptr);
+        debug_debug("Found file: %s\n", name);
+        //ptr += (namesize +3 )/4*4;
         ptr += namesize;
+        ptr =(uint8_t *) (((uintptr_t)ptr + 3) /4*4);
         
         // 检查是否为结束标记
-        if (is_trailer(name)) break;
+        if (is_trailer(name)) {
+            debug_debug("Trailer found, ending initramfs loading");
+            break;
+        }
         
         // 获取文件数据
         uint32_t filesize = get_filesize(header);
-        if (ptr + filesize > end) break;
+        debug_debug("filesize: %d", filesize);
+        if (ptr + filesize > end) {
+            debug_debug("Unexpected end of initramfs");
+            break;
+        }
         
         // 创建文件或目录
         FileType type = is_directory(header) ? FileType::Directory : FileType::Regular;
         MemFSInode* inode = create_inode(name, type);
         
+        debug_debug("Inode created at %x", (unsigned int)inode);
         if (type == FileType::Regular && filesize > 0) {
+            debug_debug("Creating data buffer for file, size: %d bytes", filesize);
             inode->data = new uint8_t[filesize];
             inode->size = filesize;
             inode->capacity = filesize;
+            debug_debug("Data buffer created at %x, size: %d bytes", (unsigned int)inode->data, filesize);
             memcpy(inode->data, ptr, filesize);
+            debug_debug("Data copied, size: %d bytes", filesize);
+        } else {
+            debug_debug("filetype is %d, filesize is %d", type, filesize);
+            inode->data = nullptr;
+            inode->size = 0;
+            inode->capacity = 0;
         }
         
         // 添加到文件系统
@@ -115,7 +151,9 @@ int MemFS::load_initramfs(const void* data, size_t size) {
         root->children = inode;
         
         ptr += filesize;
+        ptr =(uint8_t *) (((uintptr_t)ptr + 3) /4*4);
     }
+    debug_debug("Initramfs loaded successfully, returning 0");
     return 0;
 }
 

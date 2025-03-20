@@ -44,6 +44,8 @@ public:
     static int fork();
     static ProcessControlBlock* get_current_process();
     static void schedule();
+    static void switch_process(uint32_t pid);
+    static void switch_to_user_mode(uint32_t entry_point, uint32_t user_stack);
 
 private:
     static uint32_t create_page_directory();

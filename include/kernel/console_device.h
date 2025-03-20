@@ -9,6 +9,7 @@ public:
     ConsoleDevice() = default;
     virtual ~ConsoleDevice() = default;
 
+
     virtual ssize_t read(void* buffer, size_t size) override {
         // TODO: 实现键盘输入缓冲区
         return 0;
@@ -35,6 +36,10 @@ class ConsoleFS : public FileSystem {
 public:
     ConsoleFS() = default;
     virtual ~ConsoleFS() = default;
+
+    char * get_name() override {
+        return "consolefs";
+    }
 
     virtual FileDescriptor* open(const char* path) override {
         return new ConsoleDevice();

@@ -1,6 +1,7 @@
 #include <kernel/vfs.h>
 #include <lib/string.h>
 #include <lib/console.h>
+#include <lib/debug.h>
 
 namespace kernel {
 
@@ -31,14 +32,23 @@ static FileSystem* find_fs(const char* path, const char** remaining_path) {
     
     for (int i = 0; i < MAX_MOUNT_POINTS; i++) {
         if (!mount_points[i].used) continue;
+
+        debug_debug("VFSManager::find_fs: checking path %s against %s\n", path, mount_points[i].path);
         
         size_t mount_len = strlen(mount_points[i].path);
-        if (strncmp(path, mount_points[i].path, mount_len) == 0) {
+        debug_debug("VFSManager::find_fs: mount_len %d\n", mount_len);
+
+        int ret = strncmp(path, mount_points[i].path, mount_len);
+        if (ret == 0) {
+            debug_debug("VFSManager::find_fs: found filesystem %s for path %s\n", mount_points[i].fs->get_name(), path);
+            // 找到最长匹配的挂载点，避免匹配到 /usr/bin 时也匹配到 /usr/bin/ls 这种情况
             if (mount_len > longest_match) {
                 longest_match = mount_len;
                 matched_fs = mount_points[i].fs;
                 *remaining_path = path + mount_len;
             }
+        } else {
+            debug_debug("VFSManager::find_fs: ret %d, path %s does not match %s\n", ret, path, mount_points[i].path);
         }
     }
     
@@ -60,7 +70,13 @@ void VFSManager::register_fs(const char* mount_point, FileSystem* fs) {
 FileDescriptor* VFSManager::open(const char* path) {
     const char* remaining_path;
     FileSystem* fs = find_fs(path, &remaining_path);
-    if (!fs) return nullptr;
+    if (!fs) {
+        debug_debug("VFSManager::open: no filesystem found for path %s\n", path);
+        return nullptr;
+    } else {
+        debug_debug("VFSManager::open: found filesystem %s for path %s\n", fs->get_name(), path);
+    }
+
     return fs->open(remaining_path);
 }
 

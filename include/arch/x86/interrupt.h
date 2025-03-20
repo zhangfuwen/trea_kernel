@@ -20,7 +20,7 @@ public:
     static void registerIRQHandler(uint8_t irq, IRQHandler handler);
     static void handleISR(uint8_t interrupt);
     static void handleIRQ(uint8_t irq);
-    static ISRHandler isrHandlers[32];
+    static ISRHandler isrHandlers[256];
     static IRQHandler irqHandlers[16];
 
     static void defaultISRHandler();

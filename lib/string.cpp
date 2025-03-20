@@ -1,5 +1,7 @@
 #include <stddef.h>
 
+#include "lib/debug.h"
+
 // 字符串长度计算
 size_t strlen(const char* str) {
     size_t len = 0;
@@ -35,11 +37,13 @@ int strcmp(const char* s1, const char* s2) {
 }
 
 // 字符串部分比较
-int strncmp(const char* s1, const char* s2, size_t n) {
+int strncmp(const char* s1, const char* s2, size_t n_) {
+    int n = n_;
     while (n-- && *s1 && (*s1 == *s2)) {
         s1++;
         s2++;
     }
+    //debug_debug("n: %d, s1 %c, s2 %c\n", n, *s1, *s2);
     return n < 0 ? 0 : *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
 

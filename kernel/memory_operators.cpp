@@ -1,14 +1,17 @@
 #include "buddy_allocator.h"
 #include <stddef.h>
+#include <lib/debug.h>
 
 // 全局new操作符实现
 void* operator new(size_t size) {
+    debug_debug("operator new called with size: %d\n", size);
     uint32_t pages = (size + 4095) / 4096; // 向上取整到页大小
     return (void*)BuddyAllocator::allocate_pages(pages);
 }
 
 // 全局new[]操作符实现
 void* operator new[](size_t size) {
+    debug_debug("operator new[] called with size: %d\n", size);
     uint32_t pages = (size + 4095) / 4096; // 向上取整到页大小
     return (void*)BuddyAllocator::allocate_pages(pages);
 }

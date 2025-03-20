@@ -58,7 +58,6 @@ class GDT {
 public:
     static void init();
 
-private:
     static void setEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
     static void loadGDT();
     static GDTEntry entries[6];
