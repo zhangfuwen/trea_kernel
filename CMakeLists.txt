@@ -12,10 +12,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 编译选项
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding -O2 -Wall -Wextra -m32 -I/usr/include/c++/13/i386-linux-gnu -I/usr/include/i386-linux-gnu -Iinclude -nostartfiles")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T ${CMAKE_SOURCE_DIR}/arch/x86/linker.ld -ffreestanding -O2 -nostdlib -m32 -no-pie -Wl,--build-id=none")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding -O2 -Wall -Wextra -m32 -I/usr/include/c++/13/i386-linux-gnu -I/usr/include/i386-linux-gnu -Iinclude -nostartfiles -static-libstdc++ -static-libgcc -fno-exceptions -fno-rtti -fno-use-cxa-atexit")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T ${CMAKE_SOURCE_DIR}/arch/x86/linker.ld -ffreestanding -O2 -nostdlib -m32 -no-pie -Wl,--build-id=none -static  -nodefaultlibs  -static-libstdc++ -static-libgcc")
 
 # 添加子目录
+add_subdirectory(rootfs)
 add_subdirectory(arch)
 add_subdirectory(kernel)
 add_subdirectory(drivers)

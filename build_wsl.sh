@@ -45,7 +45,7 @@ if [ "$SKIP_UPDATE" = false ]; then
     echo "正在更新软件包列表..."
     sudo apt-get update
 fi
-sudo apt-get install -y build-essential nasm cmake xorriso grub-pc-bin grub-common gcc-multilib g++-multilib
+sudo apt-get install -y build-essential cpio nasm cmake xorriso grub-pc-bin grub-common gcc-multilib g++-multilib
 
 # 创建并进入构建目录
 echo "创建构建目录..."

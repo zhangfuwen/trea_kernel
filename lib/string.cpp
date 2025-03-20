@@ -15,6 +15,16 @@ char* strcpy(char* dest, const char* src) {
     return dest;
 }
 
+// 字符串部分复制
+char* strncpy(char* dest, const char* src, size_t n) {
+    size_t i;
+    for (i = 0; i < n && src[i] != '\0'; i++)
+        dest[i] = src[i];
+    for (; i < n; i++)
+        dest[i] = '\0';
+    return dest;
+}
+
 // 字符串比较
 int strcmp(const char* s1, const char* s2) {
     while (*s1 && (*s1 == *s2)) {
@@ -22,6 +32,37 @@ int strcmp(const char* s1, const char* s2) {
         s2++;
     }
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+// 字符串部分比较
+int strncmp(const char* s1, const char* s2, size_t n) {
+    while (n-- && *s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return n < 0 ? 0 : *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+// 查找字符串中的字符
+char* strchr(const char* s, int c) {
+    while (*s != (char)c) {
+        if (*s++ == '\0')
+            return nullptr;
+    }
+    return (char*)s;
+}
+
+// 查找字符串中最后一个匹配的字符
+char* strrchr(const char* s, int c) {
+    const char* found = nullptr;
+    while (*s) {
+        if (*s == (char)c)
+            found = s;
+        s++;
+    }
+    if ((char)c == '\0')
+        return (char*)s;
+    return (char*)found;
 }
 
 // 内存复制

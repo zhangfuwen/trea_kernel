@@ -3,6 +3,7 @@ add_library(kernel_lib
     string.cpp
     console.cpp
     serial.cpp
+    debug.cpp
 )
 
 # 添加包含目录

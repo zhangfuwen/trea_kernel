@@ -21,6 +21,10 @@ SECTIONS {
         *(.bss)
     }
 
+    .initramfs BLOCK(4K) : ALIGN(4K) {
+        *(.initramfs)
+    }
+
     /DISCARD/ : {
         *(.comment)
         *(.eh_frame)

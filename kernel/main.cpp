@@ -1,9 +1,18 @@
-#include "../arch/x86/gdt.cpp"
-#include "../arch/x86/idt.cpp"
-#include "../arch/x86/interrupt.cpp"
-#include "../arch/x86/paging.cpp"
+#include "arch/x86/gdt.h"
+#include "arch/x86/idt.h"
+#include "arch/x86/interrupt.h"
+#include "arch/x86/paging.h"
 #include "lib/console.h"
 #include "lib/serial.h"
+#include "process.h"
+#include "scheduler.h"
+#include "elf_loader.h"
+#include "unistd.h"
+#include "kernel/memfs.h"
+#include "kernel/vfs.h"
+#include "lib/debug.h"
+
+using namespace kernel;
 
 // VGA 文本模式缓冲区地址
 #define VGA_BUFFER 0xB8000
@@ -71,6 +80,50 @@ extern "C" void kernel_main() {
     PageManager::init();
     Console::print("PageManager initialized!\n");
     serial_puts("PageManager initialized!\n");
+
+    // 初始化进程管理器和调度器
+    ProcessManager::init();
+    Scheduler::init();
+    Console::print("Process and Scheduler systems initialized!\n");
+
+    // 初始化内存文件系统
+    MemFS* memfs = new MemFS();
+    memfs->init();
+    VFSManager::instance().register_fs("/", memfs);
+
+    // 加载initramfs
+    extern uint8_t __initramfs_start[];
+    extern uint8_t __initramfs_end[];
+    size_t initramfs_size = __initramfs_end - __initramfs_start;
+    int ret = memfs->load_initramfs(__initramfs_start, initramfs_size);
+    if (ret < 0) {
+        debug_alert("Failed to load initramfs!\n");
+    }
+    Console::print("MemFS initialized and initramfs loaded!\n");
+
+    // 尝试加载并执行init程序
+    FileDescriptor* fd = VFSManager::instance().open("/init");
+    Console::print("Trying to open /init...\n");
+    if (fd) {
+        Console::print("File opened successfully!\n");
+        // 读取ELF文件内容
+        uint8_t* elf_data = new uint8_t[1024 * 1024]; // 假设最大1MB
+        ssize_t size = fd->read(elf_data, 1024 * 1024);
+        Console::print("File read successfully!\n");
+        fd->close();
+
+        if (size > 0) {
+            // 加载并执行ELF文件
+            uint32_t init_pid = ProcessManager::create_process("init");
+            ProcessControlBlock* init_process = ProcessManager::get_current_process();
+            if (init_pid > 0 && ElfLoader::load_elf(elf_data, size)) {
+                const ElfHeader* header = (const ElfHeader*)(elf_data);
+                Console::print("Init process loaded and started!\n");
+                ElfLoader::execute(header->entry, init_process);
+            }
+        }
+        delete[] elf_data;
+    }
 
     // 进入无限循环，等待中断
     while (true) {
