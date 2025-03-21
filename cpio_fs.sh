@@ -12,8 +12,8 @@ cd "$BUILD_DIR"
 
 cd rootfs_bin
 
-if [[ -f rootfs.cpio ]]; then
-    rm rootfs.cpio
+if [[ -f ../rootfs.cpio ]]; then
+    rm ../rootfs.cpio
 fi
 find . -print | cpio -ov --format=newc > ../rootfs.cpio
 cd -

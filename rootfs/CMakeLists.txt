@@ -1,6 +1,7 @@
 # 创建内核库
 add_executable(init
     init.cpp
+        linker.ld
 )
 
 # 添加包含目录
@@ -14,7 +15,10 @@ set_target_properties(init PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/rootfs_bin)
 
 
-
+message(STATUS "linker.ld: ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld")
+set_target_properties(init PROPERTIES
+        LINK_FLAGS "-T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld"
+)
 # 编译选项
 target_compile_options(init PRIVATE
     -ffreestanding

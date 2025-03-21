@@ -65,6 +65,7 @@ set_source_files_properties(
 )
 
 
+add_dependencies(init kernel_core arch_x86 kernel_lib)
 add_dependencies(kernel.bin init)
 
 # 链接所有模块

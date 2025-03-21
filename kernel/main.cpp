@@ -101,6 +101,8 @@ extern "C" void kernel_main() {
     memfs->init();
     debug_debug("memfs initialized!\n");
     VFSManager::instance().register_fs("/", memfs);
+    auto consolefs = new ConsoleFS();
+    VFSManager::instance().register_fs("/dev/console", consolefs);
     debug_debug("memfs registered!\n");
 
     // 加载initramfs
@@ -164,7 +166,7 @@ extern "C" void kernel_main() {
                 debug_debug("Init process created!\n");
             }
 
-            if (bool loaded = ElfLoader::load_elf(elf_data, size, 0x100000); loaded) {
+            if (bool loaded = ElfLoader::load_elf(elf_data, size, 0x000000); loaded) {
                 const ElfHeader* header = (const ElfHeader*)(elf_data);
                 debug_debug("Init process will run at address %x\n", header->entry);
                 
@@ -177,7 +179,7 @@ extern "C" void kernel_main() {
                 init_process->esp0 = (uint32_t)stack + 4096 - 16; // 栈顶位置，预留一些空间
                 
                 // 直接在内核态执行程序
-                uint32_t entry_point = header->entry + 0x100000; // 加上基址偏移
+                uint32_t entry_point = header->entry + 0x000000; // 加上基址偏移
                 debug_debug("Jumping to entry point at %x\n", entry_point);
                 
                 // 使用函数指针直接调用程序入口点

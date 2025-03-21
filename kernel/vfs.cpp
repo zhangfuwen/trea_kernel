@@ -26,8 +26,14 @@ static int next_fd = 3; // 0, 1, 2 保留给标准输入、输出和错误
 
 // 打开文件系统调用处理函数
 int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d) {
+    path_ptr = b;
     debug_debug("openHandler called with path_ptr: %d\n", path_ptr);
-    
+    debug_debug("openHandler b: %d\n", b);
+    debug_debug("openHandler c:%d\n", c);
+    debug_debug("openHandler d:%d\n", d);
+    debug_debug("openHandler c:%s\n", (char*)c);
+    debug_debug("openHandler d:%s\n", (char*)d);
+
     const char* path = reinterpret_cast<const char*>(path_ptr);
     debug_debug("Opening file: %s\n", path);
     

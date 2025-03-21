@@ -42,10 +42,12 @@ extern "C" {
     // open系统调用
     inline int syscall_open(const char* path) {
         int ret;
+        int c = 5;
+        int d = 6;
         asm volatile(
             "int $0x80"
             : "=a"(ret)
-            : "a"(SYS_OPEN), "b"(path)
+            : "a"(SYS_OPEN), "b"(path),"c"(path),"d"(d)
             : "memory"
         );
         return ret;
