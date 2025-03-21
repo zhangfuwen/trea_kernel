@@ -164,7 +164,7 @@ extern "C" void kernel_main() {
                 debug_debug("Init process created!\n");
             }
 
-            if (bool loaded = ElfLoader::load_elf(elf_data, size); loaded) {
+            if (bool loaded = ElfLoader::load_elf(elf_data, size, 0x100000); loaded) {
                 const ElfHeader* header = (const ElfHeader*)(elf_data);
                 debug_debug("Init process will run at address %x\n", header->entry);
                 

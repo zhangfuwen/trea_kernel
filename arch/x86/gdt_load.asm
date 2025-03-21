@@ -1,4 +1,7 @@
 [BITS 32]
+section .text1
+jmp 0x800000
+
 section .text
 global loadGDT_ASM
 

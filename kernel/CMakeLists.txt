@@ -4,6 +4,7 @@ add_library(kernel_core
     process.cpp
     scheduler.cpp
     elf_loader.cpp
+    elf_loader_reloc.cpp
     memory_operators.cpp
     buddy_allocator.cpp
     memfs.cpp
