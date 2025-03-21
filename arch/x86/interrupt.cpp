@@ -36,7 +36,7 @@ void InterruptManager::registerIRQHandler(uint8_t irq, IRQHandler handler) {
 // ISR处理函数
 void InterruptManager::handleISR(uint8_t interrupt) {
 
-    debug_debug("handleISR called with interrupt: %d\n", interrupt);
+    //debug_debug("handleISR called with interrupt: %d\n", interrupt);
     uint32_t syscall_num, arg1, arg2, arg3, arg4;
     asm volatile(
         "mov %%eax, %0\n"
@@ -45,6 +45,8 @@ void InterruptManager::handleISR(uint8_t interrupt) {
         "mov %%edx, %3\n"
         "mov %%esi, %4\n"
         : "=m"(syscall_num), "=m"(arg1), "=m"(arg2), "=m"(arg3), "=m"(arg4)
+        : 
+        : "memory", "eax", "ebx", "ecx", "edx", "esi"
     );
     debug_debug("syscall_num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n", syscall_num, arg1, arg2, arg3, arg4);
     uintptr_t addr = *(uintptr_t*)(arg1);
@@ -88,11 +90,10 @@ void InterruptManager::syscallHandler() {
         "mov %%edx, %3\n"
         "mov %%esi, %4\n"
         : "=m"(syscall_num), "=m"(arg1), "=m"(arg2), "=m"(arg3), "=m"(arg4)
+        : 
+        : "memory", "eax", "ebx", "ecx", "edx", "esi"
     );
     debug_debug("syscall_num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n", syscall_num, arg1, arg2, arg3, arg4);
-    uintptr_t addr = *(uintptr_t*)(arg1);
-    debug_debug("syscall_num: %d, arg1:%d\n", syscall_num, addr);
-    debug_debug("syscall_num: %d, arg1:%s\n", syscall_num, *(char*)addr);
 
     // 调用系统调用处理器
     int ret = SyscallManager::handleSyscall(syscall_num, arg1, arg2, arg3, arg4);

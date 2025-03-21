@@ -16,8 +16,8 @@ set_target_properties(init PROPERTIES
 
 
 message(STATUS "linker.ld: ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld")
-set_target_properties(init PROPERTIES
-        LINK_FLAGS "-T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld"
+target_link_options(init PRIVATE
+        "-T${CMAKE_CURRENT_SOURCE_DIR}/linker.ld"
 )
 # 编译选项
 target_compile_options(init PRIVATE

@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 编译选项
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding -O2 -Wall -Wextra -m32 -I/usr/include/c++/13/i386-linux-gnu -I/usr/include/i386-linux-gnu -Iinclude -nostartfiles -static-libstdc++ -static-libgcc -fno-exceptions -fno-rtti -fno-use-cxa-atexit")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T ${CMAKE_SOURCE_DIR}/arch/x86/linker.ld -ffreestanding -O2 -nostdlib -m32 -no-pie -Wl,--build-id=none -static  -nodefaultlibs  -static-libstdc++ -static-libgcc")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ffreestanding -O2 -nostdlib -m32 -no-pie -Wl,--build-id=none -static  -nodefaultlibs  -static-libstdc++ -static-libgcc")
 
 # 添加子目录
 
@@ -41,29 +41,31 @@ add_dependencies(run_cpio_fs_script init)
 
 # ... 现有代码 ...
 
-set(ROOTFS_CPIO_PATH "${CMAKE_BINARY_DIR}/rootfs.cpio")
-configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/rootfs.asm.in
-        ${CMAKE_CURRENT_BINARY_DIR}/rootfs.asm
-)
+set(ROOTFS_CPIO_PATH "\"${CMAKE_BINARY_DIR}/\"")
+#configure_file(
+#        ${CMAKE_CURRENT_SOURCE_DIR}/rootfs.asm.in
+#        ${CMAKE_CURRENT_BINARY_DIR}/rootfs.asm
+#)
 
 # 主内核目标
 add_executable(kernel.bin
     kernel/main.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/rootfs.asm
+        rootfs.asm
         boot.asm
 )
 add_dependencies(kernel.bin run_cpio_fs_script)
+target_link_options(kernel.bin PRIVATE "-T${CMAKE_CURRENT_SOURCE_DIR}/linker.ld")
 
 # 设置汇编器
 set_source_files_properties(
-        rootfs.asm.in
+        rootfs.asm
         boot.asm
         PROPERTIES
         LANGUAGE ASM_NASM
         COMPILE_FLAGS "-f elf32 -g -F dwarf"
 )
 
+set(CMAKE_ASM_NASM_FLAGS "-I${ROOTFS_CPIO_PATH}")
 
 add_dependencies(init kernel_core arch_x86 kernel_lib)
 add_dependencies(kernel.bin init)

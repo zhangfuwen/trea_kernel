@@ -8,8 +8,8 @@ int my_main() {
     int fd = syscall_open(filename);
 
     debug_debug("write to console: %d\n", fd);
-    for(int i = 0; i< 100;i++) {
-        syscall_write(fd, filename, 14);
-    }
+    //for(int i = 0; i< 100;i++) {
+    syscall_write(fd, filename, 14);
+    //}
     return 0;
 }

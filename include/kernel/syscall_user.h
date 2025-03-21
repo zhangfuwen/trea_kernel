@@ -47,7 +47,7 @@ extern "C" {
         asm volatile(
             "int $0x80"
             : "=a"(ret)
-            : "a"(SYS_OPEN), "b"(path),"c"(path),"d"(d)
+            : "a"(SYS_OPEN), "b"(path)
             : "memory"
         );
         return ret;

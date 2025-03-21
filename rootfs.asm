@@ -3,7 +3,7 @@ global __initramfs_end
 
 section .initramfs
 __initramfs_start:
-    incbin "@ROOTFS_CPIO_PATH@"
+    incbin "rootfs.cpio"
     ; 定义一个字节数据
 ;    byte_data db 0x10  
     ; 定义一个字（2 字节）数据

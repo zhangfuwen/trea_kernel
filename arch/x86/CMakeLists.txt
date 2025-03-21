@@ -8,7 +8,6 @@ add_library(arch_x86
     idt.cpp
     interrupt.cpp
     paging.cpp
-        linker.ld
 )
 
 # 设置汇编器
