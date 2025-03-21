@@ -61,6 +61,10 @@ extern "C" void kernel_main() {
     InterruptManager::init();
     serial_puts("InterruptManager initialized!\n");
 
+    for (int i = 16; i < 256; i++) {
+        IDT::setGate(i, (uint32_t)InterruptManager::isrHandlers[i], 0x08, 0x8E); // 默认中断门
+    }
+
 
     // 初始化控制台
 //    Console::init();
@@ -88,6 +92,7 @@ extern "C" void kernel_main() {
     Console::print("Process and Scheduler systems initialized!\n");
 
     BuddyAllocator::init(0x800000, 0x800000);
+    init_vfs();
 
     // 初始化内存文件系统
     debug_debug("Trying to new memfs ...\n");
@@ -152,19 +157,42 @@ extern "C" void kernel_main() {
             ProcessManager::switch_process(init_pid);
             debug_debug("Init process switched!\n");
 
-            if (init_pid > 0 && ElfLoader::load_elf(elf_data, size)) {
+            if (init_pid <= 0) {
+                debug_debug("Failed to create init process!\n");
+                return;
+            } else {
+                debug_debug("Init process created!\n");
+            }
+
+            if (bool loaded = ElfLoader::load_elf(elf_data, size); loaded) {
                 const ElfHeader* header = (const ElfHeader*)(elf_data);
-                Console::print("Init process loaded and started!\n");
-//                debug_debug("will run %s", header->entry);
-                //ElfLoader::execute(header->entry, init_process);
-                debug_debug("Init process will run %x\n", header->entry);
+                debug_debug("Init process will run at address %x\n", header->entry);
+                
+                // 分配内核栈
                 uint8_t * stack = new uint8_t[4096];
-                debug_debug("stack allocated, run user code\n");
-                ProcessManager::switch_to_user_mode(header->entry, (uint32_t)stack);
-                debug_debug("Init switched to user mode!\n");
+                debug_debug("Stack allocated, running in kernel mode\n");
+                
+                // 设置进程的栈
+                init_process->kernel_stack = (uint32_t)stack;
+                init_process->esp0 = (uint32_t)stack + 4096 - 16; // 栈顶位置，预留一些空间
+                
+                // 直接在内核态执行程序
+                uint32_t entry_point = header->entry + 0x100000; // 加上基址偏移
+                debug_debug("Jumping to entry point at %x\n", entry_point);
+                
+                // 使用函数指针直接调用程序入口点
+                typedef void (*entry_func_t)();
+                entry_func_t entry_func = (entry_func_t)entry_point;
+                entry_func(); // 直接调用入口函数
+                
+                debug_debug("Init executed in kernel mode!\n");
+            } else {
+                debug_err("Init process loaded failed!\n");
             }
         }
         delete[] elf_data;
+    } else {
+        Console::print("Failed to open /init!\n");
     }
 
     // 进入无限循环，等待中断

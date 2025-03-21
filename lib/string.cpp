@@ -7,6 +7,9 @@ size_t strlen(const char* str) {
     size_t len = 0;
     while (str[len])
         len++;
+    if (len >= 0x1000000) {
+        return 0;
+    }
     return len;
 }
 

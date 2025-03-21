@@ -16,16 +16,56 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding -O2 -Wall -Wextra -m32 -I
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T ${CMAKE_SOURCE_DIR}/arch/x86/linker.ld -ffreestanding -O2 -nostdlib -m32 -no-pie -Wl,--build-id=none -static  -nodefaultlibs  -static-libstdc++ -static-libgcc")
 
 # 添加子目录
+
+
 add_subdirectory(rootfs)
 add_subdirectory(arch)
+
 add_subdirectory(kernel)
 add_subdirectory(drivers)
 add_subdirectory(lib)
 
+# ... 现有代码 ...
+
+# 创建一个自定义目标来执行脚本
+add_custom_target(run_cpio_fs_script
+        COMMAND ${CMAKE_COMMAND} -E echo "开始执行脚本...."
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cpio_fs.sh ${CMAKE_BINARY_DIR}
+        COMMAND ${CMAKE_COMMAND} -E echo "脚本执行完成。"
+        COMMENT "每次构建前执行脚本"
+        VERBATIM
+)
+
+add_dependencies(run_cpio_fs_script init)
+# 确保在构建 kernel.bin 之前执行这个自定义目标
+
+# ... 现有代码 ...
+
+set(ROOTFS_CPIO_PATH "${CMAKE_BINARY_DIR}/rootfs.cpio")
+configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/rootfs.asm.in
+        ${CMAKE_CURRENT_BINARY_DIR}/rootfs.asm
+)
+
 # 主内核目标
 add_executable(kernel.bin
     kernel/main.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/rootfs.asm
+        boot.asm
 )
+add_dependencies(kernel.bin run_cpio_fs_script)
+
+# 设置汇编器
+set_source_files_properties(
+        rootfs.asm.in
+        boot.asm
+        PROPERTIES
+        LANGUAGE ASM_NASM
+        COMPILE_FLAGS "-f elf32 -g -F dwarf"
+)
+
+
+add_dependencies(kernel.bin init)
 
 # 链接所有模块
 target_link_libraries(kernel.bin

@@ -3,8 +3,10 @@
 
 // 定义TSS
 TSSEntry GDT::tss;
-GDTEntry GDT::entries[6];
+GDTEntry GDT::entries[7]; // 增加一个表项用于调用门
 GDTPointer GDT::gdtPointer;
+
+// 用户态切换函数声明
 
 extern "C" void loadGDT_ASM(GDTPointer*);
 void GDT::init() {
@@ -23,9 +25,15 @@ void GDT::init() {
     // 设置TSS描述符
     uint32_t tss_base = reinterpret_cast<uint32_t>(&tss);
     setEntry(5, tss_base, sizeof(TSSEntry), GDT_PRESENT | GDT_TYPE_TSS, 0x00);
+    
+    // 设置调用门描述符
+    // 参数：索引、目标段选择子、目标偏移、特权级、参数数量
+    // 目标段选择子为内核代码段(0x08)，特权级为3(允许用户态调用)
+    // uint32_t user_mode_entry_addr = reinterpret_cast<uint32_t>(user_mode_entry);
+    // setCallGate(6, 0x08, user_mode_entry_addr, 3, 0);
 
     // 加载GDT
-    gdtPointer.limit = (sizeof(GDTEntry) * 6) - 1;
+    gdtPointer.limit = (sizeof(GDTEntry) * 7) - 1;
     gdtPointer.base = reinterpret_cast<uintptr_t>(&entries[0]);
     loadGDT();
 
@@ -40,6 +48,22 @@ void GDT::setEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uin
     entries[index].limit_low = limit & 0xFFFF;
     entries[index].granularity = ((limit >> 16) & 0x0F) | (gran & 0xF0);
     entries[index].access = access;
+}
+
+void GDT::setCallGate(int index, uint16_t selector, uint32_t offset, uint8_t dpl, uint8_t param_count) {
+    // 将GDTEntry结构重新解释为CallGateDescriptor
+    CallGateDescriptor* gate = reinterpret_cast<CallGateDescriptor*>(&entries[index]);
+    
+    // 设置调用门描述符的各个字段
+    gate->offset_low = offset & 0xFFFF;
+    gate->offset_high = (offset >> 16) & 0xFFFF;
+    gate->selector = selector;
+    gate->param_count = param_count;
+    gate->reserved = 0;
+    gate->type = GDT_TYPE_CALL_GATE >> 4; // 调用门类型(0xC)
+    gate->s = 0;                          // 系统段
+    gate->dpl = dpl;                      // 描述符特权级
+    gate->p = 1;                          // 存在位
 }
 
 void GDT::loadGDT() {

@@ -20,7 +20,6 @@ class IDT {
 public:
     static void init();
 
-private:
     static IDTEntry entries[256];
     static IDTPointer idtPointer;
 

@@ -175,7 +175,12 @@ MemFSInode* MemFS::find_inode(const char* path) {
         
         // 获取下一个路径组件
         const char* end = strchr(p, '/');
-        size_t len = end ? end - p : strlen(p);
+        size_t len = 0;
+        if (end == nullptr) {
+            len = strlen(p);
+        } else {
+            len = end - p;
+        }
         if (len >= sizeof(name)) return nullptr;
         
         strncpy(name, p, len);

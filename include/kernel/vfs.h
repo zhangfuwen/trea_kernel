@@ -27,6 +27,7 @@ struct FileAttribute {
     size_t size;           // 文件大小
 };
 
+void init_vfs();
 // 文件描述符
 class FileDescriptor {
 public:

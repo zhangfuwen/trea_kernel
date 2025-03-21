@@ -3,13 +3,16 @@
 #include <arch/x86/gdt.h>
 #include "process.h"
 #include "scheduler.h"
+#include "lib/debug.h"
 
 using namespace kernel;
+extern "C" void set_user_entry(uint32_t entry, uint32_t stack);
 
 // 加载ELF文件
 bool ElfLoader::load_elf(const void* elf_data, uint32_t size) {
+    debug_debug("Loading elf...\n");
     if (!elf_data || size < sizeof(ElfHeader)) {
-        Console::print("Invalid ELF file\n");
+        debug_err("Invalid ELF file\n");
         return false;
     }
 
@@ -17,13 +20,13 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size) {
 
     // 检查ELF魔数
     if (header->magic != ELF_MAGIC) {
-        Console::print("Invalid ELF magic number\n");
+        debug_err("Invalid ELF magic number\n");
         return false;
     }
 
     // 检查文件类型
     if (header->type != ET_EXEC) {
-        Console::print("Not an executable file\n");
+        debug_err("Not an executable file\n");
         return false;
     }
 
@@ -32,13 +35,16 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size) {
         static_cast<const void*>(static_cast<const char*>(elf_data) + header->phoff)
     );
 
+    debug_debug("num segments: %d\n", header->phnum);
     for (uint16_t i = 0; i < header->phnum; i++) {
         if (ph[i].type == 1) { // LOAD类型段
             // 分配内存并复制段内容
             void* dest = reinterpret_cast<void*>(ph[i].vaddr);
+            dest += 0x100000;
             const void* src = static_cast<const void*>(
                 static_cast<const char*>(elf_data) + ph[i].offset
             );
+            debug_debug("Copying segment %x to %x\n", dest, src);
             // 复制段内容到目标地址
             for (uint32_t j = 0; j < ph[i].filesz; j++) {
                 static_cast<char*>(dest)[j] = static_cast<const char*>(src)[j];
@@ -49,6 +55,7 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size) {
             }
         }
     }
+    debug_debug("Done!\n");
 
     return true;
 }
@@ -59,27 +66,30 @@ void ElfLoader::execute(uint32_t entry_point, ProcessControlBlock* process) {
     Scheduler::tss.esp0 = process->esp0;
     Scheduler::tss.ss0 = 0x10; // 内核数据段
 
-    // 切换到用户态并执行程序
+    entry_point += 0x100000;
+    char * data = (char*)entry_point;
+    for(int i = 0; i< 20;i++) {
+        debug_debug("entry_point: %x\n", data[i]);
+    }
+
     asm volatile(
-        "movw %0, %%ax\n"   // 设置数据段
-        "movw %%ax, %%ds\n"
-        "movw %%ax, %%es\n"
-        "movw %%ax, %%fs\n"
-        "movw %%ax, %%gs\n"
-        "pushl %1\n"        // SS
-        "pushl %2\n"        // ESP
-        "pushfl\n"          // EFLAGS
-        "popl %%eax\n"      // 获取EFLAGS
-        "orl $0x200, %%eax\n" // 设置IF位（允许中断）
-        "pushl %%eax\n"     // 修改后的EFLAGS
-        "pushl %3\n"        // CS
-        "pushl %4\n"        // EIP
-        "iret\n"            // 切换到用户态
-        :
-        : "rm"(process->ds), "rm"(process->ss), "rm"(process->esp),
-            "rm"(process->cs), "rm"(entry_point)
-        : "eax"
+        "ljmp %0\n"
+        : "=m" (entry_point)
     );
+    
+    // 设置用户程序入口点和栈指针
+//    set_user_entry(entry_point, process->esp);
+    
+    // 通过调用门切换到用户态
+    // 调用门选择子：0x33 (索引6，TI=0，RPL=3)
+    asm volatile(
+        "lcall $0x33, $0\n"  // 远调用到调用门
+        :
+        :
+        : "memory"
+    );
+    
+    // 注意：这里的代码不会被执行，因为调用门会切换到用户态
 }
 
 // exec系统调用实现
