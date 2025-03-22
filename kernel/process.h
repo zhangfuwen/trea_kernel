@@ -10,7 +10,8 @@ enum ProcessState {
     PROCESS_READY,
     PROCESS_RUNNING,
     PROCESS_WAITING,
-    PROCESS_TERMINATED
+    PROCESS_TERMINATED,
+    EXITED
 };
 
 // 进程控制块结构
@@ -35,6 +36,7 @@ struct ProcessControlBlock {
     kernel::FileDescriptor* stdin;  // 标准输入
     kernel::FileDescriptor* stdout; // 标准输出
     kernel::FileDescriptor* stderr; // 标准错误
+    uint32_t exit_status;          // 退出状态码
 };
 
 class ProcessManager {

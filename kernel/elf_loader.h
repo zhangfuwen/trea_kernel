@@ -178,6 +178,8 @@ public:
     // @return 执行结果
     static int exec(const char* path, char* const argv[]);
 
+    static void switch_to_user_mode(uint32_t entry_point, uint32_t user_stack);
+
 private:
     // 处理重定位表
     // @param elf_data ELF文件数据

@@ -11,11 +11,15 @@ enum SyscallNumber {
     SYS_READ = 4,
     SYS_WRITE = 5,
     SYS_CLOSE = 6,
-    SYS_SEEK = 7
+    SYS_SEEK = 7,
+    SYS_EXIT = 8
 };
 
 // 系统调用处理函数类型
 typedef int (*SyscallHandler)(uint32_t, uint32_t, uint32_t, uint32_t);
+
+// 系统调用处理函数声明
+int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t);
 
 // 系统调用管理器
 class SyscallManager {

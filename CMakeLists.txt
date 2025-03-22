@@ -28,15 +28,19 @@ add_subdirectory(lib)
 # ... 现有代码 ...
 
 # 创建一个自定义目标来执行脚本
-add_custom_target(run_cpio_fs_script
+add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/rootfs.cpio
         COMMAND ${CMAKE_COMMAND} -E echo "开始执行脚本...."
         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cpio_fs.sh ${CMAKE_BINARY_DIR}
         COMMAND ${CMAKE_COMMAND} -E echo "脚本执行完成。"
         COMMENT "每次构建前执行脚本"
+        DEPENDS init
         VERBATIM
 )
+add_custom_target(run_cpio_fs_script
+        DEPENDS ${CMAKE_BINARY_DIR}/rootfs.cpio
+)
 
-add_dependencies(run_cpio_fs_script init)
 # 确保在构建 kernel.bin 之前执行这个自定义目标
 
 # ... 现有代码 ...
@@ -52,8 +56,11 @@ add_executable(kernel.bin
     kernel/main.cpp
         rootfs.asm
         boot.asm
+        linker.ld
+        ${CMAKE_BINARY_DIR}/rootfs.cpio
 )
 add_dependencies(kernel.bin run_cpio_fs_script)
+#add_dependencies(kernel.bin ${CMAKE_BINARY_DIR}/rootfs.cpio)
 target_link_options(kernel.bin PRIVATE "-T${CMAKE_CURRENT_SOURCE_DIR}/linker.ld")
 
 # 设置汇编器
@@ -63,6 +70,11 @@ set_source_files_properties(
         PROPERTIES
         LANGUAGE ASM_NASM
         COMPILE_FLAGS "-f elf32 -g -F dwarf"
+)
+set_source_files_properties(
+    ${CMAKE_BINARY_DIR}/rootfs.cpio
+    PROPERTIES
+        GENERATED TRUE
 )
 
 set(CMAKE_ASM_NASM_FLAGS "-I${ROOTFS_CPIO_PATH}")

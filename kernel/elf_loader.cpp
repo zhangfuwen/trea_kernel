@@ -228,3 +228,21 @@ int ElfLoader::exec(const char* path, char* const argv[]) {
     execute(entry_point, current);
     return 0;
 }
+
+// 新增用户态切换函数
+void ElfLoader::switch_to_user_mode(uint32_t entry_point, uint32_t user_stack) {
+    debug_debug("switch_to_user_mode called\n");
+    asm volatile(
+        "mov %%eax, %%esp\n\t"   // 设置用户栈指针
+        "push $0x23\n\t"        // 用户数据段选择子
+        "push %%eax\n\t"        // 用户栈指针
+        "push $0x200\n\t"       // EFLAGS
+        "push $0x1B\n\t"        // 用户代码段选择子
+        "push %%ebx\n\t"        // 入口地址
+        "lcall $0x33, $0\n\t"   // 调用门切换
+        : 
+        : "a" (user_stack), "b" (entry_point)
+        : "memory"
+    );
+    debug_debug("switch_to_user_mode completed\n");
+}

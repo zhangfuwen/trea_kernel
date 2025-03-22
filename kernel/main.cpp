@@ -12,6 +12,7 @@
 #include "kernel/vfs.h"
 #include "lib/debug.h"
 #include "buddy_allocator.h"
+#include "kernel/syscall_user.h"
 
 using namespace kernel;
 
@@ -46,6 +47,15 @@ void print_char(char c) {
     }
 }
 
+void (*user_entry_point)();
+void user_entry_wrapper() {
+    // run user program
+    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    user_entry_point();
+    debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point);
+    syscall_exit(0);
+}
+
 extern "C" void kernel_main() {
     serial_init();
     serial_puts("Hello, world!\n");
@@ -60,6 +70,9 @@ extern "C" void kernel_main() {
     // 初始化中断管理器
     InterruptManager::init();
     serial_puts("InterruptManager initialized!\n");
+
+    // 注册exit系统调用处理函数
+    SyscallManager::registerHandler(SYS_EXIT, exitHandler);
 
     for (int i = 16; i < 256; i++) {
         IDT::setGate(i, (uint32_t)InterruptManager::isrHandlers[i], 0x08, 0x8E); // 默认中断门
@@ -181,11 +194,15 @@ extern "C" void kernel_main() {
                 // 直接在内核态执行程序
                 uint32_t entry_point = header->entry + 0x000000; // 加上基址偏移
                 debug_debug("Jumping to entry point at %x\n", entry_point);
-                
+
+                user_entry_point = (void (*)())entry_point;
+                debug_debug("User entry point set to %x\n", user_entry_point);
+                ElfLoader::switch_to_user_mode((uint32_t)user_entry_wrapper,(uint32_t)stack);
+                debug_debug("Switched to user mode!\n");
                 // 使用函数指针直接调用程序入口点
-                typedef void (*entry_func_t)();
-                entry_func_t entry_func = (entry_func_t)entry_point;
-                entry_func(); // 直接调用入口函数
+                // typedef void (*entry_func_t)();
+                // entry_func_t entry_func = (entry_func_t)entry_point;
+                // entry_func(); // 直接调用入口函数
                 
                 debug_debug("Init executed in kernel mode!\n");
             } else {

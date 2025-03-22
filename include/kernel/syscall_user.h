@@ -12,6 +12,7 @@
 #define SYS_WRITE 5
 #define SYS_CLOSE 6
 #define SYS_SEEK 7
+#define SYS_EXIT 8
 
 // 系统调用接口
 extern "C" {
@@ -42,8 +43,6 @@ extern "C" {
     // open系统调用
     inline int syscall_open(const char* path) {
         int ret;
-        int c = 5;
-        int d = 6;
         asm volatile(
             "int $0x80"
             : "=a"(ret)
@@ -99,6 +98,17 @@ extern "C" {
             : "memory"
         );
         return ret;
+    }
+
+    // exit系统调用
+    inline void syscall_exit(int status) {
+        asm volatile(
+            "int $0x80"
+            : 
+            : "a"(SYS_EXIT), "b"(status)
+            : "memory"
+        );
+        while(1); // 防止返回
     }
 }
 
