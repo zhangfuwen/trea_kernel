@@ -1,4 +1,4 @@
-#include "elf_loader.h"
+#include "kernel/elf_loader.h"
 #include "lib/debug.h"
 
 // 处理重定位表

@@ -3,6 +3,8 @@
 #include <lib/console.h>
 #include <lib/string.h>
 #include <cstdarg>
+#include "kernel/scheduler.h"
+#include "kernel/process.h"
 
 // 定义日志级别
 enum LogLevel {
@@ -211,12 +213,26 @@ inline void _debug_print(LogLevel level, const char* file, int line, const char*
     
     // 打印日志级别前缀
     Console::print(log_level_prefix[level]);
-    
-    // 打印文件名、行号和函数名
+
+#ifndef NO_PID
+    // 获取当前进程PID
+    int pid = 0;
+    ProcessControlBlock* current = ProcessManager::get_current_process();
+    if (current) {
+        pid = current->pid;
+    }
+
+    // 打印PID、文件名、行号和函数名
     char info_buffer[256];
-    format_string(info_buffer, sizeof(info_buffer), " %s:%d %s(): ", file, line, func);
+    format_string(info_buffer, sizeof(info_buffer), "[PID:%d] %s:%d %s(): ", pid, file, line, func);
     Console::print(info_buffer);
-    
+#else
+    char info_buffer[256];
+    format_string(info_buffer, sizeof(info_buffer), "%s:%d %s(): ", file, line, func);
+    Console::print(info_buffer);
+
+#endif
+
     // 格式化并打印用户消息
     char msg_buffer[512];
     va_list args;

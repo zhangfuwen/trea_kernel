@@ -61,6 +61,7 @@ void InterruptManager::handleISR(uint8_t interrupt) {
 
 // IRQ处理函数
 void InterruptManager::handleIRQ(uint8_t irq) {
+    debug_debug("handleIRQ called with irq: %d\n", irq);
     if (irqHandlers[irq]) {
         irqHandlers[irq]();
     }

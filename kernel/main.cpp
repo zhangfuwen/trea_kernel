@@ -4,15 +4,16 @@
 #include "arch/x86/paging.h"
 #include "lib/console.h"
 #include "lib/serial.h"
-#include "process.h"
-#include "scheduler.h"
-#include "elf_loader.h"
+#include "kernel/process.h"
+#include "kernel/scheduler.h"
+#include "kernel/elf_loader.h"
 #include "unistd.h"
 #include "kernel/memfs.h"
 #include "kernel/vfs.h"
 #include "lib/debug.h"
-#include "buddy_allocator.h"
+#include "kernel/buddy_allocator.h"
 #include "kernel/syscall_user.h"
+#include "arch/x86/pit.h"
 
 using namespace kernel;
 
@@ -47,14 +48,15 @@ void print_char(char c) {
     }
 }
 
-void (*user_entry_point)();
-void user_entry_wrapper() {
+void (*user_entry_point1)();
+void user_entry_wrapper1() {
     // run user program
-    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
-    user_entry_point();
-    debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point);
+    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point1);
+    user_entry_point1();
+    debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point1);
     syscall_exit(0);
 }
+
 
 extern "C" void kernel_main() {
     serial_init();
@@ -73,9 +75,34 @@ extern "C" void kernel_main() {
 
     // 注册exit系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
+    SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
+        uint32_t b, uint32_t c, uint32_t d)
+        {
+            return ProcessManager::fork();
+
+        });
+    // 注册时钟中断处理函数
+    InterruptManager::registerIRQHandler(0, []() {
+        static uint32_t tick = 0;
+        tick++;
+        if (tick % 10000000000 == 0) {
+            debug_debug("Timer interrupt!\n");
+            Scheduler::timer_tick();
+        }
+        // if (tick > 1000000000) {
+        //     tick = 0;
+        // }
+    });
+    PIT::init();
+
+
+    // syscall_fork();
 
     for (int i = 16; i < 256; i++) {
         IDT::setGate(i, (uint32_t)InterruptManager::isrHandlers[i], 0x08, 0x8E); // 默认中断门
+    }
+    for (int i = 0; i < 16; i++) {
+        IDT::setGate(i, (uint32_t)InterruptManager::irqHandlers[i], 0x08, 0x8E); // 默认中断门
     }
 
 
@@ -149,7 +176,7 @@ extern "C" void kernel_main() {
     }
     Console::print("MemFS initialized and initramfs loaded!\n");
 
-    // 尝试加载并执行init程序
+#if 1
     FileDescriptor* fd = VFSManager::instance().open("/init");
     Console::print("Trying to open /init...\n");
     if (fd) {
@@ -158,7 +185,7 @@ extern "C" void kernel_main() {
         auto attr = new FileAttribute();
         int ret = VFSManager::instance().stat("/init", attr);
         debug_debug("File stat ret %d, size %d!\n",ret, attr->size);
-        uint8_t* elf_data = new uint8_t[attr->size]; 
+        uint8_t* elf_data = new uint8_t[attr->size];
         ssize_t size = fd->read(elf_data, attr->size);
         debug_debug("File read successfully, size %d!\n", size);
         fd->close();
@@ -182,28 +209,28 @@ extern "C" void kernel_main() {
             if (bool loaded = ElfLoader::load_elf(elf_data, size, 0x000000); loaded) {
                 const ElfHeader* header = (const ElfHeader*)(elf_data);
                 debug_debug("Init process will run at address %x\n", header->entry);
-                
+
                 // 分配内核栈
                 uint8_t * stack = new uint8_t[4096];
                 debug_debug("Stack allocated, running in kernel mode\n");
-                
+
                 // 设置进程的栈
                 init_process->kernel_stack = (uint32_t)stack;
                 init_process->esp0 = (uint32_t)stack + 4096 - 16; // 栈顶位置，预留一些空间
-                
+
                 // 直接在内核态执行程序
                 uint32_t entry_point = header->entry + 0x000000; // 加上基址偏移
                 debug_debug("Jumping to entry point at %x\n", entry_point);
 
-                user_entry_point = (void (*)())entry_point;
-                debug_debug("User entry point set to %x\n", user_entry_point);
-                ElfLoader::switch_to_user_mode((uint32_t)user_entry_wrapper,(uint32_t)stack);
+                user_entry_point1 = (void (*)())entry_point;
+                debug_debug("User entry point set to %x\n", user_entry_point1);
+                ElfLoader::switch_to_user_mode((uint32_t)user_entry_wrapper1,(uint32_t)stack);
                 debug_debug("Switched to user mode!\n");
                 // 使用函数指针直接调用程序入口点
                 // typedef void (*entry_func_t)();
                 // entry_func_t entry_func = (entry_func_t)entry_point;
                 // entry_func(); // 直接调用入口函数
-                
+
                 debug_debug("Init executed in kernel mode!\n");
             } else {
                 debug_err("Init process loaded failed!\n");
@@ -213,6 +240,16 @@ extern "C" void kernel_main() {
     } else {
         Console::print("Failed to open /init!\n");
     }
+#else
+    // 尝试加载并执行init程序
+    Console::print("Trying to execute /init...\n");
+    int32_t init_pid = ProcessManager::execute_process("/init");
+    if (init_pid < 0) {
+        Console::print("Failed to execute /init!\n");
+        return;
+    }
+    debug_debug("Init process executed with pid: %d\n", init_pid);
+#endif
 
     // 进入无限循环，等待中断
     while (true) {

@@ -1,8 +1,8 @@
-#include "elf_loader.h"
+#include "kernel/elf_loader.h"
 #include <kernel/vfs.h>
 #include <arch/x86/gdt.h>
-#include "process.h"
-#include "scheduler.h"
+#include "kernel/process.h"
+#include "kernel/scheduler.h"
 #include "lib/debug.h"
 
 using namespace kernel;

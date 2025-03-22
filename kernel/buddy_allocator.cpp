@@ -1,4 +1,4 @@
-#include "buddy_allocator.h"
+#include "kernel/buddy_allocator.h"
 #include "lib/debug.h"
 
 // 静态成员初始化

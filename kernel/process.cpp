@@ -1,12 +1,14 @@
-#include "process.h"
-#include "buddy_allocator.h"
+#include "kernel/process.h"
+#include "kernel/buddy_allocator.h"
 #include <kernel/vfs.h>
 #include <lib/console.h>
 #include <kernel/console_device.h>
 
-#include "process.h"
-#include "buddy_allocator.h"
+#include "kernel/process.h"
+#include "kernel/buddy_allocator.h"
 #include <cstdint>
+#include <lib/debug.h>
+
 #include "arch/x86/gdt.h"
 
 // 创建新的页目录
@@ -165,18 +167,36 @@ int ProcessManager::fork() {
     child.esp = parent->esp;
     child.ebp = parent->ebp;
     child.eip = parent->eip;
+    child.eflags = parent->eflags;
+    child.eax = 0;  // 子进程返回0
+    child.ebx = parent->ebx;
+    child.ecx = parent->ecx;
+    child.edx = parent->edx;
+    child.esi = parent->esi;
+    child.edi = parent->edi;
+
+    // 复制父进程的优先级和时间片
+    child.priority = parent->priority;
+    child.time_slice = parent->time_slice;
 
     // 复制内存空间
     if (!copy_memory_space(*parent, child)) {
         // 如果内存复制失败，清理并返回错误
         child.state = PROCESS_TERMINATED;
+        BuddyAllocator::free_pages(child.user_stack, 1024);
+        BuddyAllocator::free_pages(child.kernel_stack, 16);
         return -1;
     }
+
+    // 复制文件描述符
+    child.stdin = parent->stdin;
+    child.stdout = parent->stdout;
+    child.stderr = parent->stderr;
 
     // 设置子进程状态为就绪
     child.state = PROCESS_READY;
 
-    // 父进程返回子进程PID，子进程返回0
+    // 父进程返回子进程PID
     return child_pid;
 }
 
@@ -186,17 +206,24 @@ ProcessControlBlock* ProcessManager::get_current_process() {
 }
 
 // 切换到下一个进程
-void ProcessManager::schedule() {
+bool ProcessManager::schedule() {
     // 简单的轮转调度
+
     uint32_t next = (current_process + 1) % MAX_PROCESSES;
     while (next != current_process) {
         if (processes[next].state == PROCESS_READY) {
-            current_process = next;
             processes[next].state = PROCESS_RUNNING;
             break;
         }
         next = (next + 1) % MAX_PROCESSES;
     }
+    debug_debug("schedule called, current: %d, next:%d\n", current_process, next);
+    if (next == current_process) {
+        return false; // 所有进程都处于就绪状态，无需切换
+    } else {
+        current_process = next;
+    }
+    return true;
 }
 
 // 进程切换函数，切换到指定进程
@@ -247,7 +274,24 @@ void ProcessManager::switch_process(uint32_t pid) {
         : "m"(next->esp), "m"(next->ebp), "m"(next->eip)
     );
 }
+void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_stack) {
+    debug_debug("switch_to_user_mode called\n");
+    asm volatile(
+        "mov %%eax, %%esp\n\t"   // 设置用户栈指针
+        "push $0x23\n\t"        // 用户数据段选择子
+        "push %%eax\n\t"        // 用户栈指针
+        "push $0x200\n\t"       // EFLAGS
+        "push $0x1B\n\t"        // 用户代码段选择子
+        "push %%ebx\n\t"        // 入口地址
+        "lcall $0x33, $0\n\t"   // 调用门切换
+        :
+        : "a" (user_stack), "b" (entry_point)
+        : "memory"
+    );
+    debug_debug("switch_to_user_mode completed\n");
+}
 
+/*
 // 切换到用户模式函数
 void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_stack) {
     // 准备用户态栈
@@ -281,6 +325,7 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_sta
         : "eax"
     );
 }
+*/
 
 // 静态成员初始化
 ProcessControlBlock ProcessManager::processes[ProcessManager::MAX_PROCESSES];

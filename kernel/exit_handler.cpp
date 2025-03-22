@@ -1,7 +1,7 @@
 #include "kernel/syscall.h"
-#include "process.h"
+#include "kernel/process.h"
 #include "lib/debug.h"
-#include "scheduler.h"
+#include "kernel/scheduler.h"
 
 // exit系统调用处理函数
 int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t) {
