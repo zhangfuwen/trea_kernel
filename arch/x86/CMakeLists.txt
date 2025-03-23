@@ -5,6 +5,7 @@ add_library(arch_x86
     gdt.cpp
     gdt_load.asm
     paging_asm.asm
+    interrupt.asm
     idt.cpp
     interrupt.cpp
     paging.cpp

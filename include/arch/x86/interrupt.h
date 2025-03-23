@@ -4,33 +4,32 @@
 #include <cstdint>
 #include "kernel/syscall.h"
 
-// 中断服务例程处理函数类型
-typedef void (*ISRHandler)(void);
+// 统一的中断处理函数类型
+typedef void (*InterruptHandler)(void);
 
-// 中断请求处理函数类型
-typedef void (*IRQHandler)(void);
-
+// 声明为C风格函数，以便汇编代码调用
+extern "C" {
+    void handleInterrupt(uint32_t interrupt);
+}
 
 class InterruptManager {
 public:
     static void init();
 
     // 注册中断处理函数
-    static void registerISRHandler(uint8_t interrupt, ISRHandler handler);
-    static void registerIRQHandler(uint8_t irq, IRQHandler handler);
-    static void handleISR(uint8_t interrupt);
-    static void handleIRQ(uint8_t irq);
-    static ISRHandler isrHandlers[256];
-    static IRQHandler irqHandlers[16];
+    static void registerHandler(uint8_t interrupt, InterruptHandler handler);
+    static InterruptHandler handlers[256];
 
-    static void defaultISRHandler();
+    static void defaultHandler();
 
     // 系统调用处理程序
     static void syscallHandler();
-    static void defaultIRQHandler();
 
     static void remapPIC();
 
+    // 中断控制函数
+    static void enableInterrupts();
+    static void disableInterrupts();
 };
 
 #endif // ARCH_X86_INTERRUPT_H

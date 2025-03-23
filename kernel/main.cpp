@@ -1,3 +1,5 @@
+#include <lib/ioport.h>
+
 #include "arch/x86/gdt.h"
 #include "arch/x86/idt.h"
 #include "arch/x86/interrupt.h"
@@ -22,6 +24,9 @@ using namespace kernel;
 // VGA 文本模式的宽度和高度
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
+
+extern "C" void timer_interrupt();
+extern "C" void syscall_interrupt();
 
 // 简单的字符输出函数
 void print_char(char c) {
@@ -53,7 +58,16 @@ void user_entry_wrapper1() {
     // run user program
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point1);
     user_entry_point1();
-    debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point1);
+    asm volatile("hlt");
+    while (1) {
+        static int i= 0;
+        i++;
+        if (i> 1000000) {
+            i = 0;
+            debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point1);
+        }
+        // debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point1);
+    }
     syscall_exit(0);
 }
 
@@ -65,9 +79,6 @@ extern "C" void kernel_main() {
     GDT::init();
     serial_puts("GDT initialized!\n");
 
-    // 初始化IDT
-    IDT::init();
-    serial_puts("IDT initialized!\n");
 
     // 初始化中断管理器
     InterruptManager::init();
@@ -75,35 +86,57 @@ extern "C" void kernel_main() {
 
     // 注册exit系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
-    SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
-        uint32_t b, uint32_t c, uint32_t d)
-        {
-            return ProcessManager::fork();
-
-        });
+    // SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
+    //     uint32_t b, uint32_t c, uint32_t d)
+    //     {
+    //         return ProcessManager::fork();
+    //
+    //     });
     // 注册时钟中断处理函数
-    InterruptManager::registerIRQHandler(0, []() {
-        static uint32_t tick = 0;
+    InterruptManager::registerHandler(0x20, []() {
+        static volatile uint32_t tick = 0;
         tick++;
-        if (tick % 10000000000 == 0) {
+        if (tick > 500) {
             debug_debug("Timer interrupt!\n");
             Scheduler::timer_tick();
-        }
-        // if (tick > 1000000000) {
-        //     tick = 0;
+            tick = 0;
+         }
+        // 发送EOI信号
+        // if (irq >= 8) {
+        //     outb(0xA0, 0x20); // 发送给从PIC
         // }
     });
     PIT::init();
+   // outb(0x20, 0x20); // 发送给主PIC
+    // 初始化IDT
+    IDT::init();
+    IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
+    IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
+    IDT::loadIDT();
+    serial_puts("IDT initialized!\n");
 
 
     // syscall_fork();
 
-    for (int i = 16; i < 256; i++) {
-        IDT::setGate(i, (uint32_t)InterruptManager::isrHandlers[i], 0x08, 0x8E); // 默认中断门
-    }
-    for (int i = 0; i < 16; i++) {
-        IDT::setGate(i, (uint32_t)InterruptManager::irqHandlers[i], 0x08, 0x8E); // 默认中断门
-    }
+    asm volatile("sti");
+    // asm volatile("hlt");
+                while (1) {
+                    // asm volatile("int $0x70");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    asm volatile("nop");
+                    // asm volatile("int $0x80");
+                    // debug_debug("wait!\n");
+
+                }
 
 
     // 初始化控制台
@@ -224,6 +257,7 @@ extern "C" void kernel_main() {
 
                 user_entry_point1 = (void (*)())entry_point;
                 debug_debug("User entry point set to %x\n", user_entry_point1);
+                asm volatile("hlt");
                 ElfLoader::switch_to_user_mode((uint32_t)user_entry_wrapper1,(uint32_t)stack);
                 debug_debug("Switched to user mode!\n");
                 // 使用函数指针直接调用程序入口点
