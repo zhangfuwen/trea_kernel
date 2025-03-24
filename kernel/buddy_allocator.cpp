@@ -1,11 +1,6 @@
 #include "kernel/buddy_allocator.h"
 #include "lib/debug.h"
 
-// 静态成员初始化
-BuddyAllocator::FreeBlock* BuddyAllocator::free_lists[MAX_ORDER + 1];
-uint32_t BuddyAllocator::memory_start = 0;
-uint32_t BuddyAllocator::memory_size = 0;
-
 void BuddyAllocator::init(uint32_t start_addr, uint32_t size) {
     memory_start = start_addr;
     memory_size = size;

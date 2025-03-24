@@ -8,7 +8,6 @@ add_library(arch_x86
     interrupt.asm
     idt.cpp
     interrupt.cpp
-    paging.cpp
         pit.cpp
 )
 

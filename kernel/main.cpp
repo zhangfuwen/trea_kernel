@@ -19,6 +19,8 @@
 
 using namespace kernel;
 
+#include "kernel/kernel.h"
+
 // VGA 文本模式缓冲区地址
 #define VGA_BUFFER 0xB8000
 // VGA 文本模式的宽度和高度
@@ -73,35 +75,39 @@ void user_entry_wrapper1() {
 
 
 extern "C" void kernel_main() {
+    // 初始化串口，用于调试输出
     serial_init();
     serial_puts("Hello, world!\n");
+
     // 初始化GDT
     GDT::init();
     serial_puts("GDT initialized!\n");
 
+    // 初始化内核内存管理器
+    serial_puts("Kernel memory manager initialized!\n");
 
     // 初始化中断管理器
     InterruptManager::init();
     serial_puts("InterruptManager initialized!\n");
 
-    // 注册exit系统调用处理函数
+    // 注册系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
     SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
         uint32_t b, uint32_t c, uint32_t d)
         {
             debug_debug("fork syscall called!\n");
             return ProcessManager::fork();
-
         });
+
     // 注册时钟中断处理函数
     InterruptManager::registerHandler(0x20, []() {
         static volatile uint32_t tick = 0;
         tick++;
-        if (tick > 500) {
+        if (tick > 5) {
             debug_debug("Timer interrupt!\n");
             Scheduler::timer_tick();
             tick = 0;
-            ProcessManager::schedule();
+            //ProcessManager::schedule();
          }
     });
     PIT::init();
@@ -113,8 +119,10 @@ extern "C" void kernel_main() {
     IDT::loadIDT();
     serial_puts("IDT initialized!\n");
 
+    Kernel::init_all();
+    Kernel &kernel = Kernel::instance();
+    kernel.init();
 
-    // syscall_fork();
 
     // asm volatile("hlt");
                 // while (1) {
@@ -150,33 +158,48 @@ extern "C" void kernel_main() {
     Console::setColor(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     Console::print("System initialization completed.\n");
 
-    // 初始化分页
-    serial_puts("Paging initialization...\n");
-    PageManager::init();
-    Console::print("PageManager initialized!\n");
-    serial_puts("PageManager initialized!\n");
-
     // 初始化进程管理器和调度器
     ProcessManager::init();
     Scheduler::init();
     Console::print("Process and Scheduler systems initialized!\n");
-    BuddyAllocator::init(0x100000*64, 0x100000*64);
-    ProcessManager::create_process("/init");
-    ProcessManager::current_pid = 1;
-    uint32_t cr3_val;
-    asm volatile("mov %%cr3, %0" : "=r" (cr3_val));
-    debug_debug("cr3_val: %x\n", cr3_val);
-    ProcessManager::get_current_process()->cr3 = cr3_val;
 
-    int pid = syscall_fork();
-    if (pid == 0) {
+    // 创建并初始化第一个进程
+    uint32_t init_pid = ProcessManager::create_process("/init");
+    if (init_pid == 0) {
+        debug_err("Failed to create init process!\n");
+        return;
+    }
+    ProcessManager::switch_process(init_pid);
+
+    asm volatile("sti");
+    int ret1 = syscall_fork();
+    if (ret1 == 0) {
         // 子进程
-        while (true) {
-            Console::print("Child process is running!\n");
-            debug_debug("idle");
+        debug_debug("child process!\n");
+        while (1) {
+            // asm volatile("int $0x70");
+            asm volatile("nop");
+            asm volatile("nop");
             asm volatile("hlt");
+            debug_debug("child process running!\n");
+        }
+    } else {
+        debug_debug("child process returned %d\n", ret1);
+        while (1) {
+            // asm volatile("int $0x70");
+            asm volatile("nop");
+            asm volatile("nop");
+            asm volatile("hlt");
+            debug_debug("parent process running!\n");
         }
     }
+    // ProcessManager::current_pid = init_pid;
+    //
+    // // 设置进程的页目录
+    // uint32_t cr3_val;
+    // asm volatile("mov %%cr3, %0" : "=r" (cr3_val));
+    // ProcessManager::get_current_process()->cr3 = cr3_val;
+    // debug_debug("Init process created with pid %d, cr3: %x\n", init_pid, cr3_val);
 
     init_vfs();
 
@@ -222,7 +245,7 @@ extern "C" void kernel_main() {
     }
     Console::print("MemFS initialized and initramfs loaded!\n");
 
-#if 1
+#if 0
     FileDescriptor* fd = VFSManager::instance().open("/init");
     Console::print("Trying to open /init...\n");
     if (fd) {

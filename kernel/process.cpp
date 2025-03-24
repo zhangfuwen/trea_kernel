@@ -5,115 +5,11 @@
 #include <kernel/console_device.h>
 
 #include "kernel/process.h"
-#include "kernel/buddy_allocator.h"
 #include <cstdint>
+#include <kernel/kernel.h>
 #include <lib/debug.h>
 
-#include "arch/x86/gdt.h"
 
-// 创建新的页目录
-uint32_t ProcessManager::create_page_directory() {
-    debug_debug("Creating page directory\n");
-    // 分配一个页面用作页目录
-    debug_info("allocate page directory\n");
-    uint32_t page_dir = BuddyAllocator::allocate_pages(1);
-    if (!page_dir) {
-        debug_debug("Failed to allocate page directory\n");
-        return 0;
-    }
-    debug_debug("Page directory allocated\n");
-
-    // 初始化页目录
-    debug_debug("copying");
-    uint32_t* dir = (uint32_t*)(page_dir);
-    for (int i = 0; i < 1024; i++) {
-        dir[i] = 0x00000002; // Supervisor, read/write, not present
-    }
-    debug_debug("copying done");
-
-    // 映射内核空间（前4MB）
-    debug_debug("allocate page table\n");
-    uint32_t kernel_page_table = BuddyAllocator::allocate_pages(1);
-    if (!kernel_page_table) {
-        debug_debug("Failed to allocate kernel page table\n");
-        BuddyAllocator::free_pages(page_dir, 1);
-        return 0;
-    }
-
-    uint32_t* table = (uint32_t*)(kernel_page_table);
-    for (uint32_t i = 0; i < 1024; i++) {
-        table[i] = (i * 4096) | 3; // Supervisor, read/write, present
-    }
-
-    // 设置内核空间的页目录项
-    dir[0] = kernel_page_table | 3; // Supervisor, read/write, present
-
-    debug_debug("Kernel page directory created\n");
-    return page_dir;
-}
-
-// 复制页表
-void ProcessManager::copy_page_tables(uint32_t src_cr3, uint32_t dst_cr3) {
-    debug_debug("Copying page tables\n");
-    uint32_t* src_dir = reinterpret_cast<uint32_t*>(src_cr3);
-    uint32_t* dst_dir = reinterpret_cast<uint32_t*>(dst_cr3);
-
-    // 遍历页目录
-    for (int i = 0; i < 1024; i++) {
-        if (!(src_dir[i] & 1)) continue; // 跳过不存在的页表
-
-        // 对于内核空间（第一个页目录项），直接共享页表
-        if (i == 0) {
-            dst_dir[i] = src_dir[i];
-            continue;
-        }
-
-        // 为用户空间分配新的页表
-        uint32_t src_table = src_dir[i] & 0xFFFFF000;
-        uint32_t dst_table = BuddyAllocator::allocate_pages(1);
-        if (!dst_table) continue;
-
-        // 复制页表内容
-        uint32_t* src_entries = reinterpret_cast<uint32_t*>(src_table);
-        uint32_t* dst_entries = reinterpret_cast<uint32_t*>(dst_table);
-        for (int j = 0; j < 1024; j++) {
-            if (!(src_entries[j] & 1)) continue; // 跳过不存在的页
-
-            // 分配新的物理页面
-            uint32_t new_page = BuddyAllocator::allocate_pages(1);
-            if (!new_page) continue;
-
-            // 复制页面内容
-            uint32_t src_page = src_entries[j] & 0xFFFFF000;
-            uint8_t* src_content = reinterpret_cast<uint8_t*>(src_page);
-            uint8_t* dst_content = reinterpret_cast<uint8_t*>(new_page);
-            for (uint32_t k = 0; k < 4096; k++) {
-                dst_content[k] = src_content[k];
-            }
-
-            // 设置页表项，保持相同的权限位
-            dst_entries[j] = (new_page) | (src_entries[j] & 0xFFF);
-        }
-
-        // 设置页目录项，保持相同的权限位
-        dst_dir[i] = dst_table | (src_dir[i] & 0xFFF);
-    }
-    debug_debug("Page tables copied\n");
-}
-
-// 复制进程内存空间
-bool ProcessManager::copy_memory_space(ProcessControlBlock& parent, ProcessControlBlock& child) {
-    // 分配新的页目录
-    child.cr3 = ProcessManager::create_page_directory();
-    if (!child.cr3) {
-        debug_debug("Failed to create page directory\n");
-        return false;
-    }
-
-    // 复制页表和内存内容
-    ProcessManager::copy_page_tables(parent.cr3, child.cr3);
-    return true;
-}
 
 void ProcessManager::init() {
     next_pid = 1;
@@ -138,7 +34,7 @@ uint32_t ProcessManager::create_process(const char* name) {
     pcb.total_time = 0;
 
     // 分配用户态栈（4MB）
-    pcb.user_stack = BuddyAllocator::allocate_pages(1024);
+    pcb.user_stack = (uint32_t)Kernel::instance().kernel_mm().kmalloc(1024*4096);
     if (!pcb.user_stack) {
         debug_debug("ProcessManager: Failed to allocate user stack\n");
         return 0;
@@ -146,10 +42,10 @@ uint32_t ProcessManager::create_process(const char* name) {
     pcb.esp = pcb.user_stack + 4 * 1024 * 1024 - 16;
 
     // 分配内核态栈（64KB）
-    pcb.kernel_stack = BuddyAllocator::allocate_pages(16);
+    pcb.kernel_stack = (uint32_t)Kernel::instance().kernel_mm().kmalloc(16*4096);
     if (!pcb.kernel_stack) {
         debug_debug("ProcessManager: Failed to allocate kernel stack\n");
-        BuddyAllocator::free_pages(pcb.user_stack, 1024);
+        Kernel::instance().kernel_mm().kfree((void*)pcb.user_stack);
         return 0;
     }
     pcb.esp0 = pcb.kernel_stack + 64 * 1024 - 16;
@@ -234,14 +130,19 @@ int ProcessManager::fork() {
     child.time_slice = parent->time_slice;
 
     // 复制内存空间
-    if (!copy_memory_space(*parent, child)) {
+    Kernel& kernel = Kernel::instance();
+
+    PageDirectory * dst;
+    int ret = kernel.kernel_mm().paging().copyMemorySpace((PageDirectory*)parent->cr3, dst);
+    if (ret < 0) {
         debug_err("Failed to copy memory space for child process %d\n", child_pid);
         // 如果内存复制失败，清理并返回错误
         child.state = PROCESS_TERMINATED;
-        BuddyAllocator::free_pages(child.user_stack, 1024);
-        BuddyAllocator::free_pages(child.kernel_stack, 16);
+        kernel.kernel_mm().kfree((void*)child.user_stack);
+        kernel.kernel_mm().kfree((void*)child.kernel_stack);
         return -1;
     }
+    child.cr3 = (uint32_t)dst;
 
     // 复制文件描述符
     child.stdin = parent->stdin;
@@ -267,16 +168,19 @@ bool ProcessManager::schedule() {
 
     uint32_t next = (current_pid + 1) % MAX_PROCESSES;
     while (next != current_pid) {
+        debug_debug("schedule called, current: %d, next:%d, nextstate:%d\n", current_pid, next, processes[next].state);
         if (processes[next].state == PROCESS_READY) {
             processes[next].state = PROCESS_RUNNING;
             break;
         }
         next = (next + 1) % MAX_PROCESSES;
     }
-    debug_debug("schedule called, current: %d, next:%d\n", current_pid, next);
     if (next == current_pid) {
+        debug_debug("equal process: %d\n", next);
         return false; // 所有进程都处于就绪状态，无需切换
     } else {
+        processes[current_pid].state = PROCESS_READY;
+        debug_debug("switch to next process: %d\n", next);
         current_pid = next;
     }
     return true;
@@ -306,13 +210,15 @@ int ProcessManager::switch_process(uint32_t pid) {
     // // 更新TSS中的页目录基址
     // GDT::updateTSSCR3(next->cr3);
 
-    if (current_pid != pid) {
+    if (current_pid == pid) {
         return -1;
     }
     ProcessControlBlock* next = &processes[pid];
 
     // 切换页目录
     asm volatile("mov %0, %%cr3" : : "r"(next->cr3));
+    current_pid = pid;
+    processes[current_pid].state = PROCESS_RUNNING;
 
     // 返回新进程的ID
     return current_pid;
