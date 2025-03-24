@@ -69,3 +69,29 @@ void GDT::setCallGate(int index, uint16_t selector, uint32_t offset, uint8_t dpl
 void GDT::loadGDT() {
     loadGDT_ASM(&gdtPointer);
 }
+
+// 更新TSS的内核栈指针
+void GDT::updateTSS(uint32_t esp0, uint32_t ss0) {
+    tss.esp0 = esp0;
+    tss.ss0 = ss0;
+}
+
+// 更新TSS的页目录基址
+void GDT::updateTSSCR3(uint32_t cr3) {
+    tss.cr3 = cr3;
+}
+
+// 保存当前进程状态到TSS
+// void GDT::saveTSSState(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx,
+//                       uint32_t esi, uint32_t edi, uint32_t esp, uint32_t ebp,
+//                       uint32_t eflags) {
+//     tss.eax = eax;
+//     tss.ebx = ebx;
+//     tss.ecx = ecx;
+//     tss.edx = edx;
+//     tss.esi = esi;
+//     tss.edi = edi;
+//     tss.esp = esp;
+//     tss.ebp = ebp;
+//     tss.eflags = eflags;
+// }

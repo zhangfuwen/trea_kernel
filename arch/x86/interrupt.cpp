@@ -29,7 +29,7 @@ void InterruptManager::init() {
 
     // 初始化系统调用处理
     SyscallManager::init();
-    registerHandler(0x80, syscallHandler);
+    // registerHandler(0x80, syscallHandler);
 
     // 注册各种中断处理程序
     registerHandler(0x21, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
@@ -67,6 +67,11 @@ void InterruptManager::init() {
 
 // ====== 中断处理核心函数 ======
 
+extern "C" uint32_t handleSyscall(uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3)
+{
+    return SyscallManager::handleSyscall(syscall_num, arg1, arg2, arg3, 0);
+}
+
 extern "C" void handleInterrupt(uint32_t interrupt) {
     // debug_debug("[INT] Handling interrupt %d\n", interrupt);
 
@@ -86,23 +91,6 @@ extern "C" void handleInterrupt(uint32_t interrupt) {
     }
 }
 
-void InterruptManager::syscallHandler() {
-    uint32_t syscall_num, arg1, arg2, arg3, arg4;
-    asm volatile(
-        "mov %%eax, %0\n"
-        "mov %%ebx, %1\n"
-        "mov %%ecx, %2\n"
-        "mov %%edx, %3\n"
-        "mov %%esi, %4\n"
-        : "=r"(syscall_num), "=r"(arg1), "=r"(arg2), "=r"(arg3), "=r"(arg4)
-        : 
-        : "memory"
-    );
-    debug_debug("syscall_num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n", syscall_num, arg1, arg2, arg3, arg4);
-
-    int ret = SyscallManager::handleSyscall(syscall_num, arg1, arg2, arg3, arg4);
-    asm volatile("mov %0, %%eax" : : "r"(ret));
-}
 
 // ====== 辅助函数 ======
 

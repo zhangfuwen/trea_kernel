@@ -16,7 +16,7 @@ void PageManager::init() {
     }
     Console::print("PageManager: pageDirectory init\n");
 
-    // 映射前4MB的内存（内核空间）
+    // 映射前40MB的内存（内核空间）
     mapKernelSpace(pageDirectory, 10);
     Console::print("PageManager: pageDirectory map\n");
 

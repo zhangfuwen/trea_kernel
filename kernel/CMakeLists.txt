@@ -14,6 +14,7 @@ add_library(kernel_core
     ../arch/x86/gdt.cpp
         exit_handler.cpp
         process_manager.cpp
+        process_wrapper.cpp
 )
 
 # 添加包含目录

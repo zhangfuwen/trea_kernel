@@ -86,12 +86,13 @@ extern "C" void kernel_main() {
 
     // 注册exit系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
-    // SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
-    //     uint32_t b, uint32_t c, uint32_t d)
-    //     {
-    //         return ProcessManager::fork();
-    //
-    //     });
+    SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
+        uint32_t b, uint32_t c, uint32_t d)
+        {
+            debug_debug("fork syscall called!\n");
+            return ProcessManager::fork();
+
+        });
     // 注册时钟中断处理函数
     InterruptManager::registerHandler(0x20, []() {
         static volatile uint32_t tick = 0;
@@ -100,11 +101,8 @@ extern "C" void kernel_main() {
             debug_debug("Timer interrupt!\n");
             Scheduler::timer_tick();
             tick = 0;
+            ProcessManager::schedule();
          }
-        // 发送EOI信号
-        // if (irq >= 8) {
-        //     outb(0xA0, 0x20); // 发送给从PIC
-        // }
     });
     PIT::init();
    // outb(0x20, 0x20); // 发送给主PIC
@@ -118,25 +116,24 @@ extern "C" void kernel_main() {
 
     // syscall_fork();
 
-    asm volatile("sti");
     // asm volatile("hlt");
-                while (1) {
-                    // asm volatile("int $0x70");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    asm volatile("nop");
-                    // asm volatile("int $0x80");
-                    // debug_debug("wait!\n");
-
-                }
+                // while (1) {
+                //     // asm volatile("int $0x70");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     asm volatile("nop");
+                //     // asm volatile("int $0x80");
+                //     // debug_debug("wait!\n");
+                //
+                // }
 
 
     // 初始化控制台
@@ -163,8 +160,24 @@ extern "C" void kernel_main() {
     ProcessManager::init();
     Scheduler::init();
     Console::print("Process and Scheduler systems initialized!\n");
+    BuddyAllocator::init(0x100000*64, 0x100000*64);
+    ProcessManager::create_process("/init");
+    ProcessManager::current_pid = 1;
+    uint32_t cr3_val;
+    asm volatile("mov %%cr3, %0" : "=r" (cr3_val));
+    debug_debug("cr3_val: %x\n", cr3_val);
+    ProcessManager::get_current_process()->cr3 = cr3_val;
 
-    BuddyAllocator::init(0x800000, 0x800000);
+    int pid = syscall_fork();
+    if (pid == 0) {
+        // 子进程
+        while (true) {
+            Console::print("Child process is running!\n");
+            debug_debug("idle");
+            asm volatile("hlt");
+        }
+    }
+
     init_vfs();
 
     // 初始化内存文件系统
@@ -275,19 +288,16 @@ extern "C" void kernel_main() {
         Console::print("Failed to open /init!\n");
     }
 #else
+    asm volatile("sti");
     // 尝试加载并执行init程序
     Console::print("Trying to execute /init...\n");
-    int32_t init_pid = ProcessManager::execute_process("/init");
-    if (init_pid < 0) {
-        Console::print("Failed to execute /init!\n");
-        return;
-    }
+    // int32_t init_pid = ProcessManager::execute_process("/init");
+    // if (init_pid < 0) {
+        // Console::print("Failed to execute /init!\n");
+        // return;
+    // }
     debug_debug("Init process executed with pid: %d\n", init_pid);
 #endif
 
     // 进入无限循环，等待中断
-    while (true) {
-        debug_debug("idle");
-        asm volatile("hlt");
-    }
 }

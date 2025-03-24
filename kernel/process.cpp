@@ -13,19 +13,29 @@
 
 // 创建新的页目录
 uint32_t ProcessManager::create_page_directory() {
+    debug_debug("Creating page directory\n");
     // 分配一个页面用作页目录
+    debug_info("allocate page directory\n");
     uint32_t page_dir = BuddyAllocator::allocate_pages(1);
-    if (!page_dir) return 0;
+    if (!page_dir) {
+        debug_debug("Failed to allocate page directory\n");
+        return 0;
+    }
+    debug_debug("Page directory allocated\n");
 
     // 初始化页目录
+    debug_debug("copying");
     uint32_t* dir = (uint32_t*)(page_dir);
     for (int i = 0; i < 1024; i++) {
         dir[i] = 0x00000002; // Supervisor, read/write, not present
     }
+    debug_debug("copying done");
 
     // 映射内核空间（前4MB）
+    debug_debug("allocate page table\n");
     uint32_t kernel_page_table = BuddyAllocator::allocate_pages(1);
     if (!kernel_page_table) {
+        debug_debug("Failed to allocate kernel page table\n");
         BuddyAllocator::free_pages(page_dir, 1);
         return 0;
     }
@@ -38,11 +48,13 @@ uint32_t ProcessManager::create_page_directory() {
     // 设置内核空间的页目录项
     dir[0] = kernel_page_table | 3; // Supervisor, read/write, present
 
+    debug_debug("Kernel page directory created\n");
     return page_dir;
 }
 
 // 复制页表
 void ProcessManager::copy_page_tables(uint32_t src_cr3, uint32_t dst_cr3) {
+    debug_debug("Copying page tables\n");
     uint32_t* src_dir = reinterpret_cast<uint32_t*>(src_cr3);
     uint32_t* dst_dir = reinterpret_cast<uint32_t*>(dst_cr3);
 
@@ -86,13 +98,17 @@ void ProcessManager::copy_page_tables(uint32_t src_cr3, uint32_t dst_cr3) {
         // 设置页目录项，保持相同的权限位
         dst_dir[i] = dst_table | (src_dir[i] & 0xFFF);
     }
+    debug_debug("Page tables copied\n");
 }
 
 // 复制进程内存空间
 bool ProcessManager::copy_memory_space(ProcessControlBlock& parent, ProcessControlBlock& child) {
     // 分配新的页目录
     child.cr3 = ProcessManager::create_page_directory();
-    if (!child.cr3) return false;
+    if (!child.cr3) {
+        debug_debug("Failed to create page directory\n");
+        return false;
+    }
 
     // 复制页表和内存内容
     ProcessManager::copy_page_tables(parent.cr3, child.cr3);
@@ -101,7 +117,7 @@ bool ProcessManager::copy_memory_space(ProcessControlBlock& parent, ProcessContr
 
 void ProcessManager::init() {
     next_pid = 1;
-    current_process = 0;
+    current_pid = 0;
     Console::print("ProcessManager initialized\n");
 }
 
@@ -110,6 +126,7 @@ kernel::ConsoleFS console_fs;
 uint32_t ProcessManager::create_process(const char* name) {
     uint32_t pid = next_pid++;
     if (pid >= MAX_PROCESSES) {
+        debug_debug("ProcessManager: Maximum number of processes reached\n");
         return 0; // 进程数达到上限
     }
 
@@ -123,6 +140,7 @@ uint32_t ProcessManager::create_process(const char* name) {
     // 分配用户态栈（4MB）
     pcb.user_stack = BuddyAllocator::allocate_pages(1024);
     if (!pcb.user_stack) {
+        debug_debug("ProcessManager: Failed to allocate user stack\n");
         return 0;
     }
     pcb.esp = pcb.user_stack + 4 * 1024 * 1024 - 16;
@@ -130,6 +148,7 @@ uint32_t ProcessManager::create_process(const char* name) {
     // 分配内核态栈（64KB）
     pcb.kernel_stack = BuddyAllocator::allocate_pages(16);
     if (!pcb.kernel_stack) {
+        debug_debug("ProcessManager: Failed to allocate kernel stack\n");
         BuddyAllocator::free_pages(pcb.user_stack, 1024);
         return 0;
     }
@@ -151,15 +170,50 @@ uint32_t ProcessManager::create_process(const char* name) {
     pcb.stdout = console_fs.open("/dev/console");
     pcb.stderr = console_fs.open("/dev/console");
 
+
+    debug_debug("Created process id: %d\n", pid);
     return pid;
 }
 kernel::ConsoleFS ProcessManager::console_fs;
 
+void ProcessControlBlock::print() {
+    debug_debug("Process: %s\n", name);
+    debug_debug("  PID: %d\n", pid);
+    debug_debug("  State: %d\n", state);
+    debug_debug("  EIP: %d\n", eip);
+    debug_debug("  EBP: %d\n", ebp);
+    debug_debug("  ESP: %d\n", esp);
+    debug_debug("  EBP: %d\n", ebp);
+    debug_debug("  EIP: %d\n", eip);
+    debug_debug("  SS: %d\n", ss);
+    debug_debug("  EIP: %d\n", eip);
+    debug_debug("  CR3: %d\n", cr3);
+    debug_debug("  Priority: %d\n", priority);
+    debug_debug("  TimeSlice: %d\n", time_slice);
+    debug_debug("  TotalTime: %d\n", total_time);
+    debug_debug("  UserStack: %d\n", user_stack);
+    debug_debug("  KernelStack: %d\n", kernel_stack);
+    debug_debug("  EFLAGS: %d\n", eflags);
+    debug_debug("  EAX: %d\n", eax);
+    debug_debug("  EBX: %d\n", ebx);
+    debug_debug("  ECX: %d\n", ecx);
+    debug_debug("  EDX: %d\n", edx);
+    debug_debug("  ESI: %d\n", esi);
+    debug_debug("  EDI: %d\n", edi);
+    debug_debug("  EBP: %d\n", ebp);
+    debug_debug("  ESP: %d\n", esp);
+
+}
 // fork系统调用实现
 int ProcessManager::fork() {
-    ProcessControlBlock* parent = &processes[current_process];
+    debug_debug("fork enter!\n");
+    ProcessControlBlock* parent = &processes[current_pid];
     uint32_t child_pid = create_process(parent->name);
-    if (child_pid == 0) return -1;
+    if (child_pid == 0) {
+        debug_err("Create process failed\n");
+        return -1;
+    }
+    parent->print();
 
     ProcessControlBlock& child = processes[child_pid];
 
@@ -181,6 +235,7 @@ int ProcessManager::fork() {
 
     // 复制内存空间
     if (!copy_memory_space(*parent, child)) {
+        debug_err("Failed to copy memory space for child process %d\n", child_pid);
         // 如果内存复制失败，清理并返回错误
         child.state = PROCESS_TERMINATED;
         BuddyAllocator::free_pages(child.user_stack, 1024);
@@ -196,83 +251,122 @@ int ProcessManager::fork() {
     // 设置子进程状态为就绪
     child.state = PROCESS_READY;
 
+    debug_debug("fork return, parent: %d, child:%d\n", parent->pid, child_pid);
     // 父进程返回子进程PID
     return child_pid;
 }
 
 // 获取当前运行的进程
 ProcessControlBlock* ProcessManager::get_current_process() {
-    return &processes[current_process];
+    return &processes[current_pid];
 }
 
 // 切换到下一个进程
 bool ProcessManager::schedule() {
     // 简单的轮转调度
 
-    uint32_t next = (current_process + 1) % MAX_PROCESSES;
-    while (next != current_process) {
+    uint32_t next = (current_pid + 1) % MAX_PROCESSES;
+    while (next != current_pid) {
         if (processes[next].state == PROCESS_READY) {
             processes[next].state = PROCESS_RUNNING;
             break;
         }
         next = (next + 1) % MAX_PROCESSES;
     }
-    debug_debug("schedule called, current: %d, next:%d\n", current_process, next);
-    if (next == current_process) {
+    debug_debug("schedule called, current: %d, next:%d\n", current_pid, next);
+    if (next == current_pid) {
         return false; // 所有进程都处于就绪状态，无需切换
     } else {
-        current_process = next;
+        current_pid = next;
     }
     return true;
 }
 
 // 进程切换函数，切换到指定进程
-void ProcessManager::switch_process(uint32_t pid) {
-    if (pid >= MAX_PROCESSES || processes[pid].state != PROCESS_READY) {
-        return; // 无效的进程ID或进程不处于就绪状态
+int ProcessManager::switch_process(uint32_t pid) {
+    debug_debug("Switching process from %d to %d\n", current_pid, pid);
+    debug_debug("state: current(%d), next(%d)\n", processes[current_pid].state, processes[pid].state);
+    if (pid >= MAX_PROCESSES || processes[pid].state != PROCESS_NEW) {
+        debug_debug("invalid pid or process not ready\n");
+        return current_pid; // 无效的进程ID或进程不处于就绪状态
     }
 
-    // 保存当前进程上下文
-    if (current_process != 0) {
-        ProcessControlBlock* current = &processes[current_process];
-        // 保存当前进程状态
-        asm volatile(
-            "mov %%esp, %0\n"
-            "mov %%ebp, %1\n"
-            : "=m"(current->esp), "=m"(current->ebp)
-        );
-        
-        // 获取当前eip（通过栈上的返回地址）
-        asm volatile(
-            "mov 4(%%ebp), %0\n"
-            : "=r"(current->eip)
-        );
-        
-        // 将当前进程状态设为就绪
-        current->state = PROCESS_READY;
-    }
+    // // 将当前进程状态设为就绪
+    // if (current_pid != 0) {
+    //     ProcessControlBlock* current = &processes[current_pid];
+    //     current->state = PROCESS_READY;
+    // }
 
     // 切换到新进程
-    current_process = pid;
-    ProcessControlBlock* next = &processes[current_process];
-    next->state = PROCESS_RUNNING;
-    
-    // 更新TSS中的内核栈指针
-    GDT::tss.esp0 = next->esp0;
-    GDT::tss.ss0 = 0x10; // 内核数据段选择子
+    // current_pid = pid;
 
-    
+    // // 更新TSS中的内核栈指针和段选择子
+    // GDT::updateTSS(next->esp0, next->ss0);
+    //
+    // // 更新TSS中的页目录基址
+    // GDT::updateTSSCR3(next->cr3);
+
+    if (current_pid != pid) {
+        return -1;
+    }
+    ProcessControlBlock* next = &processes[pid];
+
     // 切换页目录
     asm volatile("mov %0, %%cr3" : : "r"(next->cr3));
+
+    // 返回新进程的ID
+    return current_pid;
+}
+
+// 保存当前进程的寄存器状态（由中断处理程序调用）
+void ProcessManager::save_context(uint32_t* esp) {
+    // if (current_pid == 0) return;
     
-    // 恢复新进程上下文并跳转
-    asm volatile(
-        "mov %0, %%esp\n"
-        "mov %1, %%ebp\n"
-        "jmp *%2\n"
-        : 
-        : "m"(next->esp), "m"(next->ebp), "m"(next->eip)
-    );
+    ProcessControlBlock* current = &processes[current_pid];
+    // 从中断栈中获取寄存器状态
+    current->eax = esp[7];  // pushad的顺序：eax,ecx,edx,ebx,esp,ebp,esi,edi
+    current->ecx = esp[6];
+    current->edx = esp[5];
+    current->ebx = esp[4];
+    current->esp = esp[3];
+    current->ebp = esp[2];
+    current->esi = esp[1];
+    current->edi = esp[0];
+    
+    // 获取eflags和eip（从中断栈中）
+    current->eflags = esp[14];  // 中断栈：gs,fs,es,ds,pushad,vector,error,eip,cs,eflags
+    current->eip = esp[12];
+    
+    // 保存段寄存器
+    current->ds = esp[8];
+    current->es = esp[9];
+    current->fs = esp[10];
+    current->gs = esp[11];
+}
+
+// 恢复新进程的寄存器状态（由中断处理程序调用）
+void ProcessManager::restore_context(uint32_t* esp) {
+    ProcessControlBlock* next = &processes[current_pid];
+    
+    // 恢复通用寄存器
+    esp[7] = next->eax;
+    esp[6] = next->ecx;
+    esp[5] = next->edx;
+    esp[4] = next->ebx;
+    esp[3] = next->esp;
+    esp[2] = next->ebp;
+    esp[1] = next->esi;
+    esp[0] = next->edi;
+    
+    // 恢复eflags和eip
+    esp[14] = next->eflags;
+    esp[12] = next->eip;
+    
+    // 恢复段寄存器
+    esp[8] = next->ds;
+    esp[9] = next->es;
+    esp[10] = next->fs;
+    esp[11] = next->gs;
 }
 void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_stack) {
     debug_debug("switch_to_user_mode called\n");
@@ -330,4 +424,4 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_sta
 // 静态成员初始化
 ProcessControlBlock ProcessManager::processes[ProcessManager::MAX_PROCESSES];
 uint32_t ProcessManager::next_pid = 1;
-uint32_t ProcessManager::current_process = 0;
+uint32_t ProcessManager::current_pid = 0;

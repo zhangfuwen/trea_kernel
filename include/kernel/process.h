@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "lib/console.h"
 #include <kernel/vfs.h>
+
 #include "kernel/console_device.h"
 
 // 进程状态
@@ -22,6 +23,7 @@ struct ProcessControlBlock {
     uint32_t ebp;                  // 用户态基址指针
     uint32_t eip;                  // 指令指针
     uint32_t esp0;                 // 内核态栈指针
+    uint32_t ss0;                  // 内核态栈段选择子
     uint32_t ebp0;                 // 内核态基址指针
     uint32_t cr3;                  // 页目录基址
     uint32_t priority;             // 进程优先级
@@ -32,6 +34,9 @@ struct ProcessControlBlock {
     uint16_t cs;                   // 代码段选择子
     uint16_t ds;                   // 数据段选择子
     uint16_t ss;                   // 栈段选择子
+    uint16_t es;                   // 附加段选择子
+    uint16_t fs;                   // 附加段选择子
+    uint16_t gs;                   // 附加段选择子
     uint32_t eflags;               // 标志寄存器
     uint32_t eax;                  // 通用寄存器
     uint32_t ebx;                  // 通用寄存器
@@ -44,6 +49,7 @@ struct ProcessControlBlock {
     kernel::FileDescriptor* stdout; // 标准输出
     kernel::FileDescriptor* stderr; // 标准错误
     uint32_t exit_status;          // 退出状态码
+    void print();
 };
 
 class ProcessManager {
@@ -54,8 +60,11 @@ public:
     static ProcessControlBlock* get_current_process();
     static int32_t execute_process(const char* path);
     static bool schedule(); // false for no more processes
-    static void switch_process(uint32_t pid);
+    static int switch_process(uint32_t pid);
     static void switch_to_user_mode(uint32_t entry_point, uint32_t user_stack);
+    static void save_context(uint32_t* esp);
+    static void restore_context(uint32_t* esp);
+    static uint32_t current_pid;
 
 private:
     static uint32_t create_page_directory();
@@ -63,7 +72,6 @@ private:
     static const uint32_t MAX_PROCESSES = 64;
     static ProcessControlBlock processes[MAX_PROCESSES];
     static uint32_t next_pid;
-    static uint32_t current_process;
     static bool copy_memory_space(ProcessControlBlock& parent, ProcessControlBlock& child);
     static kernel::ConsoleFS console_fs;
 };

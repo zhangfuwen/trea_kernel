@@ -15,9 +15,18 @@ int my_main() {
 
     debug_debug("init: open console!\n");
    // int fd = syscall_open(filename);
-    syscall_fork();
-    syscall_fork();
+    // syscall_fork();
+    // syscall_fork();
 
+    while (true) {
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+    }
     //debug_debug("write to console: %d\n", fd);
     delay(1000*30);
 

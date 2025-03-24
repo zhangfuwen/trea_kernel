@@ -71,6 +71,8 @@ class GDT {
 public:
     static void init();
 
+    static void updateTSS(uint32_t esp0, uint32_t ss0);
+    static void updateTSSCR3(uint32_t cr3);
     static void setEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
     static void setCallGate(int index, uint16_t selector, uint32_t offset, uint8_t dpl, uint8_t param_count);
     static void loadGDT();

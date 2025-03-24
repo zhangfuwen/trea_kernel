@@ -28,7 +28,7 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size) {
 uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages) {
     // 计算需要的块大小的order
     uint32_t order = get_block_order(num_pages);
-    debug_debug("order: %d\n", order);
+//    debug_debug("order: %d\n", order);
     if (order > MAX_ORDER) {
         debug_debug("BuddyAllocator: Requested size is too large!\n");    
         return 0;
@@ -39,7 +39,7 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages) {
     while (current_order <= MAX_ORDER && !free_lists[current_order]) {
         current_order++;
     }
-    debug_debug("current order: %d\n", current_order);
+//    debug_debug("current order: %d\n", current_order);
 
     // 如果没有找到足够大的块
     if (current_order > MAX_ORDER) {
@@ -49,25 +49,30 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages) {
 
     // 获取块并从空闲链表中移除
     FreeBlock* block = free_lists[current_order];
+//    debug_debug("block: %x\n", block);
     if(block == nullptr) {
         debug_debug("BuddyAllocator:  invalid block, current_order: %d!\n", current_order);
+        return 0;
     }
+//    debug_debug("block1: %x\n", block);
     free_lists[current_order] = block->next;
+//    debug_debug("block2: %x\n", block);
 
     // 如果块太大，需要分割
     while (current_order > order) {
         current_order--;
-        debug_debug("start current order:%d\n", current_order);
+   //     debug_debug("start current order:%d\n", current_order);
         uint32_t buddy_addr = (uint32_t)block + (1 << current_order) * PAGE_SIZE;
         block->size = 1 << current_order;
         FreeBlock* buddy = (FreeBlock*)buddy_addr;
-        debug_debug("buddy addr: %x\n", buddy_addr);
+  //      debug_debug("buddy addr: %x\n", buddy_addr);
         buddy->size = 1 << current_order;
         buddy->next = free_lists[current_order];
         free_lists[current_order] = buddy;
-        debug_debug("end");
+ //       debug_debug("end");
     }
 
+//    debug_debug("block3: %x\n", block);
     return (uint32_t)block;
 }
 

@@ -13,6 +13,13 @@ using kernel::VFSManager;
 void (*user_entry_point)();
 void user_entry_wrapper() {
     // run user program
+    while (1) {
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+        asm volatile("nop");
+    }
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
@@ -63,9 +70,13 @@ int32_t ProcessManager::execute_process(const char* path) {
         delete attr;
         return -1;
     }
+    debug_debug("Created process id: %d\n", pid);
 
-    ProcessControlBlock* process = ProcessManager::get_current_process();
     ProcessManager::switch_process(pid);
+    ProcessControlBlock* process = ProcessManager::get_current_process();
+    process->state = PROCESS_RUNNING;
+    // 打印页表地址cr3
+    debug_debug("cr3: %x\n", process->cr3);
 
     // 加载ELF文件
     if (!ElfLoader::load_elf(elf_data, size, 0x000000)) {
@@ -92,7 +103,9 @@ int32_t ProcessManager::execute_process(const char* path) {
     user_entry_point = (void (*)())entry_point;
 
     debug_debug("starting user_entry_point---: %x\n", user_entry_point);
-    ElfLoader::switch_to_user_mode((uint32_t)user_entry_wrapper, (uint32_t)stack+1024);
+    user_entry_wrapper();
+
+    // ElfLoader::switch_to_user_mode((uint32_t)user_entry_wrapper, (uint32_t)stack+1024);
 
     // 清理资源
     delete[] elf_data;

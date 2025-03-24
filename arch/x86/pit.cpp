@@ -8,7 +8,7 @@ namespace PIT {
     const uint16_t PIT_MODE = 0x43;        // 模式/命令端口
     const uint32_t PIT_FREQUENCY = 1193180; // PIT基准频率
 //    const uint32_t DESIRED_FREQUENCY = 100; // 期望的时钟中断频率(Hz)
-    const uint32_t DESIRED_FREQUENCY = 100; // 期望的时钟中断频率(Hz)
+    const uint32_t DESIRED_FREQUENCY = 1; // 期望的时钟中断频率(Hz)
 
     // 初始化PIT
     void init() {
