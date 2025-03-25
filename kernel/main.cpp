@@ -113,12 +113,12 @@ extern "C" void kernel_main() {
         //     //ProcessManager::schedule();
         //  }
     });
-    // PIT::init();
+    PIT::init();
    // outb(0x20, 0x20); // 发送给主PIC
     // 初始化IDT
     IDT::init();
-    // IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
-    // IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
+    IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
+    IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
     IDT::loadIDT();
     serial_puts("IDT initialized!\n");
 
@@ -317,7 +317,7 @@ extern "C" void kernel_main() {
         Console::print("Failed to open /init!\n");
     }
 #else
-    // asm volatile("sti");
+    asm volatile("sti");
     // 尝试加载并执行init程序
     Console::print("Trying to execute /init...\n");
     auto pid = ProcessManager::execute_process("/init");

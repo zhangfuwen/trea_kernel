@@ -49,7 +49,9 @@ public:
     // uint32_t getPhysicalAddress(uint32_t virt_addr);
 
     // 获取当前页目录
-    PageDirectory* getCurrentPageDirectory();
+    PageDirectory* getCurrentPageDirectory() {
+        return currentPageDirectory;
+    }
     PageTable * createPageTable();
 
     // 切换页目录

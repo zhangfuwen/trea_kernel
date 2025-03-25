@@ -1,3 +1,5 @@
+#include <kernel/kernel.h>
+
 #include "kernel/process.h"
 #include "kernel/elf_loader.h"
 #include "kernel/vfs.h"
@@ -12,6 +14,14 @@ using kernel::VFSManager;
 
 void (*user_entry_point)();
 void user_entry_wrapper() {
+    char * name = nullptr;
+    int ret1 = syscall_fork();
+    if (ret1 == 0) {
+        debug_err("child process\n");
+        name = "child process";
+    }  else {
+        name = "parent process";
+    }
     // run user program
     while (1) {
         asm volatile("nop");
@@ -19,6 +29,8 @@ void user_entry_wrapper() {
         asm volatile("nop");
         asm volatile("nop");
         asm volatile("nop");
+        asm volatile("hlt");
+        debug_debug("user_entry_wrapper called, %s\n", name);
     }
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
@@ -80,6 +92,7 @@ int32_t ProcessManager::execute_process(const char* path) {
 
     ProcessManager::switch_process(pid);
     ProcessControlBlock* process = ProcessManager::get_current_process();
+    process->cr3 = (uint32_t)Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
     process->state = PROCESS_RUNNING;
     // 打印页表地址cr3
     debug_debug("cr3: %x\n", process->cr3);

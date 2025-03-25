@@ -110,7 +110,8 @@ int PageManager::copyMemorySpace(PageDirectory *src, PageDirectory* &out) {
         return -1;
     }
 
-    PageDirectory* dst = reinterpret_cast<PageDirectory*>(page->pfn * PAGE_SIZE);
+    PageDirectory* dst = reinterpret_cast<PageDirectory*>(page->virtual_address);
+    out = (PageDirectory*)(page->pfn * PAGE_SIZE);
     copyKernelSpace(src, dst);
     int ret = copyUserSpace(src, dst);
     if (ret < 0) {
@@ -119,7 +120,6 @@ int PageManager::copyMemorySpace(PageDirectory *src, PageDirectory* &out) {
         return -1;
     }
     delete []page;
-    out = dst;
     return ret;
 }
 

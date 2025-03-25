@@ -133,7 +133,8 @@ int ProcessManager::fork() {
     Kernel& kernel = Kernel::instance();
 
     PageDirectory * dst;
-    int ret = kernel.kernel_mm().paging().copyMemorySpace((PageDirectory*)parent->cr3, dst);
+    PageDirectory * src = (PageDirectory*)Kernel::instance().kernel_mm().getVirtualAddress(parent->cr3);
+    int ret = kernel.kernel_mm().paging().copyMemorySpace(src, dst);
     if (ret < 0) {
         debug_err("Failed to copy memory space for child process %d\n", child_pid);
         // 如果内存复制失败，清理并返回错误
