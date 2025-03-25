@@ -12,6 +12,7 @@ section .text
 _start:
     cli                         ; 禁用中断
     mov esp, stack_top          ; 设置栈指针
+    mov ebp, stack_top          ; 设置栈指针
 
     ; 调用C++内核主函数
     call kernel_main

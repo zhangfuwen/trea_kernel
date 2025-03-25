@@ -1,4 +1,7 @@
 #include "kernel/zone.h"
+
+#include <lib/serial.h>
+
 #include "kernel/kernel_memory.h"
 #include "lib/debug.h"
 
@@ -14,8 +17,6 @@ void Zone::init(ZoneType type, uint32_t start_pfn, uint32_t end_pfn) {
     nr_free_pages = end_pfn - start_pfn;
     // 初始化区域的其他资源
     // 这里可以添加额外的初始化逻辑
-    debug_debug("%d\n", nr_free_pages);
-    debug_debug("Zone::Zone: %d %d %d %d, freepages:%d\n", this->type, zone_start_pfn, zone_end_pfn, size, nr_free_pages);
     watermark[static_cast<int>(WatermarkLevel::WMARK_MIN)] = size / 16;    // 6.25%
     watermark[static_cast<int>(WatermarkLevel::WMARK_LOW)] = size / 8;     // 12.5%
     watermark[static_cast<int>(WatermarkLevel::WMARK_HIGH)] = size / 4;    // 25%

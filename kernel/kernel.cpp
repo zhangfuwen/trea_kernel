@@ -1,4 +1,7 @@
 #include "kernel/kernel.h"
+
+#include <lib/serial.h>
+
 #include "arch/x86/paging.h"
 #include "lib/debug.h"
 
@@ -7,7 +10,7 @@ Kernel::Kernel() : memory_manager() {
 }
 
 void Kernel::init() {
-  debug_debug("Kernel::init()");
+    serial_puts("kernel init\n");
     memory_manager.init();
 
 }

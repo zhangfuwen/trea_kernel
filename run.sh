@@ -30,6 +30,6 @@ fi
 echo "启动CustomKernel..."
 qemu-system-i386 \
     -cdrom $iso_file \
-    -m 512M \
+    -m 1G \
     -serial stdio  \
     -s

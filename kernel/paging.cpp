@@ -3,41 +3,59 @@
 #include "../include/arch/x86/paging.h"
 
 #include <kernel/page.h>
+#include <lib/serial.h>
+
 #include "kernel/kernel.h"
 
 PageManager::PageManager() : nextFreePage(0x400000), currentPageDirectory(nullptr) {}
 
 void PageManager::init() {
     // 初始化页目录
-    Console::print("PageManager: enter init\n");
+    serial_puts("PageManager: enter init\n");
     PageDirectory* pageDirectory = reinterpret_cast<PageDirectory*>(PAGE_DIRECTORY_ADDR);
     for (int i = 0; i < 1024; i++) {
         pageDirectory->entries[i] = 0x00000002; // Supervisor, read/write, not present
     }
-    Console::print("PageManager: pageDirectory init\n");
+    serial_puts("PageManager: pageDirectory init\n");
 
     mapKernelSpace();
-    Console::print("PageManager: kernel space mapped\n");
+    serial_puts("PageManager: kernel space mapped\n");
 
     // 加载页目录
     loadPageDirectory(reinterpret_cast<uintptr_t>(PAGE_DIRECTORY_ADDR));
-    Console::print("PageManager: pageDirectory load\n");
+    serial_puts("PageManager: pageDirectory load\n");
     enablePaging();
-    Console::print("PageManager: enable paging\n");
-    
-    currentPageDirectory = (PageDirectory*)PAGE_DIRECTORY_ADDR;
+    serial_puts("PageManager: enable paging\n");
+    // int *p = (int *)0xC1000000;
+    // *p = 0x12345678;
+
+    currentPageDirectory = (PageDirectory*)PAGE_DIRECTORY_ADDR + KERNEL_DIRECT_MAP_START; // 虚拟地址
 }
 
 // 映射内核空间 896MB
 void PageManager::mapKernelSpace() {
     // 当前使用物理地址，实模式
-    PageDirectory *dir = reinterpret_cast<PageDirectory*>(PAGE_DIRECTORY_ADDR);
+    // 映射前4M
+    auto *dir = reinterpret_cast<PageDirectory*>(PAGE_DIRECTORY_ADDR);
+    auto *table1 = reinterpret_cast<PageTable*>(K_FIRST_4M_PT);
+    dir->entries[0] = K_FIRST_4M_PT | 3; // Supervisor, read/write, present;
+    for (int i = 0; i < 1024; i++) {
+        table1->entries[i] = (i*4096) | 3; // Supervisor, read/write, present
+    }
+    table1++;
+    dir->entries[1] = (uint32_t)table1 | 3; // Supervisor, read/write, present;
+    for (int i = 0; i < 1024; i++) {
+        table1->entries[i] = (i*4096 + 1024*4096) | 3; // Supervisor, read/write, present
+    }
+
+    // map 0xC0000000
+    uint32_t pteStart = 0xC0000000 >> 22;
     for(int j = 0; j < K_PAGE_TABLE_COUNT; j++) {
-        PageTable* table = reinterpret_cast<PageTable*>(K_PAGE_TABLE_START + j*sizeof(PageTable));
+        auto* table = reinterpret_cast<PageTable*>(K_PAGE_TABLE_START + j*sizeof(PageTable));
         for (uint32_t i = 0; i < 1024; i++) {
             table->entries[i] = (i * 4096 + j * 1024*4096) | 3; // Supervisor, read/write, present
         }
-        dir->entries[j] = reinterpret_cast<uintptr_t>(table) | 3; // Supervisor, read/write, present
+        dir->entries[j+pteStart] = reinterpret_cast<uintptr_t>(table) | 3; // Supervisor, read/write, present
     }
 }
 
@@ -160,7 +178,7 @@ void PageManager::unmapPage(uint32_t virt_addr) {
 }
 
 // 切换页目录
-void PageManager::switchPageDirectory(PageDirectory* dir) {
-    currentPageDirectory = dir;
-    loadPageDirectory(reinterpret_cast<uint32_t>(dir));
+void PageManager::switchPageDirectory(PageDirectory* dirVirt, void * dirPhys) {
+    currentPageDirectory = dirVirt;
+    loadPageDirectory(reinterpret_cast<uint32_t>(dirPhys));
 }

@@ -55,8 +55,8 @@ void InterruptManager::init() {
     registerHandler(0x2F, []() { debug_debug("IRQ 15\n"); });
 
 
-    IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
-    IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
+    // IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
+    // IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
     // 重新映射PIC
     remapPIC();
 }

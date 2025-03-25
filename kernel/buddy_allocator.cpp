@@ -1,4 +1,7 @@
 #include "kernel/buddy_allocator.h"
+
+#include <kernel/kernel.h>
+
 #include "lib/debug.h"
 
 void BuddyAllocator::init(uint32_t start_addr, uint32_t size) {
@@ -13,7 +16,8 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size) {
     // 将整个内存区域作为一个大块加入到合适的空闲链表中
     uint32_t total_pages = size / PAGE_SIZE;
     uint32_t order = get_block_order(total_pages);
-    FreeBlock* block = (FreeBlock*)start_addr;
+
+    FreeBlock* block = (FreeBlock*) Kernel::instance().kernel_mm().getVirtualAddress(start_addr);
     block->next = nullptr;
     block->size = 1 << order;
     debug_debug("BuddyAllocator: init, block size: %d, order:%d\n", block->size, order);
@@ -23,7 +27,7 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size) {
 uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages) {
     // 计算需要的块大小的order
     uint32_t order = get_block_order(num_pages);
-//    debug_debug("order: %d\n", order);
+    // debug_debug("order: %d\n", order);
     if (order > MAX_ORDER) {
         debug_debug("BuddyAllocator: Requested size is too large!\n");    
         return 0;
@@ -67,11 +71,12 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages) {
  //       debug_debug("end");
     }
 
-//    debug_debug("block3: %x\n", block);
-    return (uint32_t)block;
+    debug_debug("block3: %x\n", block);
+    return (uint32_t)Kernel::instance().kernel_mm().getPhysicalAddress(block);
 }
 
 void BuddyAllocator::free_pages(uint32_t addr, uint32_t num_pages) {
+    addr = (uint32_t)Kernel::instance().kernel_mm().getVirtualAddress(addr);
     uint32_t order = get_block_order(num_pages);
     
     // 尝试合并伙伴块

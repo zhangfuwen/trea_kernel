@@ -12,8 +12,8 @@ const int MAX_MOUNT_POINTS = 16;
 
 // 挂载点结构
 struct MountPoint {
-    char path[256];
     FileSystem* fs;
+    char path[256];
     bool used;
 };
 
@@ -142,10 +142,14 @@ static FileSystem* find_fs(const char* path, const char** remaining_path) {
 
         int ret = strncmp(path, mount_points[i].path, mount_len);
         if (ret == 0) {
-            debug_debug("VFSManager::find_fs: found filesystem %s for path %s\n", mount_points[i].fs->get_name(), path);
+          //  debug_debug("VFSManager::find_fs: found %x\n", mount_points[i].fs);
+            // debug_debug("VFSManager::find_fs: found %s\n", mount_points[i].fs->get_name());
+            // debug_debug("VFSManager::find_fs: found filesystem %s for path %s\n", mount_points[i].fs->get_name(), path);
             // 找到最长匹配的挂载点，避免匹配到 /usr/bin 时也匹配到 /usr/bin/ls 这种情况
             if (mount_len > longest_match) {
                 longest_match = mount_len;
+           //     debug_debug("VFSManager::find_fs: matched_fs %x\n", matched_fs);
+            //    debug_debug("VFSManager::find_fs: matched_fs %x\n", matched_fs);
                 matched_fs = mount_points[i].fs;
                 *remaining_path = path + mount_len;
             }
@@ -153,7 +157,8 @@ static FileSystem* find_fs(const char* path, const char** remaining_path) {
             debug_debug("VFSManager::find_fs: ret %d, path %s does not match %s\n", ret, path, mount_points[i].path);
         }
     }
-    
+
+    debug_debug("VFSManager::find_fs: matched_fs %x\n", matched_fs);
     return matched_fs;
 }
 
@@ -177,7 +182,7 @@ FileDescriptor* VFSManager::open(const char* path) {
         debug_debug("VFSManager::open: no filesystem found for path %s\n", path);
         return nullptr;
     } else {
-        debug_debug("VFSManager::open: found filesystem %s for path %s\n", fs->get_name(), path);
+        debug_debug("VFSManager::open: found filesystem %s for path %s\n", "asdf", path);
     }
 
     return fs->open(remaining_path);

@@ -90,6 +90,9 @@ extern "C" void kernel_main() {
     InterruptManager::init();
     serial_puts("InterruptManager initialized!\n");
 
+    Kernel::init_all();
+    Kernel *kernel = &Kernel::instance();
+    kernel->init();
     // 注册系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
     SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
@@ -101,27 +104,24 @@ extern "C" void kernel_main() {
 
     // 注册时钟中断处理函数
     InterruptManager::registerHandler(0x20, []() {
-        static volatile uint32_t tick = 0;
-        tick++;
-        if (tick > 5) {
-            debug_debug("Timer interrupt!\n");
-            Scheduler::timer_tick();
-            tick = 0;
-            //ProcessManager::schedule();
-         }
+        // static volatile uint32_t tick = 0;
+        // tick++;
+        // if (tick > 5) {
+        debug_debug("Timer interrupt!\n");
+        //     Scheduler::timer_tick();
+        //     tick = 0;
+        //     //ProcessManager::schedule();
+        //  }
     });
-    PIT::init();
+    // PIT::init();
    // outb(0x20, 0x20); // 发送给主PIC
     // 初始化IDT
     IDT::init();
-    IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
-    IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
+    // IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
+    // IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
     IDT::loadIDT();
     serial_puts("IDT initialized!\n");
 
-    Kernel::init_all();
-    Kernel &kernel = Kernel::instance();
-    kernel.init();
 
 
     // asm volatile("hlt");
@@ -163,36 +163,35 @@ extern "C" void kernel_main() {
     Scheduler::init();
     Console::print("Process and Scheduler systems initialized!\n");
 
-    // 创建并初始化第一个进程
-    uint32_t init_pid = ProcessManager::create_process("/init");
-    if (init_pid == 0) {
-        debug_err("Failed to create init process!\n");
-        return;
-    }
-    ProcessManager::switch_process(init_pid);
+    // // 创建并初始化第一个进程
+    // uint32_t init_pid = ProcessManager::create_process("idle");
+    // if (init_pid == 0) {
+    //     debug_err("Failed to create init process!\n");
+    //     return;
+    // }
+    // ProcessManager::switch_process(init_pid);
 
-    asm volatile("sti");
-    int ret1 = syscall_fork();
-    if (ret1 == 0) {
-        // 子进程
-        debug_debug("child process!\n");
-        while (1) {
-            // asm volatile("int $0x70");
-            asm volatile("nop");
-            asm volatile("nop");
-            asm volatile("hlt");
-            debug_debug("child process running!\n");
-        }
-    } else {
-        debug_debug("child process returned %d\n", ret1);
-        while (1) {
-            // asm volatile("int $0x70");
-            asm volatile("nop");
-            asm volatile("nop");
-            asm volatile("hlt");
-            debug_debug("parent process running!\n");
-        }
-    }
+    // asm volatile("sti");
+    // int ret1 = syscall_fork();
+    // if (ret1 == 0) {
+    //     // 子进程
+    //     debug_debug("child process!\n");
+    //     while (1) {
+    //         // asm volatile("int $0x70");
+    //         asm volatile("nop");
+    //         asm volatile("nop");
+    //         asm volatile("hlt");
+    //         debug_debug("child process running!\n");
+    //     }
+    // } else {
+    //     debug_debug("child process returned %d\n", ret1);
+    //     while (1) { // asm volatile("int $0x70");
+    //         asm volatile("nop");
+    //         asm volatile("nop");
+    //         asm volatile("hlt");
+    //         debug_debug("parent process running!\n");
+    //     }
+    // }
     // ProcessManager::current_pid = init_pid;
     //
     // // 设置进程的页目录
@@ -206,8 +205,15 @@ extern "C" void kernel_main() {
     // 初始化内存文件系统
     debug_debug("Trying to new memfs ...\n");
     MemFS* memfs = new MemFS();
-    debug_debug("memfs created!\n");
+    debug_debug("memfs created at %x!\n", memfs);
+
     memfs->init();
+
+    // int *p = (int *)0xC1000000;
+    // *p = 0x12345678;
+
+    debug_debug("memfs initialized!%x\n", memfs);
+    debug_debug("memfs name:%s!\n", memfs->get_name());
     debug_debug("memfs initialized!\n");
     VFSManager::instance().register_fs("/", memfs);
     auto consolefs = new ConsoleFS();
@@ -311,15 +317,15 @@ extern "C" void kernel_main() {
         Console::print("Failed to open /init!\n");
     }
 #else
-    asm volatile("sti");
+    // asm volatile("sti");
     // 尝试加载并执行init程序
     Console::print("Trying to execute /init...\n");
-    // int32_t init_pid = ProcessManager::execute_process("/init");
-    // if (init_pid < 0) {
-        // Console::print("Failed to execute /init!\n");
-        // return;
-    // }
-    debug_debug("Init process executed with pid: %d\n", init_pid);
+    auto pid = ProcessManager::execute_process("/init");
+    if (pid < 0) {
+        Console::print("Failed to execute /init!\n");
+        return;
+    }
+    // debug_debug("Init process executed with pid: %d\n", init_pid);
 #endif
 
     // 进入无限循环，等待中断

@@ -34,14 +34,17 @@ void user_entry_wrapper() {
 // 创建并执行一个新进程
 int32_t ProcessManager::execute_process(const char* path) {
     // 打开可执行文件
+    debug_debug("opening file: %s\n", path);
     FileDescriptor* fd = VFSManager::instance().open(path);
     if (!fd) {
         debug_err("Failed to open file: %s\n", path);
         return -1;
     }
+    debug_debug("file open: %s\n", path);
 
     // 读取文件属性
     auto attr = new FileAttribute();
+    debug_debug("file stat: %s\n", path);
     int ret = VFSManager::instance().stat(path, attr);
     if (ret < 0) {
         debug_err("Failed to get file stats: %s\n", path);
@@ -49,11 +52,14 @@ int32_t ProcessManager::execute_process(const char* path) {
         fd->close();
         return -1;
     }
+    debug_debug("file stat: %s\n", path);
 
     // 读取ELF文件内容
     uint8_t* elf_data = new uint8_t[attr->size];
+    debug_debug("file read: %s\n", path);
     ssize_t size = fd->read(elf_data, attr->size);
     fd->close();
+    debug_debug("file read: %s\n", path);
 
     if (size <= 0) {
         debug_err("Failed to read file: %s\n", path);

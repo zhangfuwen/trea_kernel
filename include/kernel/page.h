@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 // 页面状态标志
-enum PageFlags {
+enum class PageFlags : uint32_t {
     PAGE_RESERVED = 1 << 0,    // 保留页面
     PAGE_ALLOCATED = 1 << 1,   // 已分配
     PAGE_DIRTY = 1 << 2,       // 脏页面

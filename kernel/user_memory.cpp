@@ -2,6 +2,10 @@
 #include <arch/x86/paging.h>
 #include <lib/string.h>
 
+// 物理页面分配和释放函数声明
+uint32_t allocate_physical_page();
+void free_physical_page(uint32_t page);
+
 // 初始化内存管理器
 void UserMemory::init(uint32_t page_dir) {
     pgd = page_dir;

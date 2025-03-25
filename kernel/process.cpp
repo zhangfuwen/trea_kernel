@@ -41,14 +41,14 @@ uint32_t ProcessManager::create_process(const char* name) {
     }
     pcb.esp = pcb.user_stack + 4 * 1024 * 1024 - 16;
 
-    // 分配内核态栈（64KB）
-    pcb.kernel_stack = (uint32_t)Kernel::instance().kernel_mm().kmalloc(16*4096);
+    // 分配内核态栈（4MB）
+    pcb.kernel_stack = (uint32_t)Kernel::instance().kernel_mm().kmalloc(1024*4096);
     if (!pcb.kernel_stack) {
         debug_debug("ProcessManager: Failed to allocate kernel stack\n");
         Kernel::instance().kernel_mm().kfree((void*)pcb.user_stack);
         return 0;
     }
-    pcb.esp0 = pcb.kernel_stack + 64 * 1024 - 16;
+    pcb.esp0 = pcb.kernel_stack + 1024 * 1024 - 16;
 
     // 设置段选择子
     pcb.cs = 0x1B; // 用户代码段选择子（RPL=3）
@@ -216,7 +216,7 @@ int ProcessManager::switch_process(uint32_t pid) {
     ProcessControlBlock* next = &processes[pid];
 
     // 切换页目录
-    asm volatile("mov %0, %%cr3" : : "r"(next->cr3));
+    // asm volatile("mov %0, %%cr3" : : "r"(next->cr3));
     current_pid = pid;
     processes[current_pid].state = PROCESS_RUNNING;
 

@@ -64,6 +64,7 @@ public:
 
     // 获取虚拟地址对应的物理地址
     uint32_t getPhysicalAddress(void* virt_addr);
+    void * getVirtualAddress(uint32_t phys_addr);
 
     // 获取虚拟地址对应的页框号
     uint32_t getPfn(void* virt_addr);

@@ -3,6 +3,16 @@
 
 #include <cstdint>
 
+// 页表标志位
+constexpr uint32_t PAGE_PRESENT = 0x1;    // 页面存在
+constexpr uint32_t PAGE_WRITE = 0x2;      // 可写
+constexpr uint32_t PAGE_USER = 0x4;       // 用户级
+constexpr uint32_t PAGE_WRITE_THROUGH = 0x8;  // 写透
+constexpr uint32_t PAGE_CACHE_DISABLE = 0x10; // 禁用缓存
+constexpr uint32_t PAGE_ACCESSED = 0x20;  // 已访问
+constexpr uint32_t PAGE_DIRTY = 0x40;     // 已修改
+constexpr uint32_t PAGE_GLOBAL = 0x100;   // 全局
+
 struct PageDirectory {
     uint32_t entries[1024];
 } __attribute__((aligned(4096)));
@@ -17,7 +27,8 @@ struct PageTable {
 // 以上是指物理内存，不需要虚拟地
 
 constexpr uint32_t PAGE_DIRECTORY_ADDR = 0x400000; // 4MB地址处是页目录
-constexpr uint32_t K_PAGE_TABLE_START = 0x401000;    // 4MB + 4KB地址处是页表
+constexpr uint32_t K_FIRST_4M_PT = 0x401000; // 4MB + 4KB地址处是前4M页表
+constexpr uint32_t K_PAGE_TABLE_START = 0x402000;    // 4MB + 8KB地址处是页表
 constexpr uint32_t K_PAGE_TABLE_COUNT =  224; // 224 * 1024page/table * 4KB/page = 896MB
 
 class PageManager {
@@ -42,7 +53,7 @@ public:
     PageTable * createPageTable();
 
     // 切换页目录
-    void switchPageDirectory(PageDirectory* dir);
+    void switchPageDirectory(PageDirectory* dirVirt, void * dirPhys);
 
 private:
     static void copyKernelSpace(PageDirectory * src, PageDirectory * dst);
