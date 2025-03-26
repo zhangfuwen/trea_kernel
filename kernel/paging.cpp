@@ -66,6 +66,7 @@ void PageManager::copyKernelSpace(PageDirectory * src, PageDirectory * dst) {
         dst->entries[i] = 0x00000002; // Supervisor, read/write, not present
     }
     // copy
+    dst->entries[0] = src->entries[0];
     for (int i = 0; i < K_PAGE_TABLE_COUNT; i++) {
         dst->entries[i] = src->entries[i];
     }
@@ -113,14 +114,14 @@ int PageManager::copyMemorySpace(PageDirectory *src, PageDirectory* &out) {
     PageDirectory* dst = reinterpret_cast<PageDirectory*>(page->virtual_address);
     out = (PageDirectory*)(page->pfn * PAGE_SIZE);
     copyKernelSpace(src, dst);
-    int ret = copyUserSpace(src, dst);
-    if (ret < 0) {
-        Console::print("copyKernelSpace: copy failed");
-        Kernel::instance().kernel_mm().free_pages(page, 1);
-        return -1;
-    }
+    // int ret = copyUserSpace(src, dst);
+    // if (ret < 0) {
+    //     Console::print("copyKernelSpace: copy failed");
+    //     Kernel::instance().kernel_mm().free_pages(page, 1);
+    //     return -1;
+    // }
     delete []page;
-    return ret;
+    return 0;
 }
 
 void PageManager::loadPageDirectory(uint32_t dir) {
