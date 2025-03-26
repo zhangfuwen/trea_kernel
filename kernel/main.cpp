@@ -108,7 +108,7 @@ extern "C" void kernel_main() {
         // tick++;
         // if (tick > 5) {
         debug_debug("Timer interrupt!\n");
-        //     Scheduler::timer_tick();
+        Scheduler::timer_tick();
         //     tick = 0;
         //     //ProcessManager::schedule();
         //  }
@@ -118,7 +118,6 @@ extern "C" void kernel_main() {
     // 初始化IDT
     IDT::init();
     IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
-    IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
     IDT::loadIDT();
     serial_puts("IDT initialized!\n");
 
@@ -164,12 +163,18 @@ extern "C" void kernel_main() {
     Console::print("Process and Scheduler systems initialized!\n");
 
     // // 创建并初始化第一个进程
-    // uint32_t init_pid = ProcessManager::create_process("idle");
-    // if (init_pid == 0) {
-    //     debug_err("Failed to create init process!\n");
-    //     return;
-    // }
-    // ProcessManager::switch_process(init_pid);
+    uint32_t init_pid = ProcessManager::create_process("idle");
+    if (init_pid == 0) {
+        debug_err("Failed to create init process!\n");
+        return;
+    }
+    ProcessManager::switch_process(init_pid);
+    uint32_t cr3_val;
+    asm volatile("mov %%cr3, %0" : "=r" (cr3_val));
+    ProcessManager::get_current_process()->cr3 = cr3_val;
+    debug_debug("Init process created with pid %d, cr3: %x\n", init_pid, cr3_val);
+    IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
+
 
     // asm volatile("sti");
     // int ret1 = syscall_fork();
