@@ -1,7 +1,10 @@
 #pragma once
 #include <stdint.h>
+
+#include "user_memory.h"
 #include "kernel/kernel_memory.h"
 
+extern "C" void page_fault_handler(uint32_t error_code, uint32_t fault_addr);
 // 内核管理类（单例）
 class Kernel {
 public:
@@ -17,6 +20,9 @@ public:
 
     // 初始化内核
     void init();
+
+    // 检查当前CPU特权级别
+    static bool is_kernel_mode();
 
     static void init_all() {
         // instance0 = new Kernel();

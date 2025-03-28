@@ -10,12 +10,6 @@ void IDT::init() {
         IDT::setGate(i, 0, 0x08, 0x8E); // 默认中断门
     }
 
-    for (int i = 0; i < 256; i++) {
-        IDT::setGate(i, (uint32_t)timer_interrupt, 0x08, 0x8E);
-
-    }
-    IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
-    IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
     // 加载IDT
     IDT::idtPointer.limit = (sizeof(IDTEntry) * 256) - 1;
     IDT::idtPointer.base = reinterpret_cast<uintptr_t>(&IDT::entries[0]);

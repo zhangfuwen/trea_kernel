@@ -71,7 +71,7 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages) {
  //       debug_debug("end");
     }
 
-    debug_debug("block3: %x\n", block);
+    // debug_debug("block3: %x, count:%d\n", block, num_pages);
     return (uint32_t)Kernel::instance().kernel_mm().getPhysicalAddress(block);
 }
 

@@ -37,7 +37,6 @@ void user_entry_wrapper() {
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
     debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
-    user_entry_point();
     debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point);
     syscall_exit(0);
 
@@ -45,90 +44,35 @@ void user_entry_wrapper() {
 
 // 创建并执行一个新进程
 int32_t ProcessManager::execute_process(const char* path) {
-    // 打开可执行文件
-    debug_debug("opening file: %s\n", path);
-    FileDescriptor* fd = VFSManager::instance().open(path);
-    if (!fd) {
-        debug_err("Failed to open file: %s\n", path);
-        return -1;
-    }
-    debug_debug("file open: %s\n", path);
-
-    // 读取文件属性
-    auto attr = new FileAttribute();
-    debug_debug("file stat: %s\n", path);
-    int ret = VFSManager::instance().stat(path, attr);
-    if (ret < 0) {
-        debug_err("Failed to get file stats: %s\n", path);
-        delete attr;
-        fd->close();
-        return -1;
-    }
-    debug_debug("file stat: %s\n", path);
-
-    // 读取ELF文件内容
-    uint8_t* elf_data = new uint8_t[attr->size];
-    debug_debug("file read: %s\n", path);
-    ssize_t size = fd->read(elf_data, attr->size);
-    fd->close();
-    debug_debug("file read: %s\n", path);
-
-    if (size <= 0) {
-        debug_err("Failed to read file: %s\n", path);
-        delete[] elf_data;
-        delete attr;
-        return -1;
-    }
-
-    // 创建新进程
-    uint32_t pid = ProcessManager::create_process(path);
-    if (pid <= 0) {
-        debug_err("Failed to create process: %s\n", path);
-        delete[] elf_data;
-        delete attr;
-        return -1;
-    }
-    debug_debug("Created process id: %d\n", pid);
-
-    ProcessManager::switch_process(pid);
-    ProcessControlBlock* process = ProcessManager::get_current_process();
-    process->cr3 = (uint32_t)Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
-    process->state = PROCESS_RUNNING;
-    // 打印页表地址cr3
-    debug_debug("cr3: %x\n", process->cr3);
-
-    // 加载ELF文件
-    if (!ElfLoader::load_elf(elf_data, size, 0x000000)) {
-        debug_err("Failed to load ELF file: %s\n", path);
-        delete[] elf_data;
-        delete attr;
-        return -1;
-    }
-    debug_debug("ELF file loaded successfully\n");
-
-    const ElfHeader* header = (const ElfHeader*)(elf_data);
-    
-    // 分配内核栈
-    uint8_t* stack = new uint8_t[4096];
-    process->kernel_stack = (uint32_t)stack;
-    process->esp0 = (uint32_t)stack + 4096 - 16; // 栈顶位置，预留一些空间
-
-    // 设置进程入口点
-    uint32_t entry_point = header->entry + 0x000000; // 加上基址偏移
-
-
-    // 启动进程
-
-    user_entry_point = (void (*)())entry_point;
-
-    debug_debug("starting user_entry_point---: %x\n", user_entry_point);
-    user_entry_wrapper();
-
-    // ElfLoader::switch_to_user_mode((uint32_t)user_entry_wrapper, (uint32_t)stack+1024);
-
-    // 清理资源
-    delete[] elf_data;
-    delete attr;
-
-    return pid;
+    // char * name = nullptr;
+    // int ret1 = syscall_fork();
+    // if (ret1 == 0) {
+    //     debug_err("child process\n");
+    //     name = "child process";
+    // }  else {
+    //     name = "parent process";
+    // }
+    // // run user program
+    // while (1) {
+    //     asm volatile("nop");
+    //     asm volatile("nop");
+    //     asm volatile("nop");
+    //     asm volatile("nop");
+    //     asm volatile("nop");
+    //     asm volatile("hlt");
+    //     debug_debug("user_entry_wrapper called, %s\n", name);
+    // }
+    // debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    // debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    // debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    // debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    // debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    // debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point);
+    // syscall_exit(0);
+    //
+    //
+    // debug_debug("starting user_entry_point---: %x\n", user_entry_point);
+    // switch_to_user_mode((uint32_t)user_entry_wrapper);
+    //
+    // return 0;
 }

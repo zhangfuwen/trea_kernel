@@ -15,7 +15,7 @@ add_library(kernel_core
         exit_handler.cpp
         process_manager.cpp
         process_wrapper.cpp
-#        user_memory.cpp
+        user_memory.cpp
         kernel.cpp
         zone.cpp
         kernel_memory.cpp

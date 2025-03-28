@@ -10,7 +10,7 @@ extern "C" void set_user_entry(uint32_t entry, uint32_t stack);
 
 // 加载ELF文件到指定的基地址
 bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_address) {
-    debug_debug("Loading elf...\n");
+    debug_debug("Loading elf at %x, size:%d\n", elf_data, size);
     if (!elf_data || size < sizeof(ElfHeader)) {
         debug_err("Invalid ELF file\n");
         return false;
@@ -20,7 +20,7 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
 
     // 检查ELF魔数
     if (header->magic != ELF_MAGIC) {
-        debug_err("Invalid ELF magic number\n");
+        debug_err("Invalid ELF magic number, %x vs %x\n", header->magic, ELF_MAGIC);
         return false;
     }
 

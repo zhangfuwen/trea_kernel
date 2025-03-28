@@ -41,6 +41,23 @@ struct page *KernelMemory::alloc_pages(uint32_t count) {
     return pages;
 }
 
+// 分配连续的物理页面
+ uint32_t KernelMemory::allocPage() {
+    // 根据页面数量选择合适的区域
+    Zone *zone = get_zone_for_allocation(PAGE_SIZE);
+    if (!zone) {
+        return 0;
+    }
+
+    // 从区域中分配物理页面
+    uint32_t pfn = zone->allocPages(1);
+    if (!pfn) {
+        return 0;
+    }
+
+    return pfn * PAGE_SIZE;
+}
+
 // 释放已分配的页面
 void KernelMemory::free_pages(struct page *pages, uint32_t count) {
     if (!pages || count == 0) return;
@@ -71,6 +88,23 @@ void KernelMemory::free_pages(struct page *pages, uint32_t count) {
 
     // 释放页面描述符数组
     delete[] pages;
+}
+// 释放已分配的页面
+void KernelMemory::freePage(uint32_t physAddr) {
+    uint32_t pfn = physAddr / PAGE_SIZE;
+    Zone *zone = nullptr;
+
+    // 根据PFN确定页面所属的区域
+    if (pfn < DMA_ZONE_END) {
+        zone = &dma_zone;
+    } else if (pfn < NORMAL_ZONE_END) {
+        zone = &normal_zone;
+    } else {
+        zone = &high_zone;
+    }
+
+    // 释放物理页面
+    zone->freePages(pfn, 1);
 }
 
 // 初始化内核内存管理

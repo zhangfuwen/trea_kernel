@@ -9,6 +9,7 @@ add_library(arch_x86
     idt.cpp
     interrupt.cpp
         pit.cpp
+        segment_fault.cpp
 )
 
 # 设置汇编器

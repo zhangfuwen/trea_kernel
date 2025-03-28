@@ -1,5 +1,6 @@
 #include <kernel/memfs.h>
 #include <kernel/cpio.h>
+#include <kernel/kernel.h>
 #include <lib/string.h>
 #include <lib/console.h>
 #include <lib/debug.h>
@@ -12,13 +13,36 @@ MemFSFileDescriptor::MemFSFileDescriptor(MemFSInode* inode)
 MemFSFileDescriptor::~MemFSFileDescriptor() {}
 
 ssize_t MemFSFileDescriptor::read(void* buffer, size_t size) {
-    if (offset >= inode->size) return 0;
-    
+    debug_debug("MemFSFileDescriptor::read inode: %x, offset:%d, inode->size:%d\n", inode, offset, size);
+    if (offset >= inode->size) {
+        return 0;
+    }
+    debug_debug("inode->data %x", inode->data);
+
     size_t remaining = inode->size - offset;
     size_t read_size = size < remaining ? size : remaining;
-    
-    memcpy(buffer, inode->data + offset, read_size);
+
+    debug_debug("read to buffer %x, from:%x, size: %d", buffer, inode->data +offset, read_size);
+    auto to = buffer;
+    auto from = inode->data + offset;
+
+
+    // auto pde = *(uint32_t*)(0xc0400404);
+    // debug_debug("pde: %x", pde);
+    // Kernel::instance().kernel_mm().paging().disablePaging();
+    // pde = *(uint32_t*)(0x400404);
+    // debug_debug("pde: %x", pde);
+    // Kernel::instance().kernel_mm().paging().enablePaging();
+
+
+    for (size_t i = 0; i < read_size; i++) {
+        // debug_debug("read %d, %d", i, read_size);
+        ((uint8_t*)to)[i] = ((uint8_t*)from)[i];
+    }
+    debug_debug("read from %x, to:%x, done", from, to);
+    //memcpy(buffer, inode->data + offset, read_size);
     offset += read_size;
+    debug_debug("read_size %x", read_size);
     return read_size;
 }
 

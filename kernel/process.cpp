@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <kernel/kernel.h>
 #include <lib/debug.h>
+#include "arch/x86/gdt.h"
 
 
 
@@ -27,6 +28,23 @@ uint32_t ProcessManager::create_process(const char* name) {
     }
 
     ProcessControlBlock& pcb = processes[pid];
+    auto pgd = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
+    debug_debug("ProcessManager: Current Page Directory: %x\n", pgd);
+    pcb.mm.init(
+        (uint32_t)pgd,
+        []() {
+            auto page = Kernel::instance().kernel_mm().allocPage();
+            debug_debug("ProcessManager: Allocated Page at %x\n", page);
+            return page;
+
+        },
+        [](uint32_t physAddr) {
+            Kernel::instance().kernel_mm().freePage(physAddr);
+        },
+        [](uint32_t physAddr) {
+            return (void*)Kernel::instance().kernel_mm().getVirtualAddress(physAddr);
+        }
+        );
     pcb.pid = pid;
     pcb.state = PROCESS_NEW;
     pcb.priority = 1;
@@ -34,7 +52,8 @@ uint32_t ProcessManager::create_process(const char* name) {
     pcb.total_time = 0;
 
     // 分配用户态栈（4MB）
-    pcb.user_stack = (uint32_t)Kernel::instance().kernel_mm().kmalloc(1024*4096);
+    pcb.user_stack = (uint32_t)pcb.mm.allocate_area(4*1024*1024, PAGE_WRITE, 0);
+    debug_debug("ProcessManager: Allocated user stack: %x\n", pcb.user_stack);
     if (!pcb.user_stack) {
         debug_debug("ProcessManager: Failed to allocate user stack\n");
         return 0;
@@ -169,7 +188,7 @@ bool ProcessManager::schedule() {
 
     uint32_t next = (current_pid + 1) % MAX_PROCESSES;
     while (next != current_pid) {
-        debug_debug("schedule called, current: %d, next:%d, nextstate:%d\n", current_pid, next, processes[next].state);
+        //debug_debug("schedule called, current: %d, next:%d, nextstate:%d\n", current_pid, next, processes[next].state);
         if (processes[next].state == PROCESS_READY) {
             processes[next].state = PROCESS_RUNNING;
             break;
@@ -275,8 +294,10 @@ void ProcessManager::restore_context(uint32_t* esp) {
     esp[10] = next->fs;
     esp[11] = next->gs;
 }
-void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_stack) {
-    debug_debug("switch_to_user_mode called\n");
+void ProcessManager::switch_to_user_mode(uint32_t entry_point) {
+    auto user_stack = get_current_process()->user_stack;
+    debug_debug("switch_to_user_mode called, user stack: %x, entry point %x\n", user_stack, entry_point);
+    /*
     asm volatile(
         "mov %%eax, %%esp\n\t"   // 设置用户栈指针
         "push $0x23\n\t"        // 用户数据段选择子
@@ -288,6 +309,23 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, uint32_t user_sta
         :
         : "a" (user_stack), "b" (entry_point)
         : "memory"
+    );
+    */
+    // GDT::updateTSS(get_current_process()->esp0, get_current_process()->ss0);
+    // GDT::updateTSSCR3(get_current_process()->cr3);
+
+    asm volatile(
+      "mov %%eax, %%esp\n\t"   // 设置用户栈指针
+      "pushl $0x23\n\t"        // 用户数据段选择子
+      "pushl %%eax\n\t"        // 用户栈指针
+      "pushfl\n\t"             // 压入当前的 EFLAGS
+      "orl $0x200, (%%esp)\n\t" // 设置 IF 标志位
+      "pushl $0x1B\n\t"        // 用户代码段选择子
+      "pushl %%ebx\n\t"        // 入口地址
+      "iret\n\t"               // 进行特权级切换到用户态
+      :
+      : "a" (user_stack), "b" (entry_point)
+      : "memory", "cc"
     );
     debug_debug("switch_to_user_mode completed\n");
 }

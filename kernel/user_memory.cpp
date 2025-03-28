@@ -1,17 +1,18 @@
 #include <kernel/user_memory.h>
 #include <arch/x86/paging.h>
+#include <lib/debug.h>
 #include <lib/string.h>
 
-// 物理页面分配和释放函数声明
-uint32_t allocate_physical_page();
-void free_physical_page(uint32_t page);
 
 // 初始化内存管理器
-void UserMemory::init(uint32_t page_dir) {
+void UserMemory::init(uint32_t page_dir, uint32_t(*alloc_page)(), void(*free_page)(uint32_t), void *(*phys_to_virt)(uint32_t)) {
     pgd = page_dir;
     num_areas = 0;
     total_vm = 0;
     locked_vm = 0;
+    allocate_physical_page = alloc_page;
+    free_physical_page = free_page;
+    this->phys_to_virt = phys_to_virt;
     
     // 初始化内存区域数组
     memset(areas, 0, sizeof(areas));
@@ -53,15 +54,15 @@ uint32_t UserMemory::find_free_area(uint32_t size) {
     return 0; // 没有找到合适的空闲区域
 }
 
-bool UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type) {
+void * UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type) {
     if (num_areas >= MAX_MEMORY_AREAS) {
-        return false;
+        return nullptr;
     }
     
     // 查找合适的空闲区域
     uint32_t start = find_free_area(size);
     if (start == 0) {
-        return false;
+        return nullptr;
     }
     
     // 确保大小按页对齐
@@ -78,17 +79,51 @@ bool UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type) {
     // 更新总虚拟内存大小
     total_vm += size >> 12; // 已经按页对齐，直接除以页大小
     
-    return true;
+    // 为VMA区域建立页表项，但不分配物理页面
+    uint32_t num_pages = (size + 0xFFF) >> 12;
+    debug_debug("size: %d\n", size);
+    debug_debug("num_pages: %d\n", num_pages);
+    debug_debug("total_vm: %d\n", total_vm);
+    for (uint32_t i = 0; i < num_pages; i++) {
+        uint32_t vaddr = start + (i << 12);
+        uint32_t pde_idx = vaddr >> 22;
+        uint32_t pte_idx = (vaddr >> 12) & 0x3FF;
+        
+        // 获取页目录项
+        uint32_t* pde = (uint32_t*)(pgd + (pde_idx << 2));
+
+        // 如果页表不存在，创建新的页表
+        if (!(*pde & PAGE_PRESENT)) {
+            uint32_t page_table = allocate_physical_page();
+            auto virt = phys_to_virt(page_table);
+            *pde = page_table | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
+            debug_debug("pdg:%x, pde:%x, *pde:%x, page_table: %x\n", pgd, pde, *pde, page_table);
+            memset((void*)virt, 0, 0x1000);
+        }
+        
+        // 获取页表物理地址并转换为虚拟地址
+        uint32_t page_table = *pde & 0xFFFFF000;
+        uint32_t* page_table_virt = (uint32_t*)phys_to_virt(page_table);
+        uint32_t* pte = &page_table_virt[pte_idx];
+        // 页表项已经是虚拟地址，不需要再次转换
+        uint32_t* pte0 = pte;
+        
+        // 设置页表项为不存在，但保留权限标志，这样在page fault时可以知道应该设置什么权限
+        *pte0 = (flags | PAGE_USER | PAGE_WRITE) & ~PAGE_PRESENT;
+    }
+    
+    return (void *)start;
 }
 
 // 释放指定地址范围的内存区域
-void UserMemory::free_area(uint32_t start, uint32_t size) {
-    uint32_t end = start + size;
-    
+void UserMemory::free_area(uint32_t start) {
+
+    uint32_t size = 0;
     // 查找并移除匹配的内存区域
     for (uint32_t i = 0; i < num_areas; i++) {
-        if (areas[i].start_addr == start && areas[i].end_addr == end) {
+        if (areas[i].start_addr == start) {
             // 更新总虚拟内存大小
+            size = areas[i].end_addr - areas[i].start_addr;
             total_vm -= (size + 0xFFF) >> 12;
             
             // 移动后续区域
@@ -154,16 +189,20 @@ bool UserMemory::map_pages(uint32_t virt_addr, uint32_t phys_addr, uint32_t size
         // 如果页表不存在，创建新的页表
         if (!(*pde & PAGE_PRESENT)) {
             uint32_t page_table = allocate_physical_page();
+            auto virt = phys_to_virt(page_table);
             *pde = page_table | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
-            memset((void*)page_table, 0, 0x1000);
+            memset((void*)virt, 0, 0x1000);
         }
         
-        // 获取页表
+        // 获取页表物理地址并转换为虚拟地址
         uint32_t page_table = *pde & 0xFFFFF000;
-        uint32_t* pte = (uint32_t*)(page_table + (pte_idx << 2));
+        uint32_t* page_table_virt = (uint32_t*)phys_to_virt(page_table);
+        uint32_t* pte = &page_table_virt[pte_idx];
+        // 页表项已经是虚拟地址，不需要再次转换
+        uint32_t* pte0 = pte;
         
-        // 建立页表项映射
-        *pte = paddr | flags | PAGE_PRESENT;
+        // 建立页表项映射，确保用户态权限
+        *pte0 = paddr | (flags | PAGE_USER) | PAGE_PRESENT;
     }
     
     return true;
@@ -184,15 +223,17 @@ void UserMemory::unmap_pages(uint32_t virt_addr, uint32_t size) {
         uint32_t* pde = (uint32_t*)(pgd + (pde_idx << 2));
         
         if (*pde & PAGE_PRESENT) {
-            // 获取页表
+            // 获取页表物理地址并转换为虚拟地址
             uint32_t page_table = *pde & 0xFFFFF000;
-            uint32_t* pte = (uint32_t*)(page_table + (pte_idx << 2));
+            uint32_t* page_table_virt = (uint32_t*)phys_to_virt(page_table);
+            uint32_t* pte = &page_table_virt[pte_idx];
+            uint32_t* pte0 = pte;
             
             // 清除页表项
-            if (*pte & PAGE_PRESENT) {
-                uint32_t phys_page = *pte & 0xFFFFF000;
+            if (*pte0 & PAGE_PRESENT) {
+                uint32_t phys_page = *pte0 & 0xFFFFF000;
                 free_physical_page(phys_page);
-                *pte = 0;
+                *pte0 = 0;
             }
         }
     }

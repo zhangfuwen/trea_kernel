@@ -21,17 +21,14 @@ struct MountPoint {
 static MountPoint mount_points[MAX_MOUNT_POINTS];
 
 // 文件描述符表
-static FileDescriptor* fd_table[256] = {nullptr};
 static int next_fd = 3; // 0, 1, 2 保留给标准输入、输出和错误
 
 // 打开文件系统调用处理函数
 int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d) {
+    return sys_open(path_ptr);
+}
+int sys_open(uint32_t path_ptr) {
     debug_debug("openHandler called with path_ptr: %d\n", path_ptr);
-    debug_debug("openHandler b: %d\n", b);
-    debug_debug("openHandler c:%d\n", c);
-    debug_debug("openHandler d:%d\n", d);
-    debug_debug("openHandler c:%s\n", (char*)c);
-    debug_debug("openHandler d:%s\n", (char*)d);
 
     const char* path = reinterpret_cast<const char*>(path_ptr);
     debug_debug("Opening file: %s\n", path);
@@ -44,7 +41,7 @@ int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d) {
     
     // 分配文件描述符
     int fd_num = next_fd++;
-    fd_table[fd_num] = fd;
+    ProcessManager::get_current_process()->fd_table[fd_num] = fd;
     
     debug_debug("File opened successfully, fd: %d\n", fd_num);
     return fd_num;
@@ -52,31 +49,64 @@ int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d) {
 
 // 读取文件系统调用处理函数
 int readHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d) {
-    debug_debug("readHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
+    return sys_read(fd_num, buffer_ptr, size);
+}
+int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size) {
+    debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
     
-    if (fd_num >= 256 || !fd_table[fd_num]) {
+    if (fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
     
     void* buffer = reinterpret_cast<void*>(buffer_ptr);
-    ssize_t bytes_read = fd_table[fd_num]->read(buffer, size);
-    
+
+
+    auto process = ProcessManager::get_current_process();
+    if (!process) {
+        debug_debug("No current process\n");
+        return -1;
+    }
+    debug_debug("process: %x\n", process);
+
+    auto fd_table = process->fd_table;
+    if (!fd_table[fd_num]) {
+        debug_debug("File descriptor %d not open\n", fd_num);
+        return -1;
+    }
+    debug_debug("fd_table: %x\n", fd_table);
+
+    auto fd = fd_table[fd_num];
+    if (!fd) {
+        debug_debug("File descriptor %d not open\n", fd_num);
+        return -1;
+    }
+    debug_debug("fd: %x\n", fd);
+
+    ssize_t bytes_read = fd->read(buffer, size);
+    if ( bytes_read < 0) {
+        debug_debug("Failed to read from file descriptor %d\n", fd_num);
+        return -1;
+    }
+
     debug_debug("Read %d bytes from fd %d\n", bytes_read, fd_num);
     return bytes_read;
 }
 
 // 写入文件系统调用处理函数
 int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d) {
+    return sys_write(fd_num, buffer_ptr, size);
+}
+int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size) {
     debug_debug("writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
     
-    if (fd_num >= 256 || !fd_table[fd_num]) {
+    if (fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
     
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
-    ssize_t bytes_written = fd_table[fd_num]->write(buffer, size);
+    ssize_t bytes_written = ProcessManager::get_current_process()->fd_table[fd_num]->write(buffer, size);
     
     debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
     return bytes_written;
@@ -84,15 +114,18 @@ int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d
 
 // 关闭文件系统调用处理函数
 int closeHandler(uint32_t fd_num, uint32_t b, uint32_t c, uint32_t d) {
+    return sys_close(fd_num);
+}
+int sys_close(uint32_t fd_num) {
     debug_debug("closeHandler called with fd: %d\n", fd_num);
     
-    if (fd_num >= 256 || !fd_table[fd_num]) {
+    if (fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
     
-    int result = fd_table[fd_num]->close();
-    fd_table[fd_num] = nullptr;
+    int result = ProcessManager::get_current_process()->fd_table[fd_num]->close();
+    ProcessManager::get_current_process()->fd_table[fd_num] = nullptr;
     
     debug_debug("File descriptor %d closed\n", fd_num);
     return result;
@@ -102,12 +135,12 @@ int closeHandler(uint32_t fd_num, uint32_t b, uint32_t c, uint32_t d) {
 int seekHandler(uint32_t fd_num, uint32_t offset, uint32_t c, uint32_t d) {
     debug_debug("seekHandler called with fd: %d, offset: %d\n", fd_num, offset);
     
-    if (fd_num >= 256 || !fd_table[fd_num]) {
+    if (fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
     
-    int result = fd_table[fd_num]->seek(offset);
+    int result = ProcessManager::get_current_process()->fd_table[fd_num]->seek(offset);
     
     debug_debug("Seek result: %d\n", result);
     return result;

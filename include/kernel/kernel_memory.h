@@ -72,6 +72,10 @@ public:
     // 分配连续的物理页面
     struct page* alloc_pages(uint32_t count);
 
+    // 使用物理地址
+    uint32_t allocPage();
+    void freePage(uint32_t physAddr);
+
     // 释放已分配的页面
     void free_pages(struct page* pages, uint32_t count);
 

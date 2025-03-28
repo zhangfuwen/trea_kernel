@@ -13,14 +13,14 @@ struct MemoryArea {
 class UserMemory {
 public:
     // 初始化内存管理器
-    void init(uint32_t page_dir);
+    void init(uint32_t page_dir, uint32_t(*alloc_page)(), void(*free_page)(uint32_t), void*(*phys_to_virt)(uint32_t));
     
     // 分配一个新的内存区域
-    bool allocate_area(uint32_t size, uint32_t flags, uint32_t type);
-    
+    void * allocate_area(uint32_t size, uint32_t flags, uint32_t type);
     // 释放指定地址范围的内存区域
-    void free_area(uint32_t start, uint32_t size);
-    
+    void free_area(uint32_t start);
+
+
     // 扩展或收缩堆区
     uint32_t brk(uint32_t new_brk);
     
@@ -31,6 +31,10 @@ public:
     void unmap_pages(uint32_t virt_addr, uint32_t size);
 
 private:
+    // 物理页面分配和释放函数声明
+    uint32_t (*allocate_physical_page)() = nullptr;
+    void (*free_physical_page)(uint32_t page) = nullptr;
+    void* (*phys_to_virt)(uint32_t phys_addr) = nullptr;
     // 使用first-fit策略查找合适的空闲区域
     uint32_t find_free_area(uint32_t size);
     

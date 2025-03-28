@@ -17,7 +17,7 @@ void Scheduler::timer_tick() {
     ProcessControlBlock* current = ProcessManager::get_current_process();
     if (current && current->state == ProcessState::PROCESS_RUNNING) {
         current_time_slice++;
-        debug_debug("Timer tick: PID=%d, time_slice=%d\n", current->pid, current_time_slice);
+        //debug_debug("Timer tick: PID=%d, time_slice=%d\n", current->pid, current_time_slice);
         if (current_time_slice >= 100) { // 时间片到期
             debug_debug("Time slice expired for PID=%d\n", current->pid);
             current_time_slice = 0;

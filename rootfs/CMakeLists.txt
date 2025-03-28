@@ -2,6 +2,13 @@
 add_executable(init
     init.cpp
         linker.ld
+        init.asm
+)
+set_source_files_properties(
+        init.asm
+        PROPERTIES
+        LANGUAGE ASM_NASM
+        COMPILE_FLAGS "-f elf32 -g -F dwarf"
 )
 
 # 添加包含目录

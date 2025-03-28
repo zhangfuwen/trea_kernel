@@ -20,6 +20,8 @@ typedef int (*SyscallHandler)(uint32_t, uint32_t, uint32_t, uint32_t);
 
 // 系统调用处理函数声明
 int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t);
+int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t);
+int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr);
 
 // 系统调用管理器
 class SyscallManager {

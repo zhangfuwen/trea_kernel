@@ -40,10 +40,16 @@ public:
 
     static void loadPageDirectory(uint32_t dir);
     static void enablePaging();
+    static void disablePaging();
 
     // 映射虚拟地址到物理地址
     void mapPage(uint32_t virt_addr, uint32_t phys_addr, uint32_t flags);
     void unmapPage(uint32_t virt_addr);
+
+    // 获取页表项标志位
+    uint32_t getPageFlags(uint32_t virt_addr);
+    // 设置页表项标志位
+    void setPageFlags(uint32_t virt_addr, uint32_t flags);
 
     // // 获取物理地址
     // uint32_t getPhysicalAddress(uint32_t virt_addr);
