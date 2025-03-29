@@ -84,14 +84,14 @@ fault_errno: dd 0
     mov eax, [esp+4]
     mov [fault_errno], eax
     pop eax
-    SAVE_REGS_FOR_CONTEXT_SWITCH
+    SAVE_REGS
 
     push dword [fault_errno]  ; 将错误码作为第二个参数
     push $1 ; 中断号作为第一个参数
     call $3
     add esp, 8      ; 清理参数
 
-    RESTORE_REGS_FOR_CONTEXT_SWITCH
+    RESTORE_REGS
     sti
     iretd            ; 返回
 %endmacro
@@ -109,7 +109,7 @@ page_fault_interrupt:
     mov eax, [esp+4]
     mov [page_fault_errno], eax
     pop eax
-    SAVE_REGS_FOR_CONTEXT_SWITCH
+    SAVE_REGS
     
     mov eax, cr2    ; 获取故障地址
     push eax        ; 将故障地址作为第二个参数
@@ -124,7 +124,7 @@ page_fault_interrupt:
     mov cr3, eax
     pop eax
     
-    RESTORE_REGS_FOR_CONTEXT_SWITCH
+    RESTORE_REGS
     add esp, 4
     sti
     iretd

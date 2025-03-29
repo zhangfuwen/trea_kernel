@@ -1,5 +1,6 @@
 #include <kernel/user_memory.h>
 #include <arch/x86/paging.h>
+#include <kernel/kernel.h>
 #include <lib/debug.h>
 #include <lib/string.h>
 
@@ -107,9 +108,15 @@ void * UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type) {
         uint32_t* pte = &page_table_virt[pte_idx];
         // 页表项已经是虚拟地址，不需要再次转换
         uint32_t* pte0 = pte;
-        
-        // 设置页表项为不存在，但保留权限标志，这样在page fault时可以知道应该设置什么权限
-        *pte0 = (flags | PAGE_USER | PAGE_WRITE) & ~PAGE_PRESENT;
+
+        if (type == MEM_TYPE_STACK) {
+            auto pfn = (uint32_t)Kernel::instance().kernel_mm().allocPage();
+            auto phys = pfn << 12;
+            *pte0 = (phys |flags | PAGE_USER | PAGE_WRITE|PAGE_PRESENT);
+        } else {
+            // 设置页表项为不存在，但保留权限标志，这样在page fault时可以知道应该设置什么权限
+            *pte0 = (flags | PAGE_USER | PAGE_WRITE) & ~PAGE_PRESENT;
+        }
     }
     
     return (void *)start;

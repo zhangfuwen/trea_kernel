@@ -5,10 +5,10 @@ start:
     nop
     nop
 
-    push eax
-    pop ebx
+;    push eax
+;    pop ebx
 
-;    mov esp, stack_top
+    mov esp, stack_top
 
     ; 跳转到main函数
     call main

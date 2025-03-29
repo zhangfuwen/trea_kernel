@@ -12,7 +12,19 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr) {
     bool is_user = error_code & 0x4;          // 是否是用户态访问
     bool is_reserved = error_code & 0x8;      // 是否保留位被置位
     bool is_instruction = error_code & 0x10;   // 是否是指令获取
-    // debug_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
+    debug_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
+    debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n",
+              is_present, is_write, is_user, is_reserved, is_instruction);
+    auto cr3 = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
+    debug_debug("cr3: 0x%x\n", cr3);
+    auto pde = cr3->entries[fault_addr >> 22];
+    debug_debug("pde: 0x%x\n", pde);
+    auto pt_phys = pde & 0xFFFFF000;
+    auto pt = (PageTable*)Kernel::instance().kernel_mm().getVirtualAddress(pt_phys);
+    auto pt_index = (fault_addr >> 12) & 0x3FF;
+    debug_debug("pt_index: 0x%x\n", pt_index);
+    auto pte = pt->entries[pt_index];
+    debug_debug("pte: 0x%x\n", pte);
 
     if (fault_addr >= 0x40000000 && fault_addr < 0xC0000000) {
         is_user = true;

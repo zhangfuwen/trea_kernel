@@ -77,37 +77,6 @@ void PageManager::copyKernelSpace(PageDirectory * src, PageDirectory * dst) {
     }
 }
 
-int PageManager::copyUserSpace(PageDirectory * src, PageDirectory * dst) {
-    int used_pt = 0;
-    // 从K_PAGE_TABLE_COUNT开始，因为前面是内核空间
-    for (uint32_t i = K_PAGE_TABLE_COUNT; i < 1024; i++) {
-        // 如果源页目录项存在
-        if (src->entries[i] & 0x1) {
-
-            // 获取源页表
-            PageTable* src_pt = reinterpret_cast<PageTable*>(src->entries[i] & 0xFFFFF000);
-            auto page = Kernel::instance().kernel_mm().alloc_pages(1);
-            if (page == nullptr) {
-                Console::print("copyUserSpace: alloc_pages failed");
-                return -1;
-            }
-            PageTable* dst_pt = reinterpret_cast<PageTable*>(page->pfn * PAGE_SIZE);
-
-            // 复制页表内容
-            for (int j = 0; j < 1024; j++) {
-                dst_pt->entries[j] = src_pt->entries[j];
-            }
-            
-            // 更新目标页目录项，保持相同的访问权限
-            dst->entries[i] = reinterpret_cast<uint32_t>(dst_pt) | (src->entries[i] & 0xFFF);
-            used_pt++;
-        } else {
-            // 如果源页目录项不存在，目标也设为不存在
-            dst->entries[i] = src->entries[i];
-        }
-    }
-    return used_pt; // 返回使用的页表数量
-}
 
 int PageManager::copyMemorySpace(PageDirectory *src, PageDirectory* &out) {
     auto page = Kernel::instance().kernel_mm().alloc_pages(1);
@@ -119,13 +88,6 @@ int PageManager::copyMemorySpace(PageDirectory *src, PageDirectory* &out) {
     PageDirectory* dst = reinterpret_cast<PageDirectory*>(page->virtual_address);
     out = (PageDirectory*)(page->pfn * PAGE_SIZE);
     copyKernelSpace(src, dst);
-    // int ret = copyUserSpace(src, dst);
-    // if (ret < 0) {
-    //     Console::print("copyKernelSpace: copy failed");
-    //     Kernel::instance().kernel_mm().free_pages(page, 1);
-    //     return -1;
-    // }
-    delete []page;
     return 0;
 }
 
@@ -179,7 +141,8 @@ void PageManager::mapPage(uint32_t virt_addr, uint32_t phys_addr, uint32_t flags
     pt = (PageTable*)Kernel::instance().kernel_mm().getVirtualAddress((uint32_t)pt);
         // debug_debug("page table virt: %x\n", pt);
     pt->entries[pt_index] = (phys_addr & 0xFFFFF000) | (flags & 0xFFF) | 0x1; // Present
-    // debug_debug("mapped virt:%x, phys:%x, flags:%x\n", virt_addr, phys_addr, flags);
+    // debug_debug("mapped virt:%x, phys:%x, flags:%x, pte:%x, pd_index:%x, pt_index:%x\n", virt_addr, phys_addr, flags, pt->entries[pt_index], pd_index, pt_index);
+
 }
 
 // 解除虚拟地址映射

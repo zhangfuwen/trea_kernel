@@ -20,8 +20,6 @@ struct MountPoint {
 // 挂载点列表
 static MountPoint mount_points[MAX_MOUNT_POINTS];
 
-// 文件描述符表
-static int next_fd = 3; // 0, 1, 2 保留给标准输入、输出和错误
 
 // 打开文件系统调用处理函数
 int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d) {
@@ -40,7 +38,7 @@ int sys_open(uint32_t path_ptr) {
     }
     
     // 分配文件描述符
-    int fd_num = next_fd++;
+    int fd_num = ProcessManager::get_current_process()->allocate_fd();
     ProcessManager::get_current_process()->fd_table[fd_num] = fd;
     
     debug_debug("File opened successfully, fd: %d\n", fd_num);

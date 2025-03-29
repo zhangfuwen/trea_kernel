@@ -65,7 +65,6 @@ public:
 
 private:
     static void copyKernelSpace(PageDirectory * src, PageDirectory * dst);
-    static int copyUserSpace(PageDirectory * src, PageDirectory * dst);
     uint32_t nextFreePage;
     PageDirectory* currentPageDirectory;
 };

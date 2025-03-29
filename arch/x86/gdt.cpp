@@ -28,7 +28,7 @@ void GDT::init() {
     
     // 设置调用门描述符
     // 参数：索引、目标段选择子、目标偏移、特权级、参数数量
-    // 目标段选择子为内核代码段(0x08)，特权级为3(允许用户态调用)
+    // 目标段选择子为内核代码段(0x08)，特权级为3(允用户态调用)
     // uint32_t user_mode_entry_addr = reinterpret_cast<uint32_t>(user_mode_entry);
     // setCallGate(6, 0x08, user_mode_entry_addr, 3, 0);
 
@@ -36,6 +36,16 @@ void GDT::init() {
     gdtPointer.limit = (sizeof(GDTEntry) * 7) - 1;
     gdtPointer.base = reinterpret_cast<uintptr_t>(&entries[0]);
     loadGDT();
+
+
+    // 加载GDT后强制刷新CS
+    asm volatile( "ljmp $0x08, $1f\n"  // 强制跳转到内核代码段
+        "1:\n"
+        "movw $0x10, %%ax\n"  // 内核数据段选择子
+        "movw %%ax, %%ds\n"   // 更新DS
+        "movw %%ax, %%ss\n"   // 更新SS
+        : : : "ax"
+    );
 
     // 加载TSS
     asm volatile("ltr %%ax" : : "a"(0x28));  // TSS段选择子

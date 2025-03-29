@@ -9,6 +9,20 @@ struct MemoryArea {
     uint32_t type;           // 区域类型(代码段、数据段、堆、栈等)
 };
 
+// 内存区域类型定义
+enum MemoryAreaType : uint32_t {
+    MEM_TYPE_CODE        = 0,  // 代码段 (.text)
+    MEM_TYPE_DATA        = 1,  // 已初始化数据 (.data)
+    MEM_TYPE_BSS         = 2,  // 未初始化数据 (.bss)
+    MEM_TYPE_HEAP        = 3,  // 堆区域
+    MEM_TYPE_STACK       = 4,  // 栈区域
+    MEM_TYPE_MMAP_FILE   = 5,  // 内存映射文件
+    MEM_TYPE_SHARED      = 6,  // 共享内存
+    MEM_TYPE_ANONYMOUS   = 7,  // 匿名映射
+    MEM_TYPE_DEVICE      = 8,  // 设备内存映射
+    MEM_TYPE_GUARD       = 9   // 保护区域（用于栈溢出检测等）
+};
+
 // 进程虚拟地址空间管理器
 class UserMemory {
 public:

@@ -57,20 +57,21 @@ extern "C" void kernel_main() {
 
     // 注册时钟中断处理函数
     InterruptManager::registerHandler(0x20, []() {
-        // static volatile uint32_t tick = 0;
-        // tick++;
-        // if (tick > 5) {
-        Scheduler::timer_tick();
-        //     tick = 0;
-        //     //ProcessManager::schedule();
-        //  }
+        static volatile uint32_t tick = 0;
+        tick++;
+        if (tick > 5) {
+            debug_debug("timer interrupt called!\n");
+            Scheduler::timer_tick();
+            tick = 0;
+           ProcessManager::schedule();
+         }
     });
     PIT::init();
     // 初始化IDT
     IDT::init();
-    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x08, 0x8E);
-    IDT::setGate(INT_PAGE_FAULT, (uint32_t)page_fault_interrupt, 0x08, 0x8E);
-    IDT::setGate(INT_SYSCALL, (uint32_t)syscall_interrupt, 0x08, 0x8E);
+    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x0B, 0x8E);
+    IDT::setGate(INT_PAGE_FAULT, (uint32_t)page_fault_interrupt, 0x0B, 0x8E);
+    IDT::setGate(INT_SYSCALL, (uint32_t)syscall_interrupt, 0x0B, 0x8E);
     IDT::setGate(INT_GP_FAULT, (uint32_t)general_protection_interrupt, 0x08, 0x8E);
     IDT::setGate(INT_SEGMENT_NP, (uint32_t)segmentation_fault_interrupt, 0x08, 0x8E);
     IDT::loadIDT();
@@ -154,18 +155,25 @@ extern "C" void kernel_main() {
     Console::print("MemFS initialized and initramfs loaded!\n");
 
     // 尝试加载并执行init程序
+    auto cr3 = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
+    ProcessManager::get_current_process()->cr3 = Kernel::instance().kernel_mm().getPhysicalAddress(cr3);
     Console::print("Trying to execute /init...\n");
+    ProcessManager::init_process(0, "idle");
+    asm volatile("sti");
     int pid = syscall_fork();
     if (pid == 0) {
         // 子进程
         debug_debug("child process!\n");
         sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr);
+        while (1) {
+            debug_debug("child process!\n");
+            asm volatile("hlt");
+        }
 
     } else {
-        asm volatile("cli");
-        asm volatile("sti");
+        // asm volatile("cli");
         while (1) {
-            // debug_debug("idle process!\n");
+            debug_debug("idle process!\n");
             asm volatile("hlt");
         }
     }

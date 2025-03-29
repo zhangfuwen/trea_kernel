@@ -7,6 +7,7 @@
 #include "kernel/syscall.h"
 
 #include <arch/x86/paging.h>
+#include <kernel/kernel.h>
 #include <kernel/syscall_user.h>
 
 #include "kernel/process.h"
@@ -87,6 +88,7 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr) {
         return -1;
     }
     debug_debug("File stat ret %d, size %d!\n",ret, attr->size);
+    return 0;
 
     // 读取文件内容
     auto filep = current->mm.allocate_area(attr->size, PAGE_WRITE, 0);
@@ -111,33 +113,14 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr) {
         debug_err("Failed to load ELF file\n");
         return -1;
     }
+    current->mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_USER|PAGE_WRITE|PAGE_PRESENT);
 
     const ElfHeader* header = static_cast<const ElfHeader*>(filep);
     uint32_t entry_point = header->entry;
     debug_debug("entry_point: %x\n", entry_point);
 
-
-    // 设置用户栈
-    uint32_t stack_size = 0x100000; // 1MB栈空间
-    uint32_t stack_top = 0xC0000000 - stack_size;
-    void* stack = current->mm.allocate_area(stack_size, PAGE_WRITE, 0); // 用户栈区域
-    debug_debug("stack: %x\n", stack);
-    if (!stack) {
-        debug_err("Failed to allocate user stack\n");
-        return -1;
-    }
-    uint32_t * p = (uint32_t*)stack;
-    *p =0x12345678;
-
-    // TODO: 复制参数和环境变量到用户栈
-
-    current->user_stack = (uint32_t)(stack + stack_size - 8192 + 2048);
-    p = (uint32_t*)current->user_stack;
-    *p = 0x12345678;
-
-
-    ProcessManager::switch_to_user_mode(entry_point);
-    current->mm.free_area((uint32_t)filep);
+    //ProcessManager::switch_to_user_mode(entry_point);
+    //current->mm.free_area((uint32_t)filep);
 
 
     return 0;
