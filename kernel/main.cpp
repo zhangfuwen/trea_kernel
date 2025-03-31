@@ -4,18 +4,18 @@
 #include "arch/x86/idt.h"
 #include "arch/x86/interrupt.h"
 #include "arch/x86/paging.h"
-#include "lib/console.h"
-#include "lib/serial.h"
+#include "arch/x86/pit.h"
+#include "kernel/buddy_allocator.h"
+#include "kernel/elf_loader.h"
+#include "kernel/memfs.h"
 #include "kernel/process.h"
 #include "kernel/scheduler.h"
-#include "kernel/elf_loader.h"
-#include "unistd.h"
-#include "kernel/memfs.h"
-#include "kernel/vfs.h"
-#include "lib/debug.h"
-#include "kernel/buddy_allocator.h"
 #include "kernel/syscall_user.h"
-#include "arch/x86/pit.h"
+#include "kernel/vfs.h"
+#include "lib/console.h"
+#include "lib/debug.h"
+#include "lib/serial.h"
+#include "unistd.h"
 
 using namespace kernel;
 
@@ -26,8 +26,16 @@ extern "C" void syscall_interrupt();
 extern "C" void page_fault_interrupt();
 extern "C" void general_protection_interrupt();
 extern "C" void segmentation_fault_interrupt();
+void init()
+{
+    while(true) {
+        debug_rate_limited("init process!\n");
+        asm volatile("hlt");
+    }
+};
 
-extern "C" void kernel_main() {
+extern "C" void kernel_main()
+{
     // 初始化串口，用于调试输出
     serial_init();
     serial_puts("Hello, world!\n");
@@ -44,27 +52,23 @@ extern "C" void kernel_main() {
     serial_puts("InterruptManager initialized!\n");
 
     Kernel::init_all();
-    Kernel *kernel = &Kernel::instance();
+    Kernel* kernel = &Kernel::instance();
     kernel->init();
     // 注册系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
-    SyscallManager::registerHandler(SYS_FORK, [](uint32_t a,
-        uint32_t b, uint32_t c, uint32_t d)
-        {
-            debug_debug("fork syscall called!\n");
-            return ProcessManager::fork();
-        });
+    SyscallManager::registerHandler(SYS_FORK, [](uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+        debug_debug("fork syscall called!\n");
+        return ProcessManager::fork();
+    });
 
     // 注册时钟中断处理函数
     InterruptManager::registerHandler(0x20, []() {
-        static volatile uint32_t tick = 0;
-        tick++;
-        if (tick > 5) {
-            debug_debug("timer interrupt called!\n");
+        Kernel* kernel = &Kernel::instance();
+        kernel->tick();
+        if(kernel->get_ticks() % 5 == 0) {
+            debug_rate_limited("timer interrupt called!\n");
             Scheduler::timer_tick();
-            tick = 0;
-           ProcessManager::schedule();
-         }
+        }
     });
     PIT::init();
     // 初始化IDT
@@ -101,7 +105,8 @@ extern "C" void kernel_main() {
     // uint32_t cr3_val;
     // asm volatile("mov %%cr3, %0" : "=r" (cr3_val));
     // ProcessManager::get_current_process()->cr3 = cr3_val;
-    // debug_debug("Init process created with pid %d, cr3: %x\n", init_pid, cr3_val);
+    // debug_debug("Init process created with pid %d, cr3: %x\n", init_pid,
+    // cr3_val);
 
     init_vfs();
 
@@ -131,50 +136,53 @@ extern "C" void kernel_main() {
     size_t initramfs_size = __initramfs_end - __initramfs_start;
     debug_info("initramfs size: %d\n", initramfs_size);
 
-    char ll[]="123456";
-    //char * data = (char*)__initramfs_start;
-    char * data = (char*)ll;
+    char ll[] = "123456";
+    // char * data = (char*)__initramfs_start;
+    char* data = (char*)ll;
     debug_info("initramfs data: %x\n", data[0]);
     debug_info("initramfs data: %x\n", data[1]);
     debug_info("initramfs data: %d\n", data[2]);
     debug_info("initramfs data: %d\n", data[3]);
     debug_info("initramfs data: %d\n", data[4]);
     debug_info("initramfs data: %d\n", data[5]);
-    if(data[0]=='1') {
+    if(data[0] == '1') {
         debug_info("initramfs data0 is 1 \n");
     }
     data = (char*)__initramfs_start;
-    if(data[0]==0x30) {
+    if(data[0] == 0x30) {
         debug_info("initramfs data0 is 0x30 \n");
     }
-//    debug_info(data);
+    //    debug_info(data);
     int ret = memfs->load_initramfs(__initramfs_start, initramfs_size);
-    if (ret < 0) {
+    if(ret < 0) {
         debug_alert("Failed to load initramfs!\n");
     }
     Console::print("MemFS initialized and initramfs loaded!\n");
 
     // 尝试加载并执行init程序
     auto cr3 = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
-    ProcessManager::get_current_process()->cr3 = Kernel::instance().kernel_mm().getPhysicalAddress(cr3);
-    Console::print("Trying to execute /init...\n");
-    ProcessManager::init_process(0, "idle");
+    ProcessManager::get_current_process()->regs.cr3 = Kernel::instance().kernel_mm().virt2Phys(cr3);
+    debug_info("Trying to execute /init...\n");
+    ProcessManager::initIdle();
+    debug_debug("Trying to execute /init...\n");
+    // int pid = syscall_fork();
+    ProcessManager::kernel_process("init", (uint32_t)init, 0, nullptr);
+    debug_debug("Trying to execute /init...\n");
     asm volatile("sti");
-    int pid = syscall_fork();
-    if (pid == 0) {
-        // 子进程
-        debug_debug("child process!\n");
-        sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr);
-        while (1) {
-            debug_debug("child process!\n");
-            asm volatile("hlt");
-        }
-
-    } else {
+    // if(pid == 0) {
+    //     // 子进程
+    //     debug_debug("child process!\n");
+    //     sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr);
+    //     while(1) {
+    //         debug_debug("child process!\n");
+    //         asm volatile("hlt");
+    //     }
+    //
+    // } else {
         // asm volatile("cli");
-        while (1) {
-            debug_debug("idle process!\n");
+        while(1) {
+            debug_rate_limited("idle process!\n");
             asm volatile("hlt");
         }
-    }
+    // }
 }

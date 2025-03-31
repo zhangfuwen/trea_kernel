@@ -6,6 +6,6 @@ void serial_init();
 void serial_putc(char c);
 
 // 向串口发送一个字符串
-void serial_puts(const char *str);
+void serial_puts(const char* str);
 
 #endif

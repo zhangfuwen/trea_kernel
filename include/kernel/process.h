@@ -1,11 +1,10 @@
 #pragma once
-#include <stdint.h>
 #include "lib/console.h"
 #include <kernel/vfs.h>
+#include <stdint.h>
 
-#include "user_memory.h"
 #include "kernel/console_device.h"
-
+#include "user_memory.h"
 
 // 进程状态
 enum ProcessState {
@@ -17,8 +16,8 @@ enum ProcessState {
     EXITED
 };
 
-#define KERNEL_STACK_SIZE 1024*32
-#define USER_STACK_SIZE 1024*4096
+#define KERNEL_STACK_SIZE 1024 * 16
+#define USER_STACK_SIZE 1024 * 4096
 #define KERNEL_CS 0x08
 #define KERNEL_DS 0x10
 #define USER_CS 0x1B
@@ -26,79 +25,117 @@ enum ProcessState {
 #define PROCNAME_LEN 31
 #define MAX_PROCESS_FDS 256
 
-// 进程控制块结构
-struct ProcessControlBlock {
-    uint32_t pid;                  // 进程ID
-    ProcessState state;            // 进程状态
+struct Stacks
+{
+    uint32_t user_stack;      // 用户态栈基址
+    uint32_t user_stack_size; // 用户态栈大小
+
+    uint32_t esp0;              // 内核态栈指针
+    uint32_t ss0 = 0x08;        // 内核态栈段选择子
+    uint32_t ebp0;              // 内核态基址指针
+    void print();
+    int allocSpace(UserMemory &mm);
+};
+struct Registers {
     // 8个通用寄存器
-    uint32_t eax;                  // 通用寄存器
-    uint32_t ebx;                  // 通用寄存器
-    uint32_t ecx;                  // 通用寄存器
-    uint32_t edx;                  // 通用寄存器
-    uint32_t esi;                  // 源变址寄存器
-    uint32_t edi;                  // 目的变址寄存器
-    uint32_t esp;                  // 用户态栈指针
-    uint32_t ebp;                  // 用户态基址指针
+    uint32_t eax; // 通用寄存器
+    uint32_t ebx; // 通用寄存器
+    uint32_t ecx; // 通用寄存器
+    uint32_t edx; // 通用寄存器
+    uint32_t esi; // 源变址寄存器
+    uint32_t edi; // 目的变址寄存器
+    uint32_t esp; // 用户态栈指针
+    uint32_t ebp; // 用户态基址指针
 
     // 6个段寄存器
-    uint16_t cs;                   // 代码段选择子
-    uint16_t ds;                   // 数据段选择子
-    uint16_t ss;                   // 栈段选择子
-    uint16_t es;                   // 附加段选择子
-    uint16_t fs;                   // 附加段选择子
-    uint16_t gs;                   // 附加段选择子
+    uint16_t cs; // 代码段选择子
+    uint16_t ds; // 数据段选择子
+    uint16_t ss; // 栈段选择子
+    uint16_t es; // 附加段选择子
+    uint16_t fs; // 附加段选择子
+    uint16_t gs; // 附加段选择子
 
     // 四个控制寄存器
     // cr0, cr1, cr2, cr3
+    uint32_t cr3; // 页目录基址
 
     // 两个额外寄存器
-    uint32_t eip;                  // 指令指针
-    uint32_t eflags;               // 标志寄存器
-
-    uint32_t cr3;                  // 页目录基址
-
-    uint32_t user_stack;           // 用户态栈基址
-    uint32_t user_stack_size;      // 用户态栈大小
-
-    uint32_t kernel_stack;         // 内核态栈基址
-    uint32_t kernel_stack_size;    // 内核态栈大小
-    uint32_t esp0;                 // 内核态栈指针
-    uint32_t ss0 = 0x08;                  // 内核态栈段选择子
-    uint32_t ebp0;                 // 内核态基址指针
-
-    uint32_t priority;             // 进程优先级
-    uint32_t time_slice;           // 时间片
-    uint32_t total_time;           // 总执行时间
-    char name[PROCNAME_LEN+1];                 // 进程名称
-    kernel::FileDescriptor* stdin = nullptr;  // 标准输入
-    kernel::FileDescriptor* stdout = nullptr; // 标准输出
-    kernel::FileDescriptor* stderr = nullptr; // 标准错误
-    kernel::FileDescriptor* fd_table[MAX_PROCESS_FDS] = {nullptr};
-    inline int allocate_fd() { return next_fd++;}
-    int next_fd = 3; // 0, 1, 2 保留给标准输入、输出和错误
-    uint32_t exit_status;          // 退出状态码
-    UserMemory mm;              // 用户空间内存管理器
+    uint32_t eip;    // 指令指针
+    uint32_t eflags; // 标志寄存器
     void print();
 };
+
+// 进程控制块结构
+struct ProcessControlBlock {
+    ProcessControlBlock* next = nullptr;
+    ProcessControlBlock* prev = nullptr;
+    uint32_t pid;       // 进程ID
+    ProcessState state; // 进程状态
+    char name[PROCNAME_LEN + 1];              // 进程名称
+    uint32_t priority;                        // 进程优先级
+    uint32_t time_slice;                      // 时间片
+    uint32_t total_time;                      // 总执行时间
+    uint32_t exit_status; // 退出状态码
+
+    UserMemory user_mm;        // 用户空间内存管理器
+    Registers regs;
+    Stacks stacks;
+
+    kernel::FileDescriptor* fd_table[MAX_PROCESS_FDS] = {nullptr};
+    inline int allocate_fd()
+    {
+        return next_fd++;
+    }
+    int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
+    void print();
+};
+union PCB
+{
+    struct ProcessControlBlock pcb;
+    uint8_t stack[KERNEL_STACK_SIZE];
+};
+
+// 修改后的当前进程获取宏
+#define CURRENT() ({ \
+    uint32_t esp; \
+    asm volatile("mov %%esp, %0" : "=r"(esp)); \
+    (PCB*)(esp & ~0x3FFF); \
+})
+
+
+
+class PidManager {
+public:
+    static int32_t alloc();
+    static void free(uint32_t pid);
+    static void initialize();
+
+private:
+    static constexpr uint32_t MAX_PID = 32768;
+    static uint32_t pid_bitmap[(MAX_PID + 31) / 32];
+};
+
+
 
 class ProcessManager {
 public:
     static void init();
-    static uint32_t create_process(const char* name);
-    static bool init_process(uint32_t pid, const char* name);
+    static ProcessControlBlock* create_process(const char* name); // 修改内部实现使用PidManager
+    static int kernel_process(const char* name, uint32_t entry, uint32_t argc, char* argv[]);
     static int fork();
     static ProcessControlBlock* get_current_process();
-    static int32_t execute_process(const char* path);
+    // static int32_t execute_process(const char* path);
     static bool schedule(); // false for no more processes
-    static int switch_process(uint32_t pid);
+    // static int switch_process(uint32_t pid);
+    static PidManager pid_manager;
     static void switch_to_user_mode(uint32_t entry_point);
     static void save_context(uint32_t* esp);
     static void restore_context(uint32_t* esp);
+    static void initIdle();
+    static void appendPCB(PCB* pcb);
 
 private:
-    static uint32_t current_pid;
-    static const uint32_t MAX_PROCESSES = 64;
-    static ProcessControlBlock processes[MAX_PROCESSES];
-    static uint32_t next_pid;
+    static PCB * idle_pcb;
+    static ProcessControlBlock * current_pcb;
     static kernel::ConsoleFS console_fs;
 };

@@ -2,21 +2,21 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include "kernel/process.h"
+#include <cstdarg>
 #include <lib/console.h>
 #include <lib/string.h>
-#include <cstdarg>
-#include "kernel/process.h"
 
 // 定义日志级别
 enum LogLevel {
-    LOG_EMERG = 0,    // 系统不可用
-    LOG_ALERT = 1,    // 必须立即采取行动
-    LOG_CRIT = 2,     // 临界条件
-    LOG_ERR = 3,      // 错误条件
-    LOG_WARNING = 4,  // 警告条件
-    LOG_NOTICE = 5,   // 正常但重要的条件
-    LOG_INFO = 6,     // 信息性消息
-    LOG_DEBUG = 7     // 调试级别消息
+    LOG_EMERG = 0,   // 系统不可用
+    LOG_ALERT = 1,   // 必须立即采取行动
+    LOG_CRIT = 2,    // 临界条件
+    LOG_ERR = 3,     // 错误条件
+    LOG_WARNING = 4, // 警告条件
+    LOG_NOTICE = 5,  // 正常但重要的条件
+    LOG_INFO = 6,    // 信息性消息
+    LOG_DEBUG = 7    // 调试级别消息
 };
 
 // 当前日志级别，可以根据需要调整
@@ -55,22 +55,56 @@ int format_string_v(char* buffer, size_t size, const char* format, va_list args)
 void format_string(char* buffer, size_t size, const char* format, ...);
 
 // 核心打印函数
-void _debug_print(LogLevel level, const char* file, int line, const char* func, const char* format, ...);
+void _debug_print(
+    LogLevel level, const char* file, int line, const char* func, const char* format, ...);
 // 设置当前日志级别
-inline void set_log_level(LogLevel level) {
+inline void set_log_level(LogLevel level)
+{
     current_log_level = level;
 }
 
 // 定义各种日志级别的宏
-#define debug_emerg(fmt, ...) _debug_print(LOG_EMERG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_alert(fmt, ...) _debug_print(LOG_ALERT, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_crit(fmt, ...)  _debug_print(LOG_CRIT, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_err(fmt, ...)   _debug_print(LOG_ERR, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_warn(fmt, ...)  _debug_print(LOG_WARNING, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_notice(fmt, ...) _debug_print(LOG_NOTICE, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_info(fmt, ...)  _debug_print(LOG_INFO, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_debug(fmt, ...) _debug_print(LOG_DEBUG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_emerg(fmt, ...)                                                                      \
+    _debug_print(LOG_EMERG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_alert(fmt, ...)                                                                      \
+    _debug_print(LOG_ALERT, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_crit(fmt, ...)                                                                       \
+    _debug_print(LOG_CRIT, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_err(fmt, ...) _debug_print(LOG_ERR, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_warn(fmt, ...)                                                                       \
+    _debug_print(LOG_WARNING, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_notice(fmt, ...)                                                                     \
+    _debug_print(LOG_NOTICE, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_info(fmt, ...)                                                                       \
+    _debug_print(LOG_INFO, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define debug_debug(fmt, ...)                                                                      \
+    _debug_print(LOG_DEBUG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
 
 // 类似printk的函数
 #define printk(fmt, ...) _debug_print(LOG_INFO, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+// ... 其他日志宏定义保持不变 ...
+
+// 新增速率限制调试宏（每秒最多打印1次）
+#define debug_rate_limited(fmt, ...)                                                               \
+    do {                                                                                           \
+        static uint32_t last_print = 0;                                                            \
+        static constexpr uint32_t interval_ticks = 100; /* 100 ticks = 1秒（假设1tick=10ms） */    \
+        uint32_t current_tick = Kernel::instance().get_ticks();                                    \
+        if(current_tick - last_print > interval_ticks) {                                           \
+            _debug_print(LOG_DEBUG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__);             \
+            last_print = current_tick;                                                             \
+        }                                                                                          \
+    } while(0)
+
+// 增强版（可自定义级别和间隔）
+#define debug_rate_limited_ex(level, ms_interval, fmt, ...)                                        \
+    do {                                                                                           \
+        static uint32_t last_print##__LINE__ = 0;                                                  \
+        const uint32_t interval_ticks = (ms_interval) / 10;                                        \
+        uint32_t current_tick = Kernel::instance().get_ticks();                                    \
+        if(current_tick - last_print##__LINE__ > interval_ticks) {                                 \
+            _debug_print(level, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__);                 \
+            last_print##__LINE__ = current_tick;                                                   \
+        }                                                                                          \
+    } while(0)
 #endif // DEBUG_H

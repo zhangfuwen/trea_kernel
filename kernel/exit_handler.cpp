@@ -1,15 +1,16 @@
-#include "kernel/syscall.h"
 #include "kernel/process.h"
-#include "lib/debug.h"
 #include "kernel/scheduler.h"
+#include "kernel/syscall.h"
+#include "lib/debug.h"
 
 // exit系统调用处理函数
-int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t) {
+int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t)
+{
     debug_debug("Process exiting with status %d\n", status);
-    
+
     // 获取当前进程
     ProcessControlBlock* current = ProcessManager::get_current_process();
-    if (!current) {
+    if(!current) {
         return -1;
     }
 

@@ -6,7 +6,8 @@
 #define COM1_BASE 0x3F8
 
 // 初始化串口
-void serial_init() {
+void serial_init()
+{
     // 禁用中断
     outb(COM1_BASE + 1, 0x00);
     // 设置波特率为 38400
@@ -22,16 +23,19 @@ void serial_init() {
 }
 
 // 向串口发送一个字符
-void serial_putc(char c) {
+void serial_putc(char c)
+{
     // 等待发送缓冲区为空
-    while ((inb(COM1_BASE + 5) & 0x20) == 0);
+    while((inb(COM1_BASE + 5) & 0x20) == 0)
+        ;
     // 发送字符
     outb(COM1_BASE, c);
 }
 
 // 向串口发送一个字符串
-void serial_puts(const char *str) {
-    while (*str) {
+void serial_puts(const char* str)
+{
+    while(*str) {
         serial_putc(*str++);
     }
 }

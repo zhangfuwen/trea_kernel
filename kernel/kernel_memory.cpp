@@ -4,34 +4,35 @@
 #include "arch/x86/paging.h"
 #include "lib/debug.h"
 
-KernelMemory::KernelMemory() : dma_zone(),
-                               normal_zone(),
-                               high_zone(),
-                               page_manager(),
-                               vmalloc_tree(VMALLOC_START, VMALLOC_END) {
+KernelMemory::KernelMemory()
+    : dma_zone(), normal_zone(), high_zone(), page_manager(),
+      vmalloc_tree(VMALLOC_START, VMALLOC_END)
+{
     debug_debug("KernelMemory::KernelMemory()");
 }
 
 // 分配连续的物理页面
-struct page *KernelMemory::alloc_pages(uint32_t count) {
-    if (count == 0) return nullptr;
+struct page* KernelMemory::alloc_pages(uint32_t count)
+{
+    if(count == 0)
+        return nullptr;
 
     // 根据页面数量选择合适的区域
-    Zone *zone = get_zone_for_allocation(count * PAGE_SIZE);
-    if (!zone) {
+    Zone* zone = get_zone_for_allocation(count * PAGE_SIZE);
+    if(!zone) {
         return nullptr;
     }
 
     // 从区域中分配物理页面
     uint32_t pfn = zone->allocPages(count);
-    if (!pfn) {
+    if(!pfn) {
         return nullptr;
     }
 
     // 创建并初始化页面描述符
-    struct page *pages = new page[count];
-    for (uint32_t i = 0; i < count; i++) {
-        pages[i].flags = (uint32_t) PageFlags::PAGE_ALLOCATED;
+    struct page* pages = new page[count];
+    for(uint32_t i = 0; i < count; i++) {
+        pages[i].flags = (uint32_t)PageFlags::PAGE_ALLOCATED;
         pages[i]._count = 1;
         pages[i].pfn = pfn + i;
         pages[i].virtual_address = KERNEL_DIRECT_MAP_START + (pfn + i) * PAGE_SIZE;
@@ -42,16 +43,17 @@ struct page *KernelMemory::alloc_pages(uint32_t count) {
 }
 
 // 分配连续的物理页面
- uint32_t KernelMemory::allocPage() {
+PADDR KernelMemory::allocPage()
+{
     // 根据页面数量选择合适的区域
-    Zone *zone = get_zone_for_allocation(PAGE_SIZE);
-    if (!zone) {
+    Zone* zone = get_zone_for_allocation(PAGE_SIZE);
+    if(!zone) {
         return 0;
     }
 
     // 从区域中分配物理页面
     uint32_t pfn = zone->allocPages(1);
-    if (!pfn) {
+    if(!pfn) {
         return 0;
     }
 
@@ -59,17 +61,19 @@ struct page *KernelMemory::alloc_pages(uint32_t count) {
 }
 
 // 释放已分配的页面
-void KernelMemory::free_pages(struct page *pages, uint32_t count) {
-    if (!pages || count == 0) return;
+void KernelMemory::free_pages(struct page* pages, uint32_t count)
+{
+    if(!pages || count == 0)
+        return;
 
     // 获取第一个页面的PFN，用于确定所属区域
     uint32_t pfn = pages[0].pfn;
-    Zone *zone = nullptr;
+    Zone* zone = nullptr;
 
     // 根据PFN确定页面所属的区域
-    if (pfn < DMA_ZONE_END) {
+    if(pfn < DMA_ZONE_END) {
         zone = &dma_zone;
-    } else if (pfn < NORMAL_ZONE_END) {
+    } else if(pfn < NORMAL_ZONE_END) {
         zone = &normal_zone;
     } else {
         zone = &high_zone;
@@ -79,7 +83,7 @@ void KernelMemory::free_pages(struct page *pages, uint32_t count) {
     zone->freePages(pfn, count);
 
     // 清理页面描述符
-    for (uint32_t i = 0; i < count; i++) {
+    for(uint32_t i = 0; i < count; i++) {
         pages[i].flags = 0;
         pages[i]._count = 0;
         pages[i].virtual_address = 0;
@@ -90,14 +94,15 @@ void KernelMemory::free_pages(struct page *pages, uint32_t count) {
     delete[] pages;
 }
 // 释放已分配的页面
-void KernelMemory::freePage(uint32_t physAddr) {
+void KernelMemory::freePage(uint32_t physAddr)
+{
     uint32_t pfn = physAddr / PAGE_SIZE;
-    Zone *zone = nullptr;
+    Zone* zone = nullptr;
 
     // 根据PFN确定页面所属的区域
-    if (pfn < DMA_ZONE_END) {
+    if(pfn < DMA_ZONE_END) {
         zone = &dma_zone;
-    } else if (pfn < NORMAL_ZONE_END) {
+    } else if(pfn < NORMAL_ZONE_END) {
         zone = &normal_zone;
     } else {
         zone = &high_zone;
@@ -107,14 +112,53 @@ void KernelMemory::freePage(uint32_t physAddr) {
     zone->freePages(pfn, 1);
 }
 
+// 释放已分配的页面
+void KernelMemory::decrement_ref_count(uint32_t physAddr)
+{
+    uint32_t pfn = physAddr / PAGE_SIZE;
+    Zone* zone = nullptr;
+
+    // 根据PFN确定页面所属的区域
+    if(pfn < DMA_ZONE_END) {
+        zone = &dma_zone;
+    } else if(pfn < NORMAL_ZONE_END) {
+        zone = &normal_zone;
+    } else {
+        zone = &high_zone;
+    }
+
+    // 释放物理页面
+    zone->decRefPage(pfn);
+}
+void KernelMemory::increment_ref_count(uint32_t physAddr)
+{
+    uint32_t pfn = physAddr / PAGE_SIZE;
+    Zone* zone = nullptr;
+
+    // 根据PFN确定页面所属的区域
+    if(pfn < DMA_ZONE_END) {
+        zone = &dma_zone;
+    } else if(pfn < NORMAL_ZONE_END) {
+        zone = &normal_zone;
+    } else {
+        zone = &high_zone;
+    }
+
+    // 释放物理页面
+    zone->increment_ref_count(pfn);
+}
+
 // 初始化内核内存管理
-void KernelMemory::init() {
+void KernelMemory::init()
+{
     serial_puts("KernelMemory::init()");
     page_manager.init();
     // // 建立直接映射区的页表映射（包括DMA区域和普通区域）
-    // for (uint32_t phys_addr = 0; phys_addr < NORMAL_ZONE_END * PAGE_SIZE; phys_addr += PAGE_SIZE) {
+    // for (uint32_t phys_addr = 0; phys_addr < NORMAL_ZONE_END * PAGE_SIZE;
+    // phys_addr += PAGE_SIZE) {
     //     uint32_t virt_addr = KERNEL_DIRECT_MAP_START + phys_addr;
-    //     page_manager.mapPage(virt_addr, phys_addr, 3); // Supervisor, read/write, present
+    //     page_manager.mapPage(virt_addr, phys_addr, 3); // Supervisor,
+    //     read/write, present
     // }
 
     serial_puts("KernelMemory::init() 2");
@@ -129,10 +173,11 @@ void KernelMemory::init() {
 }
 
 // 分配小块连续物理内存（返回虚拟地址）
-void *KernelMemory::kmalloc(uint32_t size) {
+void* KernelMemory::kmalloc(uint32_t size)
+{
     // 根据大小选择合适的区域
-    Zone *zone = get_zone_for_allocation(size);
-    if (!zone) {
+    Zone* zone = get_zone_for_allocation(size);
+    if(!zone) {
         debug_debug("ProcessManager: Failed to allocate kernel memory, size: %d\n", size);
         return nullptr;
     }
@@ -142,7 +187,7 @@ void *KernelMemory::kmalloc(uint32_t size) {
 
     // 分配物理页面
     uint32_t pfn = zone->allocPages(pages);
-    if (!pfn) {
+    if(!pfn) {
         debug_debug("ProcessManager: Failed to allocate kernel memory\n");
         return nullptr;
     }
@@ -152,28 +197,29 @@ void *KernelMemory::kmalloc(uint32_t size) {
     uint32_t virt_addr = KERNEL_DIRECT_MAP_START + phys_addr; // 内核空间映射
 
     // 只有高端内存区域需要建立页表映射
-    if (zone == &high_zone) {
-        for (uint32_t i = 0; i < pages; i++) {
-            page_manager.mapPage(virt_addr + i * PAGE_SIZE,
-                                 phys_addr + i * PAGE_SIZE,
-                                 3); // Supervisor, read/write, present
+    if(zone == &high_zone) {
+        for(uint32_t i = 0; i < pages; i++) {
+            page_manager.mapPage(virt_addr + i * PAGE_SIZE, phys_addr + i * PAGE_SIZE,
+                3); // Supervisor, read/write, present
         }
     }
 
-    return (void *) virt_addr;
+    return (void*)virt_addr;
 }
 
 // 释放通过kmalloc分配的内存
-void KernelMemory::kfree(void *addr) {
-    if (!addr) return;
+void KernelMemory::kfree(void* addr)
+{
+    if(!addr)
+        return;
 
     // 获取物理页框号
-    uint32_t pfn = (uint32_t) addr >> 12;
+    uint32_t pfn = (uint32_t)addr >> 12;
 
     // 找到对应的区域并释放
-    if (pfn < dma_zone.getWatermark(WatermarkLevel::WMARK_HIGH)) {
+    if(pfn < dma_zone.getWatermark(WatermarkLevel::WMARK_HIGH)) {
         dma_zone.freePages(pfn, 1);
-    } else if (pfn < normal_zone.getWatermark(WatermarkLevel::WMARK_HIGH)) {
+    } else if(pfn < normal_zone.getWatermark(WatermarkLevel::WMARK_HIGH)) {
         normal_zone.freePages(pfn, 1);
     } else {
         high_zone.freePages(pfn, 1);
@@ -181,37 +227,39 @@ void KernelMemory::kfree(void *addr) {
 }
 
 // 分配大块非连续虚拟内存
-void *KernelMemory::vmalloc(uint32_t size) {
-    if (size == 0) return nullptr;
+void* KernelMemory::vmalloc(uint32_t size)
+{
+    if(size == 0)
+        return nullptr;
 
     // 计算需要的页数
     uint32_t pages = (size + PAGE_SIZE - 1) >> 12;
 
     // 从虚拟内存树中分配虚拟地址空间
     uint32_t virt_addr = vmalloc_tree.allocate(pages * PAGE_SIZE);
-    if (!virt_addr) {
+    if(!virt_addr) {
         return nullptr;
     }
 
     // 逐页分配物理内存并建立映射
-    for (uint32_t i = 0; i < pages; i++) {
+    for(uint32_t i = 0; i < pages; i++) {
         // 优先从普通区域分配物理页面
-        Zone *zone = &normal_zone;
+        Zone* zone = &normal_zone;
         uint32_t pfn = zone->allocPages(1);
 
         // 如果普通区域分配失败，尝试从高端区域分配
-        if (!pfn) {
+        if(!pfn) {
             zone = &high_zone;
             pfn = zone->allocPages(1);
 
             // 如果高端区域也分配失败，回滚并返回
-            if (!pfn) {
+            if(!pfn) {
                 // 释放已分配的页面
-                for (uint32_t j = 0; j < i; j++) {
+                for(uint32_t j = 0; j < i; j++) {
                     uint32_t prev_virt = virt_addr + j * PAGE_SIZE;
-                    uint32_t prev_phys = getPhysicalAddress((void *) prev_virt);
+                    uint32_t prev_phys = virt2Phys((void*)prev_virt);
                     page_manager.unmapPage(prev_virt);
-                    if (prev_phys < normal_zone.getWatermark(WatermarkLevel::WMARK_HIGH)) {
+                    if(prev_phys < normal_zone.getWatermark(WatermarkLevel::WMARK_HIGH)) {
                         normal_zone.freePages(prev_phys >> 12, 1);
                     } else {
                         high_zone.freePages(prev_phys >> 12, 1);
@@ -227,26 +275,29 @@ void *KernelMemory::vmalloc(uint32_t size) {
         page_manager.mapPage(virt_addr + i * PAGE_SIZE, phys_addr, 3);
     }
 
-    return (void *) virt_addr;
+    return (void*)virt_addr;
 }
 
 // 释放通过vmalloc分配的内存
-void KernelMemory::vfree(void *addr) {
-    if (!addr) return;
+void KernelMemory::vfree(void* addr)
+{
+    if(!addr)
+        return;
 
-    uint32_t virt_addr = (uint32_t) addr;
+    uint32_t virt_addr = (uint32_t)addr;
 
     // 确保地址在VMALLOC区域
-    if (virt_addr < VMALLOC_START || virt_addr >= VMALLOC_END) {
+    if(virt_addr < VMALLOC_START || virt_addr >= VMALLOC_END) {
         return;
     }
 
     // 逐页处理，直到遇到未映射的页面
     uint32_t current_addr = virt_addr;
-    while (true) {
+    while(true) {
         // 获取物理地址
-        uint32_t phys_addr = getPhysicalAddress((void *) current_addr);
-        if (!phys_addr) break; // 遇到未映射的页面
+        uint32_t phys_addr = virt2Phys((void*)current_addr);
+        if(!phys_addr)
+            break; // 遇到未映射的页面
 
         // 获取物理页框号
         uint32_t pfn = phys_addr >> 12;
@@ -255,8 +306,8 @@ void KernelMemory::vfree(void *addr) {
         page_manager.unmapPage(current_addr);
 
         // 找到对应的区域并释放物理页面
-        Zone *zone = get_zone_for_allocation(PAGE_SIZE);
-        if (zone) {
+        Zone* zone = get_zone_for_allocation(PAGE_SIZE);
+        if(zone) {
             zone->freePages(pfn, 1);
         }
 
@@ -268,7 +319,8 @@ void KernelMemory::vfree(void *addr) {
 }
 
 // 将物理页面临时映射到内核空间
-void *KernelMemory::kmap(uint32_t phys_addr) {
+void* KernelMemory::kmap(uint32_t phys_addr)
+{
     // 从KMAP区域分配虚拟地址
     static uint32_t next_kmap_addr = KMAP_START;
     uint32_t virt_addr = next_kmap_addr;
@@ -277,35 +329,41 @@ void *KernelMemory::kmap(uint32_t phys_addr) {
     // 建立临时映射
     page_manager.mapPage(virt_addr, phys_addr & ~(PAGE_SIZE - 1), 3);
 
-    return (void *) (virt_addr | (phys_addr & 0xFFF));
+    return (void*)(virt_addr | (phys_addr & 0xFFF));
 }
 
 // 解除kmap的映射
-void KernelMemory::kunmap(void *addr) {
-    if (!addr) return;
+void KernelMemory::kunmap(void* addr)
+{
+    if(!addr)
+        return;
 
-    uint32_t virt_addr = (uint32_t) addr & ~0xFFF;
-    if (virt_addr >= KMAP_START && virt_addr < KMAP_END) {
+    uint32_t virt_addr = (uint32_t)addr & ~0xFFF;
+    if(virt_addr >= KMAP_START && virt_addr < KMAP_END) {
         page_manager.unmapPage(virt_addr);
     }
 }
 
 // 获取虚拟地址对应的物理地址
-uint32_t KernelMemory::getPhysicalAddress(void *virt_addr) {
-    return (uint32_t) virt_addr - KERNEL_DIRECT_MAP_START;
+uint32_t KernelMemory::virt2Phys(void* virt_addr)
+{
+    return (uint32_t)virt_addr - KERNEL_DIRECT_MAP_START;
 }
-void * KernelMemory::getVirtualAddress(uint32_t phys_addr) {
-    return (void *)(phys_addr + KERNEL_DIRECT_MAP_START);
+void* KernelMemory::phys2Virt(uint32_t phys_addr)
+{
+    return (void*)(phys_addr + KERNEL_DIRECT_MAP_START);
 }
 
 // 获取虚拟地址对应的页框号
-uint32_t KernelMemory::getPfn(void *virt_addr) {
-    uint32_t phys_addr = getPhysicalAddress(virt_addr);
+uint32_t KernelMemory::getPfn(void* virt_addr)
+{
+    uint32_t phys_addr = virt2Phys(virt_addr);
     return phys_addr >> 12; // 右移12位得到页框号
 }
 
 // 根据大小选择合适的内存区域
-Zone *KernelMemory::get_zone_for_allocation(uint32_t size) {
+Zone* KernelMemory::get_zone_for_allocation(uint32_t size)
+{
     // 对于小于16MB的分配，优先使用DMA区域
     //    if (size <= DMA_ZONE_END * PAGE_SIZE) {
     //        if (dma_zone.getFreePages() * PAGE_SIZE >= size) {
@@ -314,7 +372,7 @@ Zone *KernelMemory::get_zone_for_allocation(uint32_t size) {
     //    }
 
     // 对于普通大小的分配，使用普通区域
-    if (normal_zone.getFreePages() * PAGE_SIZE >= size) {
+    if(normal_zone.getFreePages() * PAGE_SIZE >= size) {
         return &normal_zone;
     } else {
         debug_debug("num free pages: %d\n", normal_zone.getFreePages());

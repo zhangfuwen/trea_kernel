@@ -15,8 +15,8 @@ struct IDTPointer {
     uint32_t base;
 } __attribute__((packed));
 
-
-class IDT {
+class IDT
+{
 public:
     static void init();
 

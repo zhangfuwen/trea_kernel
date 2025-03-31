@@ -1,0 +1,12 @@
+---
+Language: Cpp
+ColumnLimit: 100
+IndentWidth: 4
+UseTab: Never
+BreakBeforeBraces: Linux
+PointerAlignment: Left
+SpaceBeforeParens: Never
+IndentCaseLabels: true
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: Empty
+AlignAfterOpenBracket: DontAlign

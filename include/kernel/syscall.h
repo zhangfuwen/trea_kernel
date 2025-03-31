@@ -24,11 +24,13 @@ int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint3
 int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr);
 
 // 系统调用管理器
-class SyscallManager {
+class SyscallManager
+{
 public:
     static void init();
     static void registerHandler(uint32_t syscall_num, SyscallHandler handler);
-    static int handleSyscall(uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4);
+    static int handleSyscall(
+        uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4);
 
 private:
     static SyscallHandler handlers[256];

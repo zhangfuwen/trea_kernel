@@ -3,9 +3,10 @@
 
 #include <cstdint>
 
-void console_print(const char *msg);
+void console_print(const char* msg);
 
-class Console {
+class Console
+{
 public:
     static void init();
     static void clear();

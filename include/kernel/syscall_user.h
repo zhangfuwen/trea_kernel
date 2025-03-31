@@ -16,100 +16,75 @@
 
 // 系统调用接口
 extern "C" {
-    // fork系统调用
-    inline int syscall_fork() {
-        int ret;
-        asm volatile(
-            "int $0x80"
-            : "=a"(ret)
-            : "a"(SYS_FORK)
-            : "memory"
-        );
-        return ret;
-    }
+// fork系统调用
+inline int syscall_fork()
+{
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(SYS_FORK) : "memory");
+    return ret;
+}
 
-    // exec系统调用
-    inline int syscall_exec(const char* path, char* const argv[]) {
-        int ret;
-        asm volatile(
-            "int $0x80"
-            : "=a"(ret)
-            : "a"(SYS_EXEC), "b"(path), "c"(argv)
-            : "memory"
-        );
-        return ret;
-    }
+// exec系统调用
+inline int syscall_exec(const char* path, char* const argv[])
+{
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(SYS_EXEC), "b"(path), "c"(argv) : "memory");
+    return ret;
+}
 
-    // open系统调用
-    inline int syscall_open(const char* path) {
-        int ret;
-        asm volatile(
-            "int $0x80"
-            : "=a"(ret)
-            : "a"(SYS_OPEN), "b"(path)
-            : "memory"
-        );
-        return ret;
-    }
+// open系统调用
+inline int syscall_open(const char* path)
+{
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(SYS_OPEN), "b"(path) : "memory");
+    return ret;
+}
 
-    // read系统调用
-    inline int syscall_read(int fd, void* buffer, size_t size) {
-        int ret;
-        asm volatile(
-            "int $0x80"
-            : "=a"(ret)
-            : "a"(SYS_READ), "b"(fd), "c"(buffer), "d"(size)
-            : "memory"
-        );
-        return ret;
-    }
+// read系统调用
+inline int syscall_read(int fd, void* buffer, size_t size)
+{
+    int ret;
+    asm volatile("int $0x80"
+                 : "=a"(ret)
+                 : "a"(SYS_READ), "b"(fd), "c"(buffer), "d"(size)
+                 : "memory");
+    return ret;
+}
 
-    // write系统调用
-    inline int syscall_write(int fd, const void* buffer, size_t size) {
-        int ret;
-        asm volatile(
-            "int $0x80"
-            : "=a"(ret)
-            : "a"(SYS_WRITE), "b"(fd), "c"(buffer), "d"(size)
-            : "memory"
-        );
-        return ret;
-    }
+// write系统调用
+inline int syscall_write(int fd, const void* buffer, size_t size)
+{
+    int ret;
+    asm volatile("int $0x80"
+                 : "=a"(ret)
+                 : "a"(SYS_WRITE), "b"(fd), "c"(buffer), "d"(size)
+                 : "memory");
+    return ret;
+}
 
-    // close系统调用
-    inline int syscall_close(int fd) {
-        int ret;
-        asm volatile(
-            "int $0x80"
-            : "=a"(ret)
-            : "a"(SYS_CLOSE), "b"(fd)
-            : "memory"
-        );
-        return ret;
-    }
+// close系统调用
+inline int syscall_close(int fd)
+{
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(SYS_CLOSE), "b"(fd) : "memory");
+    return ret;
+}
 
-    // seek系统调用
-    inline int syscall_seek(int fd, size_t offset) {
-        int ret;
-        asm volatile(
-            "int $0x80"
-            : "=a"(ret)
-            : "a"(SYS_SEEK), "b"(fd), "c"(offset)
-            : "memory"
-        );
-        return ret;
-    }
+// seek系统调用
+inline int syscall_seek(int fd, size_t offset)
+{
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(SYS_SEEK), "b"(fd), "c"(offset) : "memory");
+    return ret;
+}
 
-    // exit系统调用
-    inline void syscall_exit(int status) {
-        asm volatile(
-            "int $0x80"
-            : 
-            : "a"(SYS_EXIT), "b"(status)
-            : "memory"
-        );
-        while(1); // 防止返回
-    }
+// exit系统调用
+inline void syscall_exit(int status)
+{
+    asm volatile("int $0x80" : : "a"(SYS_EXIT), "b"(status) : "memory");
+    while(1)
+        ; // 防止返回
+}
 }
 
 #endif // SYSCALL_USER_H

@@ -1,7 +1,7 @@
 #include <cstdint>
 
-#include "lib/ioport.h"
 #include "arch/x86/interrupt.h"
+#include "lib/ioport.h"
 
 #include <arch/x86/idt.h>
 
@@ -13,17 +13,15 @@ extern "C" void init_idts();
 extern "C" uint32_t timer_interrupt;
 extern "C" uint32_t syscall_interrupt;
 
-
 // 静态成员变量定义
 InterruptHandler InterruptManager::handlers[256];
 
-
-
 // ====== 初始化相关函数 ======
 
-void InterruptManager::init() {
+void InterruptManager::init()
+{
     // 初始化所有中断处理程序为默认处理程序
-    for (int i = 0; i < 256; i++) {
+    for(int i = 0; i < 256; i++) {
         handlers[i] = defaultHandler;
     }
 
@@ -40,7 +38,7 @@ void InterruptManager::init() {
     registerHandler(0x26, []() {
         debug_debug("IRQ 6\n");
         uint8_t status = inb(0x3F4);
-        if (status & 0x80) {
+        if(status & 0x80) {
             debug_debug("IRQ 6: floppy is active\n");
         }
     });
@@ -53,7 +51,6 @@ void InterruptManager::init() {
     registerHandler(0x2D, []() { debug_debug("IRQ 13\n"); });
     registerHandler(0x2E, []() { debug_debug("IRQ 14\n"); });
     registerHandler(0x2F, []() { debug_debug("IRQ 15\n"); });
-
 
     // IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
     // IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
@@ -72,18 +69,19 @@ extern "C" uint32_t handleSyscall(uint32_t syscall_num, uint32_t arg1, uint32_t 
     return SyscallManager::handleSyscall(syscall_num, arg1, arg2, arg3, 0);
 }
 
-extern "C" void handleInterrupt(uint32_t interrupt) {
+extern "C" void handleInterrupt(uint32_t interrupt)
+{
     // debug_debug("[INT] Handling interrupt %d\n", interrupt);
 
-    if (InterruptManager::handlers[interrupt]) {
+    if(InterruptManager::handlers[interrupt]) {
         InterruptManager::handlers[interrupt]();
     } else {
         debug_debug("[INT] Unhandled interrupt %d\n", interrupt);
     }
 
     // 如果是IRQ，需要发送EOI
-    if (interrupt >= 0x20 && interrupt <= 0x2F) {
-        if (interrupt >= 0x28) {
+    if(interrupt >= 0x20 && interrupt <= 0x2F) {
+        if(interrupt >= 0x28) {
             // 从PIC的中断
             outb(0xA0, 0x20);
         }
@@ -91,27 +89,31 @@ extern "C" void handleInterrupt(uint32_t interrupt) {
     }
 }
 
-
 // ====== 辅助函数 ======
 
-void InterruptManager::registerHandler(uint8_t interrupt, InterruptHandler handler) {
+void InterruptManager::registerHandler(uint8_t interrupt, InterruptHandler handler)
+{
     debug_debug("registerHandler called with interrupt: %d\n", interrupt);
     handlers[interrupt] = handler;
 }
 
-void InterruptManager::defaultHandler() {
+void InterruptManager::defaultHandler()
+{
     debug_debug("[INT] Unhandled interrupt\n");
 }
 
-void InterruptManager::enableInterrupts() {
+void InterruptManager::enableInterrupts()
+{
     enable_interrupts();
 }
 
-void InterruptManager::disableInterrupts() {
+void InterruptManager::disableInterrupts()
+{
     disable_interrupts();
 }
 
-void InterruptManager::remapPIC() {
+void InterruptManager::remapPIC()
+{
     // 初始化主PIC
     outb(0x20, 0x11); // 初始化命令
     outb(0x21, 0x20); // 起始中断向量号

@@ -4,14 +4,39 @@
 #include <cstdint>
 
 // 页表标志位
-constexpr uint32_t PAGE_PRESENT = 0x1;    // 页面存在
-constexpr uint32_t PAGE_WRITE = 0x2;      // 可写
-constexpr uint32_t PAGE_USER = 0x4;       // 用户级
-constexpr uint32_t PAGE_WRITE_THROUGH = 0x8;  // 写透
-constexpr uint32_t PAGE_CACHE_DISABLE = 0x10; // 禁用缓存
-constexpr uint32_t PAGE_ACCESSED = 0x20;  // 已访问
-constexpr uint32_t PAGE_DIRTY = 0x40;     // 已修改
-constexpr uint32_t PAGE_GLOBAL = 0x100;   // 全局
+constexpr uint32_t PAGE_PRESENT = 0x1;        // 页面存在 (位0)
+constexpr uint32_t PAGE_WRITE = 0x2;          // 可写 (位1)
+constexpr uint32_t PAGE_USER = 0x4;           // 用户级 (位2)
+constexpr uint32_t PAGE_WRITE_THROUGH = 0x8;  // 写透 (位3)
+constexpr uint32_t PAGE_CACHE_DISABLE = 0x10; // 禁用缓存 (位4)
+constexpr uint32_t PAGE_ACCESSED = 0x20;      // 已访问 (位5)
+constexpr uint32_t PAGE_DIRTY = 0x40;         // 已修改 (位6)
+constexpr uint32_t PAGE_GLOBAL = 0x100;       // 全局 (位8)
+constexpr uint32_t PAGE_COW = 0x200;          // 写时复制 (位9), 系统自定义位
+
+using PFN = uint32_t;
+using VADDR = void *;
+using PADDR = uint32_t;
+
+// 页面状态标志
+enum class PageFlags : uint32_t {
+    PAGE_RESERVED = 1 << 0,   // 保留页面
+    PAGE_ALLOCATED = 1 << 1,  // 已分配
+    PAGE_DIRTY = 1 << 2,      // 脏页面
+    PAGE_LOCKED = 1 << 3,     // 锁定页面
+    PAGE_REFERENCED = 1 << 4, // 被引用
+    PAGE_ACTIVE = 1 << 5,     // 活跃页面
+    PAGE_INACTIVE = 1 << 6,   // 不活跃页面
+};
+
+// 物理页面描述符
+struct page {
+    uint32_t flags;           // 页面状态标志
+    uint32_t _count;          // 引用计数
+    uint32_t virtual_address; // 映射的虚拟地址
+    uint32_t pfn;             // 页框号
+    struct page* next;        // 链表指针，用于空闲页面链表
+};
 
 struct PageDirectory {
     uint32_t entries[1024];
@@ -27,16 +52,26 @@ struct PageTable {
 // 以上是指物理内存，不需要虚拟地
 
 constexpr uint32_t PAGE_DIRECTORY_ADDR = 0x400000; // 4MB地址处是页目录
-constexpr uint32_t K_FIRST_4M_PT = 0x401000; // 4MB + 4KB地址处是前4M页表
-constexpr uint32_t K_PAGE_TABLE_START = 0x402000;    // 4MB + 8KB地址处是页表
-constexpr uint32_t K_PAGE_TABLE_COUNT =  224; // 224 * 1024page/table * 4KB/page = 896MB
+constexpr uint32_t K_FIRST_4M_PT = 0x401000;       // 4MB + 4KB地址处是前4M页表
+constexpr uint32_t K_PAGE_TABLE_START = 0x402000;  // 4MB + 8KB地址处是页表
+constexpr uint32_t K_PAGE_TABLE_COUNT = 224;       // 224 * 1024page/table * 4KB/page = 896MB
 
-class PageManager {
+#define TEMP_MAPPING_VADDR 0xFFC00000  // 内核临时映射专用地址
+
+class PageManager
+{
 public:
     PageManager();
     void init();
     static void mapKernelSpace();
-    static int copyMemorySpace(PageDirectory *src, PageDirectory* &out);
+    static int copyMemorySpace(PageDirectory* src, PageDirectory*& out);
+    /**
+     * @brief 复制内存空间，使用写时复制技术
+     * @param src 源页目录
+     * @param dst 目标页目录, out pointer
+     * @return 0 成功，-1 失败
+     */
+    static int copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dst);
 
     static void loadPageDirectory(uint32_t dir);
     static void enablePaging();
@@ -55,18 +90,19 @@ public:
     // uint32_t getPhysicalAddress(uint32_t virt_addr);
 
     // 获取当前页目录
-    PageDirectory* getCurrentPageDirectory() {
-        return currentPageDirectory;
+    PageDirectory* getCurrentPageDirectory()
+    {
+        return curPgdVirt;
     }
-    PageTable * createPageTable();
+    PageTable* createPageTable();
 
     // 切换页目录
-    void switchPageDirectory(PageDirectory* dirVirt, void * dirPhys);
+    void switchPageDirectory(PageDirectory* dirVirt, void* dirPhys);
 
 private:
-    static void copyKernelSpace(PageDirectory * src, PageDirectory * dst);
+    static void copyKernelSpace(PageDirectory* src, PageDirectory* dst);
     uint32_t nextFreePage;
-    PageDirectory* currentPageDirectory;
+    PageDirectory* curPgdVirt;
 };
 
 #endif // ARCH_X86_PAGING_H
