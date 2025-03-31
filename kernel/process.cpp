@@ -108,7 +108,7 @@ ProcessControlBlock* ProcessManager::create_process(const char* name)
 }
 
 // 初始化进程详细信息
-int ProcessManager::kernel_process(const char* name, uint32_t entry, uint32_t argc, char* argv[])
+ProcessControlBlock* ProcessManager::kernel_process(const char* name, uint32_t entry, uint32_t argc, char* argv[])
 {
     auto pPcb = create_process(name);
     auto& pcb = *pPcb;
@@ -161,9 +161,21 @@ int ProcessManager::kernel_process(const char* name, uint32_t entry, uint32_t ar
     debug_debug("initialized process 0x%x, pid: %d\n", pPcb, pcb.pid);
     pcb.print();
     appendPCB((PCB*)pPcb);
-    pcb.state = PROCESS_READY;
-    return pcb.pid;
+    return pPcb;
 }
+
+int ProcessManager::allocUserStack(ProcessControlBlock* pcb)
+{
+    auto &mm = pcb->user_mm;
+    pcb->stacks.user_stack_size = USER_STACK_SIZE;
+    pcb->stacks.user_stack = (uint32_t)mm.allocate_area(pcb->stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
+    if(!pcb->stacks.user_stack) {
+        debug_debug("ProcessManager: Failed to allocate user stack\n");
+        return -1;
+    }
+    return 0;
+}
+
 
 void ProcessManager::appendPCB(PCB* pcb)
 {
@@ -408,7 +420,7 @@ ProcessControlBlock* ProcessManager::get_current_process()
 void ProcessManager::switch_to_user_mode(uint32_t entry_point)
 {
     auto pcb = get_current_process();
-    auto user_stack = pcb->stacks.user_stack + pcb->stacks.user_stack_size;
+    auto user_stack = pcb->stacks.user_stack + pcb->stacks.user_stack_size - 16;
     debug_debug(
         "switch_to_user_mode called, user stack: %x, entry point %x\n", user_stack, entry_point);
 
@@ -420,19 +432,22 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point)
     pcb->regs.ss = pcb->regs.ds = USER_DS;
     pcb->regs.eflags == 0x200;
 
-    // asm volatile(
-    //     "mov %%eax, %%esp\n\t"         // 设置用户栈指针
-    //     "pushl $0x23\n\t"             // 用户数据段选择子
-    //     "pushl %%eax\n\t"             // 用户栈指针
-    //     "pushfl\n\t"                  // 原始EFLAGS
-    //     "orl $0x200, (%%esp)\n\t"     // 开启中断标志
-    //     "pushl $0x1B\n\t"             // 用户代码段选择子
-    //     "pushl %%ebx\n\t"             // 入口地址
-    //     "iret\n\t"                    // 切换特权级
-    //     :
-    //     : "a" (user_stack), "b" (entry_point)
-    //     : "memory", "cc"
-    // );
+    printPDPTE((void *)entry_point);
+    printPDPTE((void *)user_stack);
+
+    asm volatile(
+        "mov %%eax, %%esp\n\t"         // 设置用户栈指针
+        "pushl $0x23\n\t"             // 用户数据段选择子
+        "pushl %%eax\n\t"             // 用户栈指针
+        "pushfl\n\t"                  // 原始EFLAGS
+        "orl $0x200, (%%esp)\n\t"     // 开启中断标志
+        "pushl $0x1B\n\t"             // 用户代码段选择子
+        "pushl %%ebx\n\t"             // 入口地址
+        "iret\n\t"                    // 切换特权级
+        :
+        : "a" (user_stack), "b" (entry_point)
+        : "memory", "cc"
+    );
     // __builtin_unreachable();  // 避免编译器警告
 }
 

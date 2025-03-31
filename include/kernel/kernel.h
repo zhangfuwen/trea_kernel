@@ -5,6 +5,7 @@
 #include "user_memory.h"
 
 extern "C" void page_fault_handler(uint32_t error_code, uint32_t fault_addr);
+void debugPTE(VADDR vaddr);
 // 内核管理类（单例）
 class Kernel
 {

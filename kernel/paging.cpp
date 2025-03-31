@@ -7,6 +7,58 @@
 
 #include "kernel/kernel.h"
 
+void printPTEFlags(uint32_t pte)
+{
+    // constexpr uint32_t PAGE_PRESENT = 0x1;        // 页面存在 (位0)
+    // constexpr uint32_t PAGE_WRITE = 0x2;          // 可写 (位1)
+    // constexpr uint32_t PAGE_USER = 0x4;           // 用户级 (位2)
+    // constexpr uint32_t PAGE_WRITE_THROUGH = 0x8;  // 写透 (位3)
+    // constexpr uint32_t PAGE_CACHE_DISABLE = 0x10; // 禁用缓存 (位4)
+    // constexpr uint32_t PAGE_ACCESSED = 0x20;      // 已访问 (位5)
+    // constexpr uint32_t PAGE_DIRTY = 0x40;         // 已修改 (位6)
+    // constexpr uint32_t PAGE_GLOBAL = 0x100;       // 全局 (位8)
+    // constexpr uint32_t PAGE_COW = 0x200;          // 写时复制 (位9), 系统自定义位
+    bool present = pte & PAGE_PRESENT;
+    bool write = pte & PAGE_WRITE;
+    bool user = pte & PAGE_USER;
+    bool writeThrough = pte & PAGE_WRITE_THROUGH;
+    bool cacheDisable = pte & PAGE_CACHE_DISABLE;
+    bool accessed = pte & PAGE_ACCESSED;
+    bool dirty = pte & PAGE_DIRTY;
+    bool global = pte & PAGE_GLOBAL;
+    bool cow = pte & PAGE_COW;
+
+    debug_debug("present : %d\n", present);
+    debug_debug("write : %d\n", write);
+    debug_debug("user : %d\n", user);
+    debug_debug("writeThrough : %d\n", writeThrough);
+    debug_debug("cache disable : %d\n", cacheDisable);
+    debug_debug("accessed : %d\n", accessed);
+    debug_debug("dirty : %d\n", dirty);
+    debug_debug("global : %d\n", global);
+    debug_debug("cow : %d\n", cow);
+}
+void printPDPTE(VADDR vaddr)
+{
+    debug_debug("vaddr : 0x%x\n", vaddr);
+    auto& paging = Kernel::instance().kernel_mm().paging();
+    auto pdVirt = paging.getCurrentPageDirectory();
+    auto pdPhys = Kernel::instance().kernel_mm().virt2Phys(pdVirt);
+
+    auto fault_addr = (uint32_t)vaddr;
+    auto pd_index = (fault_addr >> 22) & 0x3FF;
+    auto pde = pdVirt->entries[fault_addr >> 22];
+    auto pt_phys = pde & 0xFFFFF000;
+    auto pt_virt = (PageTable*)Kernel::instance().kernel_mm().phys2Virt(pt_phys);
+    auto pt_index = (fault_addr >> 12) & 0x3FF;
+    auto pte = pt_virt->entries[pt_index];
+    debug_debug("PD: 0x%x(phys:0x%x), PD index:%d(0x%x), PDE:0x%x\n", pdVirt, pdPhys, pd_index,
+        pd_index, pde);
+    debug_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x\n", pt_virt, pt_phys, pt_index,
+        pt_index, pte);
+    printPTEFlags(pte);
+}
+
 PageManager::PageManager() : nextFreePage(0x400000), curPgdVirt(nullptr) {}
 
 void PageManager::init()
@@ -41,7 +93,7 @@ void PageManager::mapKernelSpace()
     // 映射前4M
     auto* dir = reinterpret_cast<PageDirectory*>(PAGE_DIRECTORY_ADDR);
     auto* table1 = reinterpret_cast<PageTable*>(K_FIRST_4M_PT);
-    dir->entries[0] = K_FIRST_4M_PT | 7; // Supervisor, read/write, present;
+    dir->entries[0] = K_FIRST_4M_PT | 7; // user, read/write, present;
     for(int i = 0; i < 1024; i++) {
         table1->entries[i] = (i * 4096) | 7; // user can access, read/write, present
     }

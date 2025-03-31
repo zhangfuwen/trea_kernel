@@ -124,7 +124,7 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr)
     uint32_t entry_point = header->entry;
     debug_debug("entry_point: %x\n", entry_point);
 
-    // ProcessManager::switch_to_user_mode(entry_point);
+    ProcessManager::switch_to_user_mode(entry_point);
     // current->mm.free_area((uint32_t)filep);
 
     return 0;

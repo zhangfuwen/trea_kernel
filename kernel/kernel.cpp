@@ -18,21 +18,7 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
     debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
 
-    auto& paging = Kernel::instance().kernel_mm().paging();
-
-    auto pdVirt = paging.getCurrentPageDirectory();
-    auto pdPhys = Kernel::instance().kernel_mm().virt2Phys(pdVirt);
-
-    auto pd_index = (fault_addr >> 22) & 0x3FF;
-    auto pde = pdVirt->entries[fault_addr >> 22];
-    auto pt_phys = pde & 0xFFFFF000;
-    auto pt_virt = (PageTable*)Kernel::instance().kernel_mm().phys2Virt(pt_phys);
-    auto pt_index = (fault_addr >> 12) & 0x3FF;
-    auto pte = pt_virt->entries[pt_index];
-    debug_debug("PD: 0x%x(phys:0x%x), PD index:%d(0x%x), PDE:0x%x\n", pdVirt, pdPhys, pd_index,
-        pd_index, pde);
-    debug_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x\n", pt_virt, pt_phys, pt_index,
-        pt_index, pte);
+    printPDPTE((void*)fault_addr);
 
     if(fault_addr >= 0x40000000 && fault_addr < 0xC0000000) {
         is_user = true;

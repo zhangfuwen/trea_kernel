@@ -58,6 +58,9 @@ constexpr uint32_t K_PAGE_TABLE_COUNT = 224;       // 224 * 1024page/table * 4KB
 
 #define TEMP_MAPPING_VADDR 0xFFC00000  // 内核临时映射专用地址
 
+void printPDPTE(VADDR vaddr);
+void printPTEFlags(uint32_t pte);
+
 class PageManager
 {
 public:

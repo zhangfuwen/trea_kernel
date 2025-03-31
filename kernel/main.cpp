@@ -30,7 +30,8 @@ void init()
 {
     while(true) {
         debug_rate_limited("init process!\n");
-        asm volatile("hlt");
+        sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr);
+    //    asm volatile("hlt");
     }
 };
 
@@ -166,7 +167,9 @@ extern "C" void kernel_main()
     ProcessManager::initIdle();
     debug_debug("Trying to execute /init...\n");
     // int pid = syscall_fork();
-    ProcessManager::kernel_process("init", (uint32_t)init, 0, nullptr);
+    auto initProc = ProcessManager::kernel_process("init", (uint32_t)init, 0, nullptr);
+    ProcessManager::allocUserStack(initProc);
+    initProc->state = PROCESS_RUNNING;
     debug_debug("Trying to execute /init...\n");
     asm volatile("sti");
     // if(pid == 0) {

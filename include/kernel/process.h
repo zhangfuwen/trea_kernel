@@ -121,7 +121,7 @@ class ProcessManager {
 public:
     static void init();
     static ProcessControlBlock* create_process(const char* name); // 修改内部实现使用PidManager
-    static int kernel_process(const char* name, uint32_t entry, uint32_t argc, char* argv[]);
+    static ProcessControlBlock* kernel_process(const char* name, uint32_t entry, uint32_t argc, char* argv[]);
     static int fork();
     static ProcessControlBlock* get_current_process();
     // static int32_t execute_process(const char* path);
@@ -133,6 +133,7 @@ public:
     static void restore_context(uint32_t* esp);
     static void initIdle();
     static void appendPCB(PCB* pcb);
+    static int allocUserStack(ProcessControlBlock* pcb);
 
 private:
     static PCB * idle_pcb;
