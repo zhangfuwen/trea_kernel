@@ -93,7 +93,9 @@ ProcessControlBlock* ProcessManager::create_process(const char* name)
     pcb.time_slice = 100;
     pcb.total_time = 0;
 
-    pcb.user_mm.init((uint32_t)Kernel::instance().kernel_mm().paging().getCurrentPageDirectory(),
+    auto pgd = kernel_mm.paging().getCurrentPageDirectory();
+
+    pcb.user_mm.init((uint32_t)pgd,
         []() {
             auto page = Kernel::instance().kernel_mm().allocPage();
             debug_debug("ProcessManager: Allocated Page at %x\n", page);
@@ -169,6 +171,8 @@ int ProcessManager::allocUserStack(ProcessControlBlock* pcb)
     auto &mm = pcb->user_mm;
     pcb->stacks.user_stack_size = USER_STACK_SIZE;
     pcb->stacks.user_stack = (uint32_t)mm.allocate_area(pcb->stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
+    debug_debug("user stack:0x%x\n", pcb->stacks.user_stack);
+    printPDPTE((void*)pcb->stacks.user_stack);
     if(!pcb->stacks.user_stack) {
         debug_debug("ProcessManager: Failed to allocate user stack\n");
         return -1;
@@ -417,9 +421,9 @@ ProcessControlBlock* ProcessManager::get_current_process()
     return current_pcb;
 }
 
-void ProcessManager::switch_to_user_mode(uint32_t entry_point)
+void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlock*pcb)
 {
-    auto pcb = get_current_process();
+    // auto pcb = get_current_process();
     auto user_stack = pcb->stacks.user_stack + pcb->stacks.user_stack_size - 16;
     debug_debug(
         "switch_to_user_mode called, user stack: %x, entry point %x\n", user_stack, entry_point);

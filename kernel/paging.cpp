@@ -52,10 +52,11 @@ void printPDPTE(VADDR vaddr)
     auto pt_virt = (PageTable*)Kernel::instance().kernel_mm().phys2Virt(pt_phys);
     auto pt_index = (fault_addr >> 12) & 0x3FF;
     auto pte = pt_virt->entries[pt_index];
+    auto phys = pte & 0xFFFFF000;
     debug_debug("PD: 0x%x(phys:0x%x), PD index:%d(0x%x), PDE:0x%x\n", pdVirt, pdPhys, pd_index,
         pd_index, pde);
-    debug_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x\n", pt_virt, pt_phys, pt_index,
-        pt_index, pte);
+    debug_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x, phys:0x%x\n", pt_virt, pt_phys, pt_index,
+        pt_index, pte, phys);
     printPTEFlags(pte);
 }
 

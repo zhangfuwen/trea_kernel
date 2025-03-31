@@ -9,6 +9,7 @@ void UserMemory::init(uint32_t page_dir, uint32_t (*alloc_page)(), void (*free_p
     void* (*phys_to_virt)(uint32_t))
 {
     pgd = page_dir;
+    debug_debug("pgd:0x%x\n", pgd);
     num_areas = 0;
     total_vm = 0;
     locked_vm = 0;
@@ -79,6 +80,8 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
     areas[num_areas].type = type;
     num_areas++;
 
+    debug_debug("allocated area, start:0x%x, end:0x%x, size:0x%x\n", start, end, size);
+
     // 更新总虚拟内存大小
     total_vm += size >> 12; // 已经按页对齐，直接除以页大小
 
@@ -93,10 +96,16 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
         uint32_t pte_idx = (vaddr >> 12) & 0x3FF;
 
         // 获取页目录项
-        uint32_t* pde = (uint32_t*)(pgd + (pde_idx << 2));
+        uint32_t* pde = (uint32_t*)(pgd) + pde_idx;
+        if(vaddr == 0x40000000) {
+            debug_debug("pde_idx: %d\n", pde_idx);
+            printPDPTE((void*)vaddr);
+        }
+        debug_debug("pgd:%x, pde_addr:%x,  pde %x\n", pgd, pde, *pde);
 
         // 如果页表不存在，创建新的页表
         if(!(*pde & PAGE_PRESENT)) {
+            debug_debug("allocating pt\n");
             uint32_t page_table = allocate_physical_page();
             auto virt = phys_to_virt(page_table);
             *pde = page_table | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
@@ -112,8 +121,8 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
         uint32_t* pte0 = pte;
 
         if(type == MEM_TYPE_STACK) {
-            auto pfn = (uint32_t)Kernel::instance().kernel_mm().allocPage();
-            auto phys = pfn << 12;
+            auto phys = (uint32_t)Kernel::instance().kernel_mm().allocPage();
+            debug_debug("stack phys:0x%x\n", phys);
             *pte0 = (phys | flags | PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
         } else {
             // 设置页表项为不存在，但保留权限标志，这样在page

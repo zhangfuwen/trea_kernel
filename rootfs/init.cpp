@@ -38,7 +38,7 @@ int main()
         asm volatile("nop");
         asm volatile("nop");
         asm volatile("nop");
-        asm volatile("nop");
+        asm volatile("hlt");
         asm volatile("nop");
         asm volatile("nop");
         asm volatile("nop");

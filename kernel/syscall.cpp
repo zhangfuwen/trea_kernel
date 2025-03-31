@@ -19,7 +19,7 @@
 // 系统调用处理函数声明
 int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t)
 {
-    sys_execve(path_ptr, argv_ptr, envp_ptr);
+    sys_execve(path_ptr, argv_ptr, envp_ptr, nullptr);
 }
 
 // 静态成员初始化
@@ -71,12 +71,15 @@ void SyscallManager::defaultHandler()
 }
 
 // execve系统调用处理函数
-int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr)
+int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessControlBlock *pcb)
 {
     debug_debug("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
 
     // 获取当前进程
     ProcessControlBlock* current = ProcessManager::get_current_process();
+    if(pcb != nullptr) {
+        current = pcb;
+    }
     if(!current) {
         return -1;
     }
@@ -98,7 +101,12 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr)
 
     // 读取文件内容
     auto filep = current->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
-    // debug_debug("File allocated at %x\n", filep);
+    debug_debug("File allocated at %x\n", filep);
+    auto pages = Kernel::instance().kernel_mm().alloc_pages(attr->size/4096);
+    for(int i = 0; i < attr->size/4096; i++) {
+        current->user_mm.map_pages((uint32_t)filep + i*4096, pages[i].pfn*4096, 4096, PAGE_USER|PAGE_WRITE|PAGE_PRESENT);
+    }
+    debug_debug("File allocated at %x\n", filep);
     int size = kernel::sys_read(fd, (uint32_t)filep, attr->size);
     if(size <= 0) {
         current->user_mm.free_area((uint32_t)filep);
@@ -113,7 +121,11 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr)
 
     // 加载ELF文件
     current->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_WRITE | PAGE_USER);
-    if(!ElfLoader::load_elf(filep, size, 0)) {
+
+    auto loadAddr = current->user_mm.allocate_area(0x4000, PAGE_WRITE, 0);
+    auto paddr = Kernel::instance().kernel_mm().allocPage();
+    current->user_mm.map_pages((uint32_t)loadAddr, paddr, 0x1000, PAGE_WRITE | PAGE_USER|PAGE_PRESENT);
+    if(!ElfLoader::load_elf(filep, size,(uint32_t)loadAddr)) {
         current->user_mm.free_area((uint32_t)filep);
         debug_err("Failed to load ELF file\n");
         return -1;
@@ -124,7 +136,7 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr)
     uint32_t entry_point = header->entry;
     debug_debug("entry_point: %x\n", entry_point);
 
-    ProcessManager::switch_to_user_mode(entry_point);
+    ProcessManager::switch_to_user_mode(entry_point+(uint32_t)loadAddr, pcb);
     // current->mm.free_area((uint32_t)filep);
 
     return 0;

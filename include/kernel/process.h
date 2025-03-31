@@ -128,7 +128,7 @@ public:
     static bool schedule(); // false for no more processes
     // static int switch_process(uint32_t pid);
     static PidManager pid_manager;
-    static void switch_to_user_mode(uint32_t entry_point);
+    static void switch_to_user_mode(uint32_t entry_point, ProcessControlBlock*pcb);
     static void save_context(uint32_t* esp);
     static void restore_context(uint32_t* esp);
     static void initIdle();

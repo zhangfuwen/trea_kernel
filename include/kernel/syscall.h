@@ -1,6 +1,8 @@
 #ifndef SYSCALL_H
 #define SYSCALL_H
 
+#include "process.h"
+
 #include <stdint.h>
 
 // 系统调用号
@@ -21,7 +23,7 @@ typedef int (*SyscallHandler)(uint32_t, uint32_t, uint32_t, uint32_t);
 // 系统调用处理函数声明
 int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t);
 int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t);
-int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr);
+int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessControlBlock *pcb);
 
 // 系统调用管理器
 class SyscallManager
