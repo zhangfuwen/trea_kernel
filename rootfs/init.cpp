@@ -1,8 +1,7 @@
-#include "kernel/syscall_user.h"
 #define NO_PID 1
-#include <lib/serial.h>
+#include "kernel/syscall_user.h"
 
-#include "lib/debug.h"
+
 const char* filename = "/dev/console";
 
 // // 实现一个delay函数
@@ -11,6 +10,7 @@ const char* filename = "/dev/console";
 //         asm volatile("nop");
 //     }
 // }
+
 
 int main()
 {
@@ -21,20 +21,19 @@ int main()
     // syscall_fork();
     // syscall_exit(NO_PID);
 
+        int fd = syscall_open(filename);
     while(true) {
-        // int fd = syscall_open(filename);
-        //  if (fd < 0) {
-        //      debug_err("Failed to open console!\n");
-        //      return -1;
-        //  } else {
-        //      debug_debug("open console: %d\n", fd);
-        //      char buf[1024] = "hello world!\n";
-        //      int ret = syscall_write(fd, buf, 13);
-        //      if (ret < 0) {
-        //          debug_err("Failed to write to console!\n");
-        //          return -1;
-        //      }
-        //  }
+        if (fd < 0) {
+            // debug_err("Failed to open console!\n");
+            return -1;
+        } else {
+            // debug_debug("open console: %d\n", fd);
+            char buf[1024] = "hello world!\n";
+            int ret = syscall_write(fd, buf, 13);
+            if (ret < 0) {
+                // debug_err("Failed to write to console!\n");
+            }
+        }
         asm volatile("nop");
         asm volatile("nop");
         asm volatile("nop");
@@ -48,7 +47,7 @@ int main()
     //  delay(1000*30);
 
     for(int i = 0; i < 1000; i++) {
-        debug_debug("init: open console! %d\n", i);
+        // debug_debug("init: open console! %d\n", i);
     }
     return 9;
 }

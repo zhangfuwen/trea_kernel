@@ -438,6 +438,8 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlo
 
     printPDPTE((void *)entry_point);
     printPDPTE((void *)user_stack);
+    GDT::updateTSS(pcb->stacks.esp0, KERNEL_DS);
+    GDT::updateTSSCR3(pcb->regs.cr3);
 
     asm volatile(
         "mov %%eax, %%esp\n\t"         // 设置用户栈指针

@@ -26,11 +26,12 @@ extern "C" void syscall_interrupt();
 extern "C" void page_fault_interrupt();
 extern "C" void general_protection_interrupt();
 extern "C" void segmentation_fault_interrupt();
+ProcessControlBlock * init_proc= nullptr;
 void init()
 {
     while(true) {
         debug_rate_limited("init process!\n");
-        sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, nullptr);
+        sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_proc);
     //    asm volatile("hlt");
     }
 };
@@ -167,13 +168,14 @@ extern "C" void kernel_main()
     ProcessManager::initIdle();
     debug_debug("Trying to execute /init...\n");
     // int pid = syscall_fork();
-    auto initProc = ProcessManager::kernel_process("init", (uint32_t)init, 0, nullptr);
-    ProcessManager::allocUserStack(initProc);
-    initProc->state = PROCESS_RUNNING;
+    init_proc= ProcessManager::kernel_process("init", (uint32_t)init, 0, nullptr);
+    ProcessManager::allocUserStack(init_proc);
+    init_proc->state = PROCESS_RUNNING;
+    // ProcessManager::current_pcb = initProc;
 
     debug_debug("Trying to execute /init...\n");
-    // asm volatile("sti");
-    sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, initProc);
+    asm volatile("sti");
+    // sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, initProc);
     // if(pid == 0) {
     //     // 子进程
     //     debug_debug("child process!\n");

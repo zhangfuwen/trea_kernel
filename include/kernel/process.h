@@ -134,9 +134,9 @@ public:
     static void initIdle();
     static void appendPCB(PCB* pcb);
     static int allocUserStack(ProcessControlBlock* pcb);
+    static ProcessControlBlock * current_pcb;
 
 private:
     static PCB * idle_pcb;
-    static ProcessControlBlock * current_pcb;
     static kernel::ConsoleFS console_fs;
 };
