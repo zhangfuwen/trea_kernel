@@ -94,4 +94,40 @@ inline int syscall_nanosleep(const struct timespec *req, struct timespec *rem) {
     return ret;
 }
 
+// stat系统调用
+inline int syscall_stat(const char* path, kernel::FileAttribute* attr) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_STAT), "b"((uint32_t)path), "c"((uint32_t)attr));
+    return ret;
+}
+
+// mkdir系统调用
+inline int syscall_mkdir(const char* path) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_MKDIR), "b"((uint32_t)path));
+    return ret;
+}
+
+// unlink系统调用
+inline int syscall_unlink(const char* path) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_UNLINK), "b"((uint32_t)path));
+    return ret;
+}
+
+// rmdir系统调用
+inline int syscall_rmdir(const char* path) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_RMDIR), "b"((uint32_t)path));
+    return ret;
+}
+
 #endif // SYSCALL_USER_H

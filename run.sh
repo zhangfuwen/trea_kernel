@@ -1,12 +1,13 @@
 #!/bin/bash
 
 # 输入参数
-if [ $# -lt 1 ]; then
-    echo "Usage: $0 <iso_file>"
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <iso_file> <disk_image>"
     exit 1
 fi
 # 定义变量
 iso_file=$1
+disk_image=$2
 
 # 检查qemu-system-i386是否已安装
 if ! command -v qemu-system-i386 &> /dev/null; then
@@ -30,6 +31,7 @@ fi
 echo "启动CustomKernel..."
 qemu-system-i386 \
     -cdrom $iso_file \
+    -hda $disk_image \
     -m 1G \
     -serial stdio  \
     -s

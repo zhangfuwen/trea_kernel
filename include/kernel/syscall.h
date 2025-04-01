@@ -17,6 +17,10 @@ enum SyscallNumber {
     SYS_EXIT = 8,
     SYS_GETPID = 9,
     SYS_NANOSLEEP = 10,
+    SYS_STAT = 11,
+    SYS_MKDIR = 12,
+    SYS_UNLINK = 13,
+    SYS_RMDIR = 14,
 };
 
 // 系统调用处理函数类型
@@ -28,6 +32,10 @@ int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint3
 int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessControlBlock *pcb);
 int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 int sys_getpid();
+int statHandler(uint32_t path_ptr, uint32_t attr_ptr, uint32_t, uint32_t);
+int mkdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
+int unlinkHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
+int rmdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 
 // 系统调用管理器
 class SyscallManager

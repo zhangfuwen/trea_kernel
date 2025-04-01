@@ -1,4 +1,5 @@
 #include "lib/debug.h"
+#include "lib/serial.h"
 
 LogLevel current_log_level = LOG_DEBUG;
 
@@ -8,14 +9,21 @@ const char* get_filename_from_path(const char* path)
     return (last_slash != nullptr) ? (last_slash + 1) : path;
 }
 
+// 初始化串口
+static bool serial_initialized = false;
+static void ensure_serial_initialized() {
+    if (!serial_initialized) {
+        serial_init();
+        serial_initialized = true;
+    }
+}
 
-// 默认输出处理器（使用Console）
-// 更新默认输出处理器（仅传递日志等级）
+// 默认输出处理器（使用串口）
 LogOutputInterface log_output_handler = {
     [](LogLevel level, const char* message) {
-        // 默认实现保持原有颜色逻辑，但用户可自定义
-        Console::setColor(log_level_colors[level], VGA_COLOR_BLACK);
-        Console::print(message);
+        ensure_serial_initialized();
+        serial_puts(message);
+        serial_puts("\n"); // 添加换行符
     }
 };
 

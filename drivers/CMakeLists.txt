@@ -1,6 +1,8 @@
 # 创建驱动核心库
 add_library(drivers_core
     keyboard.cpp
+    block_device.cpp
+    ext2.cpp
 )
 
 # 添加包含目录

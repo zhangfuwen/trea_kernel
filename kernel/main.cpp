@@ -116,6 +116,30 @@ extern "C" void kernel_main()
 
     init_vfs();
 
+    // 初始化磁盘设备
+    debug_debug("Initializing disk device...\n");
+    auto disk = new DiskDevice();
+    if (!disk->init()) {
+        debug_err("Failed to initialize disk device!\n");
+        return;
+    }
+    debug_debug("Disk device initialized!\n");
+
+    // 初始化ext2文件系统
+    debug_debug("Initializing ext2 filesystem...\n");
+    auto ext2fs = new Ext2FileSystem(disk);
+    VFSManager::instance().register_fs("/mnt", ext2fs);
+    debug_debug("Ext2 filesystem mounted at /mnt\n");
+
+    // 打印根目录内容
+    auto root = ext2fs->open("/mnt");
+    if (root) {
+        FileAttribute attr;
+        ext2fs->stat("/mnt", &attr);
+        debug_info("Root directory size: %d bytes\n", attr.size);
+        delete root;
+    }
+
     // 初始化内存文件系统
     debug_debug("Trying to new memfs ...\n");
     MemFS* memfs = new MemFS();

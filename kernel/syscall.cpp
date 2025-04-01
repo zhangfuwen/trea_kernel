@@ -18,6 +18,53 @@
 #include "lib/time.h"
 
 // 系统调用处理函数声明
+int sys_mkdir(const char* path)
+{
+    return kernel::VFSManager::instance().mkdir(path);
+}
+
+int mkdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
+{
+    const char* path = reinterpret_cast<const char*>(path_ptr);
+    return sys_mkdir(path);
+}
+
+int sys_unlink(const char* path)
+{
+    return kernel::VFSManager::instance().unlink(path);
+}
+
+int unlinkHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
+{
+    const char* path = reinterpret_cast<const char*>(path_ptr);
+    return sys_unlink(path);
+}
+
+int sys_rmdir(const char* path)
+{
+    return kernel::VFSManager::instance().rmdir(path);
+}
+
+int rmdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
+{
+    const char* path = reinterpret_cast<const char*>(path_ptr);
+    return sys_rmdir(path);
+}
+
+int sys_stat(const char* path, kernel::FileAttribute* attr)
+{
+    return kernel::VFSManager::instance().stat(path, attr);
+}
+
+int statHandler(uint32_t path_ptr, uint32_t attr_ptr, uint32_t, uint32_t)
+{
+    auto pcb = ProcessManager::get_current_process();
+    const char* path = reinterpret_cast<const char*>(path_ptr);
+    kernel::FileAttribute* attr = reinterpret_cast<kernel::FileAttribute*>(attr_ptr);
+    
+    return sys_stat(path, attr);
+}
+
 int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t)
 {
     sys_execve(path_ptr, argv_ptr, envp_ptr, nullptr);
@@ -55,8 +102,11 @@ void SyscallManager::init()
     registerHandler(SYS_EXEC, execveHandler);
     registerHandler(SYS_EXIT, exitHandler);
     registerHandler(SYS_NANOSLEEP, nanosleepHandler);
-// 在系统调用初始化代码段中添加
     registerHandler(SYS_GETPID, getpid_handler);
+    registerHandler(SYS_STAT, statHandler);
+    registerHandler(SYS_MKDIR, mkdirHandler);
+    registerHandler(SYS_UNLINK, unlinkHandler);
+    registerHandler(SYS_RMDIR, rmdirHandler);
 
     Console::print("SyscallManager initialized\n");
 }

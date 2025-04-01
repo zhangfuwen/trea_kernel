@@ -11,33 +11,18 @@ public:
     ConsoleDevice() = default;
     virtual ~ConsoleDevice() = default;
 
-    virtual ssize_t read(void* buffer, size_t size) override
-    {
-        // TODO: 实现键盘输入缓冲区
-        return 0;
-    }
+    // 键盘输入缓冲区大小
+    static const size_t INPUT_BUFFER_SIZE = 1024;
 
-    virtual ssize_t write(const void* buffer, size_t size) override
-    {
-        const char* chars = static_cast<const char*>(buffer);
-        Console::setColor(VGA_COLOR_RED, VGA_COLOR_BLACK);
-        Console::print((const char *)buffer);
-        Console::setColor(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-        // for(size_t i = 0; i < size; i++) {
-        //     Console::putchar(chars[i]);
-        // }
-        return size;
-    }
+    virtual ssize_t read(void* buffer, size_t size) override;
+    virtual ssize_t write(const void* buffer, size_t size) override;
+    virtual int seek(size_t offset) override;
+    virtual int close() override;
 
-    virtual int seek(size_t offset) override
-    {
-        return -1; // 控制台设备不支持seek操作
-    }
-
-    virtual int close() override
-    {
-        return 0; // 标准输入输出流不应该被关闭
-    }
+private:
+    char input_buffer[INPUT_BUFFER_SIZE];
+    size_t buffer_pos = 0;
+    size_t buffer_size = 0;
 };
 
 class ConsoleFS : public FileSystem
