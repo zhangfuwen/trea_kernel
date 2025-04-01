@@ -18,6 +18,7 @@ struct MemFSInode {
     MemFSInode* parent;   // 父目录
     MemFSInode* children; // 子文件/目录列表
     MemFSInode* next;     // 同级节点链表
+    void print();
 };
 
 // 内存文件系统的文件描述符
@@ -48,6 +49,7 @@ public:
     void init();
 
     char* get_name() override;
+    void print() override;
 
     // 加载initramfs数据
     int load_initramfs(const void* data, size_t size);

@@ -1,7 +1,6 @@
 #define NO_PID 1
 #include "kernel/syscall_user.h"
 
-
 const char* filename = "/dev/console";
 
 // // 实现一个delay函数
@@ -10,7 +9,6 @@ const char* filename = "/dev/console";
 //         asm volatile("nop");
 //     }
 // }
-
 
 int main()
 {
@@ -21,16 +19,16 @@ int main()
     // syscall_fork();
     // syscall_exit(NO_PID);
 
-        int fd = syscall_open(filename);
+    int fd = syscall_open(filename);
     while(true) {
-        if (fd < 0) {
+        if(fd < 0) {
             // debug_err("Failed to open console!\n");
             return -1;
         } else {
             // debug_debug("open console: %d\n", fd);
             char buf[1024] = "hello world!\n";
-            int ret = syscall_write(fd, buf, 13);
-            if (ret < 0) {
+            int ret = syscall_write(2, buf, 13);
+            if(ret < 0) {
                 // debug_err("Failed to write to console!\n");
             }
         }

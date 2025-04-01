@@ -18,7 +18,11 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
     debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
 
-    printPDPTE((void*)fault_addr);
+    auto pcb = ProcessManager::get_current_process();
+    auto pgd = pcb->user_mm.getPageDirectory();
+    auto& user_mm = pcb->user_mm;
+
+    __printPDPTE((void*)fault_addr, (PageDirectory*)pgd);
 
     if(fault_addr >= 0x40000000 && fault_addr < 0xC0000000) {
         is_user = true;
@@ -37,8 +41,10 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
                 if(!is_write) {
                     flags &= ~PAGE_WRITE; // 如果不是写操作，清除写权限
                 }
-                Kernel::instance().kernel_mm().paging().mapPage(
-                    fault_addr & ~0xFFF, phys_page, flags);
+
+                user_mm.map_pages(fault_addr & ~0xFFF, phys_page, PAGE_SIZE, flags);
+                // Kernel::instance().kernel_mm().paging().mapPage(
+                //     fault_addr & ~0xFFF, phys_page, flags);
                 // debug_debug("fixed page mapping");
                 return;
             }
@@ -60,9 +66,14 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
 
             // 检查COW标志
             if((flags & PAGE_COW) && (flags & PAGE_PRESENT)) {
-                // 获取原始物理页
-                uint32_t old_phys = Kernel::instance().kernel_mm().virt2Phys((void*)fault_addr);
-
+                // 找到对应的物理页
+                auto pd_index = (fault_addr >> 22) & 0x3FF;
+                auto pde = ((uint32_t*)pgd)[pd_index];
+                auto pt_phys = pde & 0xFFFFF000;
+                auto pt_virt = pt_phys | 0xC0000000;
+                auto pt_index = (fault_addr >> 12) & 0x3FF;
+                auto pte = ((uint32_t*)pt_virt)[pt_index];
+                uint32_t old_phys = pte & 0xFFFFF000;
                 // 分配新物理页
                 uint32_t new_phys = Kernel::instance().kernel_mm().allocPage();
                 if(!new_phys) {
@@ -70,17 +81,17 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
                     goto panic;
                 }
 
-                // 创建临时映射、拷贝、解除临时映射
+                // 旧的地址应该是可以读的，只是不可以写而已
+                // 新物理页先映射到别处完成拷贝
                 uint32_t tmp_virt = TEMP_MAPPING_VADDR; // 使用固定的临时映射地址
                 Kernel::instance().kernel_mm().paging().mapPage(
-                    tmp_virt, old_phys, PAGE_PRESENT | PAGE_WRITE);
+                    tmp_virt, new_phys, PAGE_PRESENT | PAGE_WRITE);
                 memcpy((void*)tmp_virt, (void*)fault_addr, PAGE_SIZE);
                 Kernel::instance().kernel_mm().paging().unmapPage(tmp_virt);
 
                 // 更新页表项
-                Kernel::instance().kernel_mm().paging().mapPage(fault_addr & ~0xFFF, new_phys,
-                    (flags & ~PAGE_COW) | PAGE_WRITE // 清除COW标志，添加写权限
-                );
+                user_mm.map_pages(
+                    fault_addr & ~0xFFF, new_phys, PAGE_SIZE, (flags & ~PAGE_COW) | PAGE_WRITE);
 
                 // 减少原页面的引用计数
                 Kernel::instance().kernel_mm().decrement_ref_count(old_phys);

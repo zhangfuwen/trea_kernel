@@ -48,12 +48,14 @@ void PidManager::initialize()
 void ProcessManager::init()
 {
     Console::print("ProcessManager initialized\n");
+    PidManager::initialize();
 }
 
 void ProcessManager::initIdle()
 {
     idle_pcb = CURRENT();
     auto& pcb = idle_pcb->pcb;
+    strcpy(pcb.name, "idle");
     pcb.pid = 0;
     pcb.state = PROCESS_RUNNING;
     pcb.priority = 0;
@@ -78,39 +80,32 @@ void ProcessManager::initIdle()
 
 kernel::ConsoleFS console_fs;
 
+void* operator new(size_t size, void* ptr) noexcept;
+void* operator new[](size_t size, void* ptr) noexcept;
 // 创建新进程框架
 ProcessControlBlock* ProcessManager::create_process(const char* name)
 {
     uint32_t pid = pid_manager.alloc();
+    debug_info("creating process with pid: %d\n", pid);
 
     auto kernel_mm = Kernel::instance().kernel_mm();
+    auto addr = kernel_mm.alloc_pages(4);
+    auto pcb = new ((void*)addr) ProcessControlBlock();
 
-    auto pcbAddr = &((PCB*)kernel_mm.alloc_pages(4))->pcb;
-    auto& pcb = *pcbAddr;
-    pcb.pid = pid;
-    pcb.state = PROCESS_NEW;
-    pcb.priority = 1;
-    pcb.time_slice = 100;
-    pcb.total_time = 0;
+    // auto pcbAddr = &((PCB*)kernel_mm.alloc_pages(4))->pcb;
+    // auto& pcb = *pcbAddr;
+    strcpy(pcb->name, name);
+    pcb->pid = pid;
+    pcb->state = PROCESS_NEW;
+    pcb->priority = 1;
+    pcb->time_slice = 100;
+    pcb->total_time = 0;
 
-    auto pgd = kernel_mm.paging().getCurrentPageDirectory();
-
-    pcb.user_mm.init((uint32_t)pgd,
-        []() {
-            auto page = Kernel::instance().kernel_mm().allocPage();
-            debug_debug("ProcessManager: Allocated Page at %x\n", page);
-            return page;
-        },
-        [](uint32_t physAddr) { Kernel::instance().kernel_mm().freePage(physAddr); },
-        [](uint32_t physAddr) {
-            return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
-        });
-
-    return pcbAddr;
+    return pcb;
 }
 
 // 初始化进程详细信息
-ProcessControlBlock* ProcessManager::kernel_process(const char* name, uint32_t entry, uint32_t argc, char* argv[])
+ProcessControlBlock* ProcessManager::kernel_thread(const char* name, uint32_t entry, uint32_t argc, char* argv[])
 {
     auto pPcb = create_process(name);
     auto& pcb = *pPcb;
@@ -162,9 +157,48 @@ ProcessControlBlock* ProcessManager::kernel_process(const char* name, uint32_t e
 
     debug_debug("initialized process 0x%x, pid: %d\n", pPcb, pcb.pid);
     pcb.print();
-    appendPCB((PCB*)pPcb);
+    // appendPCB((PCB*)pPcb);
     return pPcb;
 }
+int ProcessControlBlock::allocate_fd()
+{
+    auto ret = next_fd;
+    debug_debug("allocate_fd: %x\n", ret);
+    next_fd++;
+    return ret;
+}
+
+void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControlBlock* parent)
+{
+    if(!child) {
+        debug_err("ProcessManager: Invalid PCB pointer\n");
+        return;
+    }
+    Kernel& kernel = Kernel::instance();
+    auto& kernel_mm = kernel.kernel_mm();
+    debug_debug("Copying memory space\n");
+    // 使用COW方式复制内存空间
+    PageDirectory* parent_pgd = (PageDirectory*)kernel_mm.phys2Virt(parent->regs.cr3);
+    auto paddr = kernel_mm.allocPage();
+    debug_debug("alloc page at 0x%x\n", paddr);
+    auto child_pgd = kernel_mm.phys2Virt(paddr);
+    debug_debug("child_pgd: 0x%x\n", child_pgd);
+    kernel_mm.paging().copyMemorySpaceCOW(parent_pgd, (PageDirectory*)child_pgd);
+    debug_debug("Copying page at 0x%x\n", paddr);
+    child->regs.cr3 = paddr;
+    child->user_mm.init((uint32_t)child_pgd,
+        []() {
+            auto page = Kernel::instance().kernel_mm().allocPage();
+            debug_debug("ProcessManager: Allocated Page at %x\n", page);
+            return page;
+        },
+        [](uint32_t physAddr) { Kernel::instance().kernel_mm().freePage(physAddr); },
+        [](uint32_t physAddr) {
+            return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
+        });
+
+}
+
 
 int ProcessManager::allocUserStack(ProcessControlBlock* pcb)
 {
@@ -436,8 +470,8 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlo
     pcb->regs.ss = pcb->regs.ds = USER_DS;
     pcb->regs.eflags == 0x200;
 
-    printPDPTE((void *)entry_point);
-    printPDPTE((void *)user_stack);
+    __printPDPTE((void *)entry_point, (PageDirectory*)pcb->user_mm.getPageDirectory());
+    __printPDPTE((void *)user_stack, (PageDirectory*)pcb->user_mm.getPageDirectory());
     GDT::updateTSS(pcb->stacks.esp0, KERNEL_DS);
     GDT::updateTSSCR3(pcb->regs.cr3);
 

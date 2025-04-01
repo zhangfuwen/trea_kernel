@@ -101,7 +101,7 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
             debug_debug("pde_idx: %d\n", pde_idx);
             printPDPTE((void*)vaddr);
         }
-        debug_debug("pgd:%x, pde_addr:%x,  pde %x\n", pgd, pde, *pde);
+        // debug_debug("pgd:%x, pde_addr:%x,  pde %x\n", pgd, pde, *pde);
 
         // 如果页表不存在，创建新的页表
         if(!(*pde & PAGE_PRESENT)) {
@@ -122,8 +122,9 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
 
         if(type == MEM_TYPE_STACK) {
             auto phys = (uint32_t)Kernel::instance().kernel_mm().allocPage();
-            debug_debug("stack phys:0x%x\n", phys);
+            debug_debug("stack virt:0x%x, phys:0x%x\n", vaddr, phys);
             *pte0 = (phys | flags | PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
+            __printPDPTE( (void*)vaddr, (PageDirectory*)pgd);
         } else {
             // 设置页表项为不存在，但保留权限标志，这样在page
             // fault时可以知道应该设置什么权限

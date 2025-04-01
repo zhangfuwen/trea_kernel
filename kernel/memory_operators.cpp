@@ -16,6 +16,18 @@ void* operator new[](size_t size)
     return Kernel::instance().kernel_mm().kmalloc(size);
 }
 
+// In-place new operator
+void* operator new(size_t size, void* ptr) noexcept
+{
+    return ptr;
+}
+
+// In-place new[] operator
+void* operator new[](size_t size, void* ptr) noexcept
+{
+    return ptr;
+}
+
 // 全局delete操作符实现
 void operator delete(void* ptr) noexcept
 {

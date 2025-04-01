@@ -24,11 +24,12 @@ static MountPoint mount_points[MAX_MOUNT_POINTS];
 // 打开文件系统调用处理函数
 int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d)
 {
-    return sys_open(path_ptr);
+    auto pcb = ProcessManager::get_current_process();
+    return sys_open(path_ptr, pcb);
 }
-int sys_open(uint32_t path_ptr)
+int sys_open(uint32_t path_ptr, ProcessControlBlock* pcb)
 {
-    debug_debug("openHandler called with path_ptr: %d\n", path_ptr);
+    debug_debug("openHandler called with path: 0x%x, pcb:0x%x(pid:%d)\n", path_ptr, pcb, pcb->pid);
 
     const char* path = reinterpret_cast<const char*>(path_ptr);
     debug_debug("Opening file: %s\n", path);
@@ -40,9 +41,8 @@ int sys_open(uint32_t path_ptr)
     }
 
     // 分配文件描述符
-    auto pcb = ProcessManager::get_current_process();
     int fd_num = pcb->allocate_fd();
-    ProcessManager::get_current_process()->fd_table[fd_num] = fd;
+    pcb->fd_table[fd_num] = fd;
 
     debug_debug("File opened successfully, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
     return fd_num;
@@ -51,20 +51,21 @@ int sys_open(uint32_t path_ptr)
 // 读取文件系统调用处理函数
 int readHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 {
-    return sys_read(fd_num, buffer_ptr, size);
+    auto pcb = ProcessManager::get_current_process();
+    return sys_read(fd_num, buffer_ptr, size, pcb);
 }
-int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size)
+int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
 {
     debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
 
-    if(fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
+    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
 
     void* buffer = reinterpret_cast<void*>(buffer_ptr);
 
-    auto process = ProcessManager::get_current_process();
+    auto process = pcb;
     if(!process) {
         debug_debug("No current process\n");
         return -1;
@@ -98,14 +99,13 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size)
 // 写入文件系统调用处理函数
 int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 {
-    return sys_write(fd_num, buffer_ptr, size);
+    auto pcb = ProcessManager::get_current_process();
+    return sys_write(fd_num, buffer_ptr, size, pcb);
 }
-int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size)
+int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
 {
     debug_debug(
         "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
-
-    auto pcb = ProcessManager::get_current_process();
 
     if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
@@ -113,8 +113,7 @@ int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size)
     }
 
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
-    ssize_t bytes_written =
-        ProcessManager::get_current_process()->fd_table[fd_num]->write(buffer, size);
+    ssize_t bytes_written = pcb->fd_table[fd_num]->write(buffer, size);
 
     debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
     return bytes_written;
@@ -123,19 +122,20 @@ int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size)
 // 关闭文件系统调用处理函数
 int closeHandler(uint32_t fd_num, uint32_t b, uint32_t c, uint32_t d)
 {
-    return sys_close(fd_num);
+    auto pcb = ProcessManager::get_current_process();
+    return sys_close(fd_num, pcb);
 }
-int sys_close(uint32_t fd_num)
+int sys_close(uint32_t fd_num, ProcessControlBlock* pcb)
 {
     debug_debug("closeHandler called with fd: %d\n", fd_num);
 
-    if(fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
+    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
 
-    int result = ProcessManager::get_current_process()->fd_table[fd_num]->close();
-    ProcessManager::get_current_process()->fd_table[fd_num] = nullptr;
+    int result = pcb->fd_table[fd_num]->close();
+    pcb->fd_table[fd_num] = nullptr;
 
     debug_debug("File descriptor %d closed\n", fd_num);
     return result;
@@ -144,14 +144,19 @@ int sys_close(uint32_t fd_num)
 // 文件指针定位系统调用处理函数
 int seekHandler(uint32_t fd_num, uint32_t offset, uint32_t c, uint32_t d)
 {
+    auto pcb = ProcessManager::get_current_process();
+    sys_seek(fd_num, offset, pcb);
+}
+int sys_seek(uint32_t fd_num, uint32_t offset, ProcessControlBlock* pcb)
+{
     debug_debug("seekHandler called with fd: %d, offset: %d\n", fd_num, offset);
 
-    if(fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
+    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
 
-    int result = ProcessManager::get_current_process()->fd_table[fd_num]->seek(offset);
+    int result = pcb->fd_table[fd_num]->seek(offset);
 
     debug_debug("Seek result: %d\n", result);
     return result;
@@ -235,7 +240,11 @@ FileDescriptor* VFSManager::open(const char* path)
         debug_debug("VFSManager::open: no filesystem found for path %s\n", path);
         return nullptr;
     } else {
-        debug_debug("VFSManager::open: found filesystem %s for path %s\n", "asdf", path);
+        debug_debug("VFSManager::open: filesystem found for path %s, fs at 0x%x\n", path, fs);
+        uint32_t x = *(uint32_t*)fs;
+        debug_debug("VFSManager::open: %x\n", x);
+        fs->print();
+        debug_debug("VFSManager::open: found filesystem %s for path %s\n", fs->get_name(), path);
     }
 
     return fs->open(remaining_path);

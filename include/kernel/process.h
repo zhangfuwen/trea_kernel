@@ -82,11 +82,8 @@ struct ProcessControlBlock {
     Stacks stacks;
 
     kernel::FileDescriptor* fd_table[MAX_PROCESS_FDS] = {nullptr};
-    inline int allocate_fd()
-    {
-        return next_fd++;
-    }
-    volatile int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
+    int allocate_fd();
+    int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
     void print();
 };
 union PCB
@@ -121,7 +118,7 @@ class ProcessManager {
 public:
     static void init();
     static ProcessControlBlock* create_process(const char* name); // 修改内部实现使用PidManager
-    static ProcessControlBlock* kernel_process(const char* name, uint32_t entry, uint32_t argc, char* argv[]);
+    static ProcessControlBlock* kernel_thread(const char* name, uint32_t entry, uint32_t argc, char* argv[]);
     static int fork();
     static ProcessControlBlock* get_current_process();
     // static int32_t execute_process(const char* path);
@@ -133,10 +130,12 @@ public:
     static void restore_context(uint32_t* esp);
     static void initIdle();
     static void appendPCB(PCB* pcb);
+    static void cloneMemorySpace(ProcessControlBlock* child, ProcessControlBlock* parent);
+    // static void cloneMemory(ProcessControlBlock* pcb);
     static int allocUserStack(ProcessControlBlock* pcb);
     static ProcessControlBlock * current_pcb;
+    static PCB * idle_pcb;
 
 private:
-    static PCB * idle_pcb;
     static kernel::ConsoleFS console_fs;
 };

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
+struct ProcessControlBlock;
 namespace kernel
 {
 
@@ -28,10 +29,11 @@ struct FileAttribute {
     size_t size;         // 文件大小
 };
 
-int sys_open(uint32_t path_ptr);
-int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size);
-int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size);
-int sys_close(uint32_t fd_num);
+int sys_open(uint32_t path_ptr, ProcessControlBlock* pcb);
+int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb);
+int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb);
+int sys_close(uint32_t fd_num, ProcessControlBlock* pcb);
+int sys_seek(uint32_t fd_num, uint32_t offset, ProcessControlBlock* pcb);
 
 void init_vfs();
 // 文件描述符
@@ -49,6 +51,7 @@ public:
 class FileSystem
 {
 public:
+    virtual void print() {};
     virtual ~FileSystem() = default;
 
     virtual char* get_name() = 0;

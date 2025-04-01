@@ -264,6 +264,29 @@ MemFSInode* MemFS::create_inode(const char* name, FileType type)
     debug_debug("Inode created at %x\n", (unsigned int)inode);
     return inode;
 }
+// struct MemFSInode {
+//     char name[256];       // 文件名
+//     FileType type;        // 文件类型
+//     FilePermission perm;  // 文件权限
+//     uint8_t* data;        // 文件数据
+//     size_t size;          // 文件大小
+//     size_t capacity;      // 数据缓冲区容量
+//     MemFSInode* parent;   // 父目录
+//     MemFSInode* children; // 子文件/目录列表
+//     MemFSInode* next;     // 同级节点链表
+//     void print();
+// };
+void MemFSInode::print()
+{
+    debug_debug("Inode: %s, type: %d, size: %d, capacity: %d\n", name, (int)type, size, capacity);
+}
+
+
+void MemFS::print()
+{
+    debug_debug("memfs, root:0x%x\n", root);
+    root->print();
+}
 
 void MemFS::free_inode(MemFSInode* inode)
 {
@@ -285,6 +308,7 @@ void MemFS::free_inode(MemFSInode* inode)
 
 FileDescriptor* MemFS::open(const char* path)
 {
+    debug_debug("Opening filedescriptor for path: %s\n", path);
     MemFSInode* inode = find_inode(path);
     if(!inode)
         return nullptr;

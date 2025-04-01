@@ -38,11 +38,9 @@ void printPTEFlags(uint32_t pte)
     debug_debug("global : %d\n", global);
     debug_debug("cow : %d\n", cow);
 }
-void printPDPTE(VADDR vaddr)
+void __printPDPTE(VADDR vaddr, PageDirectory* pdVirt)
 {
     debug_debug("vaddr : 0x%x\n", vaddr);
-    auto& paging = Kernel::instance().kernel_mm().paging();
-    auto pdVirt = paging.getCurrentPageDirectory();
     auto pdPhys = Kernel::instance().kernel_mm().virt2Phys(pdVirt);
 
     auto fault_addr = (uint32_t)vaddr;
@@ -55,9 +53,16 @@ void printPDPTE(VADDR vaddr)
     auto phys = pte & 0xFFFFF000;
     debug_debug("PD: 0x%x(phys:0x%x), PD index:%d(0x%x), PDE:0x%x\n", pdVirt, pdPhys, pd_index,
         pd_index, pde);
-    debug_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x, phys:0x%x\n", pt_virt, pt_phys, pt_index,
-        pt_index, pte, phys);
+    debug_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x, phys:0x%x\n", pt_virt, pt_phys,
+        pt_index, pt_index, pte, phys);
     printPTEFlags(pte);
+}
+void printPDPTE(VADDR vaddr)
+{
+
+    auto& paging = Kernel::instance().kernel_mm().paging();
+    auto pdVirt = paging.getCurrentPageDirectory();
+    __printPDPTE(vaddr, pdVirt);
 }
 
 PageManager::PageManager() : nextFreePage(0x400000), curPgdVirt(nullptr) {}
@@ -80,8 +85,7 @@ void PageManager::init()
     serial_puts("PageManager: pageDirectory load\n");
     enablePaging();
     serial_puts("PageManager: enable paging\n");
-    curPgdVirt =
-        (PageDirectory*)(PAGE_DIRECTORY_ADDR + KERNEL_DIRECT_MAP_START); // 虚拟地址
+    curPgdVirt = (PageDirectory*)(PAGE_DIRECTORY_ADDR + KERNEL_DIRECT_MAP_START); // 虚拟地址
     debug_debug("PAGE_DIRECTORY_ADDR: %x\n", PAGE_DIRECTORY_ADDR);
     debug_debug("KERNEL_DIRECT_MAP_START: %x\n", KERNEL_DIRECT_MAP_START);
     debug_debug("PageManager: currentPageDirectory: %x\n", curPgdVirt);
@@ -101,7 +105,7 @@ void PageManager::mapKernelSpace()
 
     // map 0xC0000000
     uint32_t pteStart = 0xC0000000 >> 22;
-    for(int j = 0; j < K_PAGE_TABLE_COUNT; j++) {
+    for(int j = 0; j < K_PAGE_TABLE_COUNT; j++) { // each pde
         auto* table = reinterpret_cast<PageTable*>(K_PAGE_TABLE_START + j * sizeof(PageTable));
         for(uint32_t i = 0; i < 1024; i++) {
             table->entries[i] = (i * 4096 + j * 1024 * 4096) | 3; // Supervisor, read/write, present
@@ -172,8 +176,7 @@ void PageManager::unmapPage(uint32_t virt_addr)
     if(!curPgdVirt || !(curPgdVirt->entries[pd_index] & 0x1))
         return;
 
-    PageTable* pt =
-        reinterpret_cast<PageTable*>(curPgdVirt->entries[pd_index] & 0xFFFFF000);
+    PageTable* pt = reinterpret_cast<PageTable*>(curPgdVirt->entries[pd_index] & 0xFFFFF000);
     pt->entries[pt_index] = 0x00000002; // Supervisor, read/write, not present
 }
 
@@ -194,8 +197,7 @@ uint32_t PageManager::getPageFlags(uint32_t virt_addr)
         return 0; // 页目录项不存在
     }
 
-    PageTable* pt =
-        reinterpret_cast<PageTable*>(curPgdVirt->entries[pd_index] & 0xFFFFF000);
+    PageTable* pt = reinterpret_cast<PageTable*>(curPgdVirt->entries[pd_index] & 0xFFFFF000);
     return pt->entries[pt_index] & 0xFFF; // 返回标志位
 }
 
@@ -209,8 +211,7 @@ void PageManager::setPageFlags(uint32_t virt_addr, uint32_t flags)
         return; // 页目录项不存在
     }
 
-    PageTable* pt =
-        reinterpret_cast<PageTable*>(curPgdVirt->entries[pd_index] & 0xFFFFF000);
+    PageTable* pt = reinterpret_cast<PageTable*>(curPgdVirt->entries[pd_index] & 0xFFFFF000);
     uint32_t entry = pt->entries[pt_index];
     if(entry & 0x1) { // 如果页面存在
         pt->entries[pt_index] = (entry & 0xFFFFF000) | (flags & 0xFFF);
@@ -229,9 +230,22 @@ void PageManager::disablePaging()
 
 int PageManager::copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dst)
 {
-    auto &kernel_mm = Kernel::instance().kernel_mm();
-    // 复制页表项并设置COW标志
-    for(uint32_t pde_idx = 0; pde_idx < 1024; pde_idx++) {
+    auto& kernel_mm = Kernel::instance().kernel_mm();
+    for(int i = 0; i < 1024; i++) {
+        dst->entries[i] = 0x00000000; // Supervisor, read, not present
+    }
+    // 前4M空间
+    dst->entries[0] = src->entries[0];
+
+    // 映射0xC0000000后896MB空间, 页表是已经存在的
+    uint32_t kernelPteStart = 0xC0000000 >> 22;
+    for(int j = kernelPteStart; j < kernelPteStart + K_PAGE_TABLE_COUNT; j++) {
+        dst->entries[j] = src->entries[j];
+    }
+    // 复制用户空间页表项并设置COW标志
+    uint32_t userPteStart = USER_START >> 22;
+    uint32_t userPteEnd = USER_END >> 22;
+    for(uint32_t pde_idx = userPteStart; pde_idx < userPteEnd; pde_idx++) {
         // 复制所有页目录项（包含present和非present）
         dst->entries[pde_idx] = src->entries[pde_idx];
 
@@ -263,5 +277,6 @@ int PageManager::copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dst)
             dst->entries[pde_idx] = dst_pt_paddr | (src->entries[pde_idx] & 0xFFF);
         }
     }
+
     return 0;
 }

@@ -20,9 +20,10 @@ public:
     virtual ssize_t write(const void* buffer, size_t size) override
     {
         const char* chars = static_cast<const char*>(buffer);
-        for(size_t i = 0; i < size; i++) {
-            Console::putchar(chars[i]);
-        }
+        Console::print((const char *)buffer);
+        // for(size_t i = 0; i < size; i++) {
+        //     Console::putchar(chars[i]);
+        // }
         return size;
     }
 

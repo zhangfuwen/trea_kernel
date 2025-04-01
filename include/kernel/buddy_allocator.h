@@ -20,7 +20,6 @@ public:
 private:
     static constexpr uint32_t MIN_ORDER = 0;  // 最小分配单位为1页(4KB)
     static constexpr uint32_t MAX_ORDER = 20; // 最大分配单位为 4GB
-    static constexpr uint32_t PAGE_SIZE = 4096;
 
     // 空闲内存块链表节点
     struct FreeBlock {

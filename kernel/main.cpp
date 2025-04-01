@@ -29,6 +29,9 @@ extern "C" void segmentation_fault_interrupt();
 ProcessControlBlock * init_proc= nullptr;
 void init()
 {
+    auto pcb = ProcessManager::get_current_process();
+    Kernel::instance().kernel_mm().paging().loadPageDirectory(pcb->regs.cr3);
+    debug_debug("load page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb,pcb->pid);
     while(true) {
         debug_rate_limited("init process!\n");
         sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_proc);
@@ -168,9 +171,19 @@ extern "C" void kernel_main()
     ProcessManager::initIdle();
     debug_debug("Trying to execute /init...\n");
     // int pid = syscall_fork();
-    init_proc= ProcessManager::kernel_process("init", (uint32_t)init, 0, nullptr);
+    init_proc= ProcessManager::kernel_thread("init", (uint32_t)init, 0, nullptr);
+    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
+    init_proc->print();
+    ProcessManager::cloneMemorySpace(init_proc, (ProcessControlBlock*)ProcessManager::idle_pcb);
+    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
+    init_proc->print();
     ProcessManager::allocUserStack(init_proc);
+    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
+    init_proc->print();
     init_proc->state = PROCESS_RUNNING;
+    ProcessManager::appendPCB((PCB*)init_proc);
+    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
+    init_proc->print();
     // ProcessManager::current_pcb = initProc;
 
     debug_debug("Trying to execute /init...\n");

@@ -48,6 +48,7 @@ public:
     bool copyFrom(const UserMemory& src);
 
     void print();
+    uint32_t getPageDirectory() { return pgd;};
 
 private:
     // 物理页面分配和释放函数声明
@@ -61,9 +62,6 @@ private:
     uint32_t find_largest_free_area();
 
     static const uint32_t MAX_MEMORY_AREAS = 32;   // 最大内存区域数
-    static const uint32_t PAGE_SIZE = 0x1000;      // 页面大小
-    static const uint32_t USER_START = 0x40000000; // 用户空间起始地址
-    static const uint32_t USER_END = 0xC0000000;   // 用户空间结束地址
 
     uint32_t pgd;                       // 页目录基地址
     uint32_t start_code;                // 代码段起始地址
