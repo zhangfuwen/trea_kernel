@@ -86,7 +86,7 @@ struct ProcessControlBlock {
     {
         return next_fd++;
     }
-    int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
+    volatile int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
     void print();
 };
 union PCB

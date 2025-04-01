@@ -122,9 +122,10 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
     // 加载ELF文件
     current->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_WRITE | PAGE_USER);
 
-    auto loadAddr = current->user_mm.allocate_area(0x4000, PAGE_WRITE, 0);
-    auto paddr = Kernel::instance().kernel_mm().allocPage();
-    current->user_mm.map_pages((uint32_t)loadAddr, paddr, 0x1000, PAGE_WRITE | PAGE_USER|PAGE_PRESENT);
+    // auto loadAddr = current->user_mm.allocate_area(0x4000, PAGE_WRITE, 0);
+    // auto paddr = Kernel::instance().kernel_mm().allocPage();
+    // current->user_mm.map_pages((uint32_t)loadAddr, paddr, 0x1000, PAGE_WRITE | PAGE_USER|PAGE_PRESENT);
+    auto loadAddr = 0;
     if(!ElfLoader::load_elf(filep, size,(uint32_t)loadAddr)) {
         current->user_mm.free_area((uint32_t)filep);
         debug_err("Failed to load ELF file\n");

@@ -40,10 +40,11 @@ int sys_open(uint32_t path_ptr)
     }
 
     // 分配文件描述符
-    int fd_num = ProcessManager::get_current_process()->allocate_fd();
+    auto pcb = ProcessManager::get_current_process();
+    int fd_num = pcb->allocate_fd();
     ProcessManager::get_current_process()->fd_table[fd_num] = fd;
 
-    debug_debug("File opened successfully, fd: %d\n", fd_num);
+    debug_debug("File opened successfully, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
     return fd_num;
 }
 
@@ -104,8 +105,10 @@ int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size)
     debug_debug(
         "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
 
-    if(fd_num >= 256 || !ProcessManager::get_current_process()->fd_table[fd_num]) {
-        debug_debug("Invalid file descriptor: %d\n", fd_num);
+    auto pcb = ProcessManager::get_current_process();
+
+    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
+        debug_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
         return -1;
     }
 

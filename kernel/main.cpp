@@ -75,11 +75,11 @@ extern "C" void kernel_main()
     PIT::init();
     // 初始化IDT
     IDT::init();
-    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x0B, 0x8E);
-    IDT::setGate(INT_PAGE_FAULT, (uint32_t)page_fault_interrupt, 0x0B, 0x8E);
-    IDT::setGate(INT_SYSCALL, (uint32_t)syscall_interrupt, 0x0B, 0x8E);
-    IDT::setGate(INT_GP_FAULT, (uint32_t)general_protection_interrupt, 0x08, 0x8E);
-    IDT::setGate(INT_SEGMENT_NP, (uint32_t)segmentation_fault_interrupt, 0x08, 0x8E);
+    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x08, 0xEE);
+    IDT::setGate(INT_PAGE_FAULT, (uint32_t)page_fault_interrupt, 0x08, 0xEE);
+    IDT::setGate(INT_SYSCALL, (uint32_t)syscall_interrupt, 0x08, 0xEE);
+    IDT::setGate(INT_GP_FAULT, (uint32_t)general_protection_interrupt, 0x08, 0xEE);
+    IDT::setGate(INT_SEGMENT_NP, (uint32_t)segmentation_fault_interrupt, 0x08, 0xEE);
     IDT::loadIDT();
     serial_puts("IDT initialized!\n");
 

@@ -96,7 +96,26 @@ fault_errno: dd 0
     iretd            ; 返回
 %endmacro
 
-fault_errno 13, general_protection_interrupt, general_fault_errno_handler ; General Protection Fault
+;fault_errno 13, general_protection_interrupt, general_fault_errno_handler ; General Protection Fault
+
+[global general_protection_interrupt]
+[extern general_protection_fault_handler]
+general_protection_interrupt:
+    cli
+    push eax
+    mov eax, [esp+4]
+    mov [fault_errno], eax
+    pop eax
+    SAVE_REGS
+
+    push dword [fault_errno]  ; 将错误码作为第二个参数
+    push 13 ; 中断号作为第一个参数
+    call general_protection_fault_handler
+    add esp, 8      ; 清理参数
+
+    RESTORE_REGS
+    sti
+    iretd            ; 返回
 
 ; 定义具体中断
 idtentry 0x20, timer_interrupt, handleInterrupt
