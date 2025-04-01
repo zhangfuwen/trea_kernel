@@ -62,6 +62,7 @@ using PFN = uint32_t;
 using VADDR = void*;
 using PADDR = uint32_t;
 
+
 // 页面状态标志
 enum class PageFlags : uint32_t {
     PAGE_RESERVED = 1 << 0,   // 保留页面
@@ -94,6 +95,8 @@ void printPDPTE(VADDR vaddr);
 void __printPDPTE(VADDR vaddr, PageDirectory* pdVirt);
 void printPTEFlags(uint32_t pte);
 
+
+void PagingValidate(PageDirectory * pd);
 class PageManager
 {
 public:

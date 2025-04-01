@@ -171,23 +171,16 @@ extern "C" void kernel_main()
     debug_info("Trying to execute /init...\n");
     ProcessManager::initIdle();
     debug_debug("Trying to execute /init...\n");
-    // int pid = syscall_fork();
     init_proc= ProcessManager::kernel_thread("init", (uint32_t)init, 0, nullptr);
     debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
-    init_proc->print();
     ProcessManager::cloneMemorySpace(init_proc, (ProcessControlBlock*)ProcessManager::idle_pcb);
-    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
-    init_proc->print();
     ProcessManager::allocUserStack(init_proc);
-    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
-    init_proc->print();
     init_proc->state = PROCESS_RUNNING;
     ProcessManager::appendPCB((PCB*)init_proc);
+
     debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
     init_proc->print();
-    // ProcessManager::current_pcb = initProc;
 
-    debug_debug("Trying to execute /init...\n");
     asm volatile("sti");
     // sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, initProc);
     // if(pid == 0) {

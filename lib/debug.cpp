@@ -8,6 +8,23 @@ const char* get_filename_from_path(const char* path)
     return (last_slash != nullptr) ? (last_slash + 1) : path;
 }
 
+
+// 默认输出处理器（使用Console）
+// 更新默认输出处理器（仅传递日志等级）
+LogOutputInterface log_output_handler = {
+    [](LogLevel level, const char* message) {
+        // 默认实现保持原有颜色逻辑，但用户可自定义
+        Console::setColor(log_level_colors[level], VGA_COLOR_BLACK);
+        Console::print(message);
+    }
+};
+
+// 移除颜色保存/恢复相关代码
+
+void set_log_output_handler(const LogOutputInterface& new_handler) {
+    log_output_handler = new_handler;
+}
+
 int format_string_v(char* buffer, size_t size, const char* format, va_list args)
 {
     static const char digits[] = "0123456789abcdef";
@@ -296,11 +313,12 @@ int format_string_v(char* buffer, size_t size, const char* format, va_list args)
 
     return p - buffer;
 }
-void format_string(char* buffer, size_t size, const char* format, ...)
+int format_string(char* buffer, size_t size, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    format_string_v(buffer, size, format, args);
+    int len = format_string_v(buffer, size, format, args);
     va_end(args);
+    return len;
 }
 

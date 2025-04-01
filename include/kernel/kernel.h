@@ -6,6 +6,10 @@
 
 extern "C" void page_fault_handler(uint32_t error_code, uint32_t fault_addr);
 void debugPTE(VADDR vaddr);
+#define E_OK 0
+#define E_NOT_COW 1
+#define E_PANIC 2
+int copyCOWPage(uint32_t fault_addr, uint32_t original_pgd, UserMemory& user_mm);
 // 内核管理类（单例）
 class Kernel
 {

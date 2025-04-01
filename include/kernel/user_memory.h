@@ -49,12 +49,9 @@ public:
 
     void print();
     uint32_t getPageDirectory() { return pgd;};
+    void clone(UserMemory& src);
 
 private:
-    // 物理页面分配和释放函数声明
-    uint32_t (*allocate_physical_page)() = nullptr;
-    void (*free_physical_page)(uint32_t page) = nullptr;
-    void* (*phys_to_virt)(uint32_t phys_addr) = nullptr;
     // 使用first-fit策略查找合适的空闲区域
     uint32_t find_free_area(uint32_t size);
 
@@ -63,6 +60,10 @@ private:
 
     static const uint32_t MAX_MEMORY_AREAS = 32;   // 最大内存区域数
 
+    // 物理页面分配和释放函数声明
+    uint32_t (*allocate_physical_page)() = nullptr;
+    void (*free_physical_page)(uint32_t page) = nullptr;
+    void* (*phys_to_virt)(uint32_t phys_addr) = nullptr;
     uint32_t pgd;                       // 页目录基地址
     uint32_t start_code;                // 代码段起始地址
     uint32_t end_code;                  // 代码段结束地址

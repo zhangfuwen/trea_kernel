@@ -22,7 +22,7 @@ int32_t PidManager::alloc()
                 uint32_t mask = 1 << j;
                 if(!(pid_bitmap[i] & mask)) {
                     pid_bitmap[i] |= mask;
-                    return i * 32 + j + 1;
+                    return i * 32 + j;
                 }
             }
         }
@@ -101,6 +101,11 @@ ProcessControlBlock* ProcessManager::create_process(const char* name)
     pcb->priority = 1;
     pcb->time_slice = 100;
     pcb->total_time = 0;
+    // 分配内核态栈
+    pcb->stacks.ss0 = KERNEL_DS;
+    auto kernel_stack = (uint8_t*)(pcb);
+    pcb->stacks.esp0 = (uint32_t)kernel_stack + KERNEL_STACK_SIZE - 16;
+    pcb->stacks.ebp0 = pcb->stacks.esp0;
 
     return pcb;
 }
@@ -116,17 +121,7 @@ ProcessControlBlock* ProcessManager::kernel_thread(
     auto pgd = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
     debug_debug("ProcessManager: Current Page Directory: %x\n", pgd);
 
-    // 初始化内存管理
-    pcb.state = PROCESS_NEW;
-    pcb.priority = 1;
-    pcb.time_slice = 100;
-    pcb.total_time = 0;
-
-    // 分配内核态栈
-    pcb.stacks.ss0 = KERNEL_DS;
-    auto kernel_stack = (uint8_t*)(pPcb);
-    pcb.stacks.esp0 = (uint32_t)kernel_stack + KERNEL_STACK_SIZE - 16;
-    pcb.stacks.ebp0 = pcb.stacks.esp0;
+    // 清理用户栈
     pcb.stacks.user_stack = 0;
     pcb.stacks.user_stack_size = 0;
 
@@ -185,6 +180,8 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
     debug_debug("alloc page at 0x%x\n", paddr);
     auto child_pgd = kernel_mm.phys2Virt(paddr);
     debug_debug("child_pgd: 0x%x\n", child_pgd);
+    PagingValidate(parent_pgd);
+    debug_info("Copying memory space\n");
     kernel_mm.paging().copyMemorySpaceCOW(parent_pgd, (PageDirectory*)child_pgd);
     debug_debug("Copying page at 0x%x\n", paddr);
     child->regs.cr3 = paddr;
@@ -233,36 +230,36 @@ kernel::ConsoleFS ProcessManager::console_fs;
 
 void Registers::print()
 {
-    debug_debug("  Registers:\n");
-    debug_debug("    EAX: 0x%x  EBX: 0x%x  ECX: 0x%x  EDX: 0x%x\n", eax, ebx, ecx, edx);
-    debug_debug("    ESI: 0x%x  EDI: 0x%x  EBP: 0x%x  ESP: 0x%x\n", esi, edi, ebp, esp);
-    debug_debug("    EIP: 0x%x  EFLAGS: 0x%x\n", eip, eflags);
+    debug_info("  Registers:\n");
+    debug_info("    EAX: 0x%x  EBX: 0x%x  ECX: 0x%x  EDX: 0x%x\n", eax, ebx, ecx, edx);
+    debug_info("    ESI: 0x%x  EDI: 0x%x  EBP: 0x%x  ESP: 0x%x\n", esi, edi, ebp, esp);
+    debug_info("    EIP: 0x%x  EFLAGS: 0x%x\n", eip, eflags);
 
     // 内核态信息
-    debug_debug("  Kernel State:\n");
-    debug_debug("    CR3: 0x%x\n", cr3);
+    debug_info("  Kernel State:\n");
+    debug_info("    CR3: 0x%x\n", cr3);
 
     // 段寄存器
-    debug_debug("  Segment Selectors:\n");
-    debug_debug("    CS: 0x%x  DS: 0x%x  SS: 0x%x\n", cs, ds, ss);
-    debug_debug("    ES: 0x%x  FS: 0x%x  GS: 0x%x\n", es, fs, gs);
+    debug_info("  Segment Selectors:\n");
+    debug_info("    CS: 0x%x  DS: 0x%x  SS: 0x%x\n", cs, ds, ss);
+    debug_info("    ES: 0x%x  FS: 0x%x  GS: 0x%x\n", es, fs, gs);
 }
 
 void Stacks::print()
 {
-    debug_debug("  Stacks:\n");
-    debug_debug(
+    debug_info("  Stacks:\n");
+    debug_info(
         "    User Stack: 0x%x, size:%d(0x%x)\n", user_stack, user_stack_size, user_stack_size);
     uint32_t kernel_stack = (uint32_t)(CURRENT()->stack);
     // debug_debug("    Kernel Stack: 0x%x, size:%d(0x%x)\n", kernel_stack, KERNEL_STACK_SIZE,
     //     KERNEL_STACK_SIZE);
-    debug_debug("    Esp0:0x%x, Ebp0:0x%x, Ss0:0x%x\n", esp0, ebp0, ss0);
+    debug_info("    Esp0:0x%x, Ebp0:0x%x, Ss0:0x%x\n", esp0, ebp0, ss0);
 }
 
 void ProcessControlBlock::print()
 {
-    debug_debug("Process: %s (PID: %d)\n", name, pid);
-    debug_debug(
+    debug_info("Process: %s (PID: %d)\n", name, pid);
+    debug_info(
         "  State: %d, Priority: %d, Time: %d/%d\n", state, priority, total_time, time_slice);
 
     regs.print();
@@ -293,53 +290,42 @@ int Stacks::allocSpace(UserMemory& mm)
 // 修改fork中的内存复制逻辑
 int ProcessManager::fork()
 {
-    debug_debug("fork enter!\n");
+    debug_info("fork enter!\n");
     Kernel& kernel = Kernel::instance();
     auto& kernel_mm = kernel.kernel_mm();
 
-    ProcessControlBlock* parent = &CURRENT()->pcb;
-    debug_debug("before fork parent pcb:\n");
+    ProcessControlBlock* parent = ProcessManager::get_current_process();
+    debug_info("before fork parent pcb:\n");
     parent->print();
 
     // 创建子进程
-    debug_debug("Creating child process\n");
+    debug_info("Creating child process\n");
     auto child = create_process(parent->name);
     if(child->pid == 0) {
         debug_err("Create process failed\n");
         return -1;
     }
 
-    debug_debug("Copying parent process registers\n");
+    debug_info("Copying parent process memory space\n");
+    cloneMemorySpace(child, parent);
+    child->user_mm.clone(parent->user_mm);
+
+    debug_info("Copying parent process registers\n");
     memcpy(&child->regs, &parent->regs, sizeof(Registers));
     child->regs.eax = 0; // 子进程返回0
 
-    debug_debug("Copying parent process stacks\n");
-    if(auto ret = child->stacks.allocSpace(child->user_mm); ret != 0) {
-        debug_err("alloc space failed, ret:%d\n", ret);
-        return -1;
-    }
     // 拷贝堆栈数据
-    memcpy((void*)child->stacks.user_stack, (void*)parent->stacks.user_stack,
-        parent->stacks.user_stack_size);
-    child->stacks.esp0 = (uint32_t)((uint8_t*)&child + KERNEL_STACK_SIZE - 16);
-    child->stacks.ebp0 = child->stacks.esp0;
-    child->stacks.ss0 = KERNEL_DS;
-
-    debug_debug("Copying memory space\n");
-    // 使用COW方式复制内存空间
-    PageDirectory* parent_pgd = (PageDirectory*)kernel_mm.phys2Virt(parent->regs.cr3);
-    auto paddr = kernel_mm.allocPage();
-    debug_debug("alloc page at 0x%x\n", paddr);
-    auto child_pgd = kernel_mm.phys2Virt(paddr);
-    debug_debug("child_pgd: 0x%x\n", child_pgd);
-    kernel_mm.paging().copyMemorySpaceCOW(parent_pgd, (PageDirectory*)child_pgd);
-    debug_debug("Copying page at 0x%x\n", paddr);
-    child->regs.cr3 = paddr;
+    child->stacks.user_stack = parent->stacks.user_stack;
+    child->stacks.user_stack_size = parent->stacks.user_stack_size;
+    // 为栈分配新的物理页面
+    uint8_t * start = (uint8_t*)child->stacks.user_stack;
+    uint8_t * end = (uint8_t*)child->stacks.user_stack + child->stacks.user_stack_size;
+    for(uint8_t * p = start; p < end; p+= PAGE_SIZE) {
+        copyCOWPage((uint32_t)p, parent->user_mm.getPageDirectory(), child->user_mm);
+    }
 
     // 复制文件描述符表
-    for(int i = 0; i < 256; i++) {
-        child->fd_table[i] = parent->fd_table[i];
-    }
+    memcpy(&child->fd_table, &parent->fd_table, sizeof(child->fd_table));
 
     // 复制进程状态和属性
     child->state = PROCESS_READY;
@@ -350,10 +336,12 @@ int ProcessManager::fork()
 
     // 设置子进程状态为就绪
     child->state = PROCESS_READY;
-    debug_debug("fork child->pcb:\n");
+    debug_info("fork child->pcb:\n");
     child->print();
 
-    debug_debug("fork return, parent: %d, child:%d\n", parent->pid, child->pid);
+    appendPCB((PCB*)child);
+
+    debug_info("fork return, parent: %d, child:%d\n", parent->pid, child->pid);
     return child->pid;
 }
 

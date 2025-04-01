@@ -23,6 +23,10 @@ int main()
     // syscall_exit(NO_PID);
 
     char buf[1024] = "hello world!\n";
+    int ret = syscall_fork();
+    if (ret == 0 ) {
+        strcpy(buf, "hello world from child!\n");
+    }
     while(true) {
         int pid = syscall_getpid();
         format_string(buf, 1024, "pid: %d\n", pid);

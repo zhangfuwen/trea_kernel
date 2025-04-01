@@ -228,6 +228,36 @@ void PageManager::disablePaging()
     asm volatile("mov %0, %%cr0" : : "r"(cr0_val));
 }
 
+void PagingValidate(PageDirectory * pd)
+{
+    for (int i = 0; i < 1024; i++) {
+        if (pd->entries[i] & 0x1) {
+            PADDR pt_paddr = pd->entries[i] & 0xFFFFF000;
+            if(pt_paddr > 896*1024*1024) {
+                debug_err("PageManager: pt_paddr 0x%x, pd_index:%d, pde:0x%x \n", pt_paddr, i, pd->entries[i]);
+                continue;
+            }
+            PageTable* pt = (PageTable*)Kernel::instance().kernel_mm().phys2Virt(pt_paddr);
+            uint32_t pt_virt = (uint32_t)pt;
+            if(pt_virt < USER_START && pt_virt > 0x500000) {
+                debug_err("PageManager: pt_paddr 0x%x, pd_index:%d, pde:0x%x \n", pt_paddr, i, pd->entries[i]);
+                continue;
+            }
+            for (int j = 0; j < 1024; j++) {
+                if (pt->entries[j] & 0x1) {
+                    uint32_t phys_addr = pt->entries[j] & 0xFFFFF000;
+                    uint32_t virt_addr = (i << 22) | (j << 12);
+                    if (phys_addr > 896 * 1024*1024) {
+                        debug_err("PagingValidte error: virt_addr: 0x%x, phys_addr: 0x%x\n", virt_addr,
+                        phys_addr);
+                    }
+
+                }
+            }
+        }
+    }
+}
+
 int PageManager::copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dst)
 {
     auto& kernel_mm = Kernel::instance().kernel_mm();
@@ -252,12 +282,17 @@ int PageManager::copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dst)
         // 仅处理存在的页表
         if(src->entries[pde_idx] & PAGE_PRESENT) {
             auto src_pt_paddr = src->entries[pde_idx] & 0xFFFFF000;
+            if (src_pt_paddr > 896 * 1024*1024) {
+                debug_err("PageManager: src_pt_paddr 0x%x, pde_idx:%d, pde:0x%x \n", src_pt_paddr, pde_idx, src->entries[pde_idx]);
+                continue;
+            }
             auto dst_pt_paddr = Kernel::instance().kernel_mm().allocPage();
+            debug_debug("src_pt_paddr:0x%x, dst_pt_paddr:0x%x\n", src_pt_paddr, dst_pt_paddr);
             PageTable* dst_pt = (PageTable*)kernel_mm.phys2Virt(dst_pt_paddr);
             PageTable* src_pt = (PageTable*)kernel_mm.phys2Virt(src_pt_paddr);
 
             // 复制所有页表项
-            // debug_debug("copyMemorySpaceCOW: src_pt:%x, dst_pt:%x\n", src_pt, dst_pt);
+            debug_debug("copyMemorySpaceCOW: src_pt:%x, dst_pt:%x\n", src_pt, dst_pt);
             for(uint32_t pte_idx = 0; pte_idx < 1024; pte_idx++) {
                 // 如果是可写页面，设置COW标志
                 if(src_pt->entries[pte_idx] & PAGE_WRITE) {

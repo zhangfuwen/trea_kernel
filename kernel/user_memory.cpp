@@ -20,6 +20,27 @@ void UserMemory::init(uint32_t page_dir, uint32_t (*alloc_page)(), void (*free_p
     // 初始化内存区域数组
     memset(areas, 0, sizeof(areas));
 }
+void UserMemory::clone(UserMemory& src)
+{
+    // pgd = src.pgd;
+    allocate_physical_page = src.allocate_physical_page;
+    free_physical_page = src.free_physical_page;
+    phys_to_virt = src.phys_to_virt;
+
+    memcpy(areas, src.areas, sizeof(areas));
+    num_areas = src.num_areas;
+
+    start_code = src.start_code;
+    end_code = src.end_code;
+    start_data = src.start_data;
+    end_data = src.end_data;
+    start_heap = src.start_heap;
+    end_heap = src.end_heap;
+    start_stack = src.start_stack;
+    end_stack = src.end_stack;
+    total_vm = src.total_vm;
+    locked_vm = src.locked_vm;
+}
 
 // 分配一个新的内存区域
 // 使用first-fit策略查找合适的空闲区域
