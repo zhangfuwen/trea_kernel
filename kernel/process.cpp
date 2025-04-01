@@ -8,6 +8,7 @@
 #include "kernel/process.h"
 #include <cstdint>
 #include <kernel/kernel.h>
+#include <kernel/scheduler.h>
 #include <lib/debug.h>
 #include <lib/string.h>
 
@@ -90,7 +91,7 @@ ProcessControlBlock* ProcessManager::create_process(const char* name)
 
     auto kernel_mm = Kernel::instance().kernel_mm();
     auto addr = kernel_mm.alloc_pages(4);
-    auto pcb = new ((void*)addr) ProcessControlBlock();
+    auto pcb = new((void*)addr) ProcessControlBlock();
 
     // auto pcbAddr = &((PCB*)kernel_mm.alloc_pages(4))->pcb;
     // auto& pcb = *pcbAddr;
@@ -105,7 +106,8 @@ ProcessControlBlock* ProcessManager::create_process(const char* name)
 }
 
 // 初始化进程详细信息
-ProcessControlBlock* ProcessManager::kernel_thread(const char* name, uint32_t entry, uint32_t argc, char* argv[])
+ProcessControlBlock* ProcessManager::kernel_thread(
+    const char* name, uint32_t entry, uint32_t argc, char* argv[])
 {
     auto pPcb = create_process(name);
     auto& pcb = *pPcb;
@@ -196,15 +198,14 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
         [](uint32_t physAddr) {
             return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
         });
-
 }
-
 
 int ProcessManager::allocUserStack(ProcessControlBlock* pcb)
 {
-    auto &mm = pcb->user_mm;
+    auto& mm = pcb->user_mm;
     pcb->stacks.user_stack_size = USER_STACK_SIZE;
-    pcb->stacks.user_stack = (uint32_t)mm.allocate_area(pcb->stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
+    pcb->stacks.user_stack =
+        (uint32_t)mm.allocate_area(pcb->stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
     debug_debug("user stack:0x%x\n", pcb->stacks.user_stack);
     printPDPTE((void*)pcb->stacks.user_stack);
     if(!pcb->stacks.user_stack) {
@@ -213,7 +214,6 @@ int ProcessManager::allocUserStack(ProcessControlBlock* pcb)
     }
     return 0;
 }
-
 
 void ProcessManager::appendPCB(PCB* pcb)
 {
@@ -369,6 +369,13 @@ bool ProcessManager::schedule()
         if(next->state == PROCESS_READY || next->state == PROCESS_RUNNING) {
             break;
         }
+        if(next->state == PROCESS_SLEEPING || next->sleep_ticks <= 0) {
+            next->state = PROCESS_RUNNING;
+            next->sleep_ticks = 0;
+            break;
+        } else {
+            next->sleep_ticks--;
+        }
         next = next->next;
     }
     if(next == &current->pcb) {
@@ -423,8 +430,8 @@ void ProcessManager::restore_context(uint32_t* esp)
     ProcessControlBlock* next = current_pcb;
     auto& regs = next->regs;
     // if(next != &CURRENT()->pcb) {
-    //     debug_debug("restore context called, current:0x%x, next_pcb: 0x%x, pid: %d\n", CURRENT(), next, next->pid);
-    //     next->print();
+    //     debug_debug("restore context called, current:0x%x, next_pcb: 0x%x, pid: %d\n", CURRENT(),
+    //     next, next->pid); next->print();
     // }
 
     // 恢复通用寄存器
@@ -455,7 +462,7 @@ ProcessControlBlock* ProcessManager::get_current_process()
     return current_pcb;
 }
 
-void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlock*pcb)
+void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlock* pcb)
 {
     // auto pcb = get_current_process();
     auto user_stack = pcb->stacks.user_stack + pcb->stacks.user_stack_size - 16;
@@ -470,27 +477,38 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlo
     pcb->regs.ss = pcb->regs.ds = USER_DS;
     pcb->regs.eflags == 0x200;
 
-    __printPDPTE((void *)entry_point, (PageDirectory*)pcb->user_mm.getPageDirectory());
-    __printPDPTE((void *)user_stack, (PageDirectory*)pcb->user_mm.getPageDirectory());
+    __printPDPTE((void*)entry_point, (PageDirectory*)pcb->user_mm.getPageDirectory());
+    __printPDPTE((void*)user_stack, (PageDirectory*)pcb->user_mm.getPageDirectory());
     GDT::updateTSS(pcb->stacks.esp0, KERNEL_DS);
     GDT::updateTSSCR3(pcb->regs.cr3);
 
-    asm volatile(
-        "mov %%eax, %%esp\n\t"         // 设置用户栈指针
-        "pushl $0x23\n\t"             // 用户数据段选择子
-        "pushl %%eax\n\t"             // 用户栈指针
-        "pushfl\n\t"                  // 原始EFLAGS
-        "orl $0x200, (%%esp)\n\t"     // 开启中断标志
-        "pushl $0x1B\n\t"             // 用户代码段选择子
-        "pushl %%ebx\n\t"             // 入口地址
-        "iret\n\t"                    // 切换特权级
+    asm volatile("mov %%eax, %%esp\n\t"    // 设置用户栈指针
+                 "pushl $0x23\n\t"         // 用户数据段选择子
+                 "pushl %%eax\n\t"         // 用户栈指针
+                 "pushfl\n\t"              // 原始EFLAGS
+                 "orl $0x200, (%%esp)\n\t" // 开启中断标志
+                 "pushl $0x1B\n\t"         // 用户代码段选择子
+                 "pushl %%ebx\n\t"         // 入口地址
+                 "iret\n\t"                // 切换特权级
         :
-        : "a" (user_stack), "b" (entry_point)
-        : "memory", "cc"
-    );
+        : "a"(user_stack), "b"(entry_point)
+        : "memory", "cc");
     // __builtin_unreachable();  // 避免编译器警告
 }
 
 // 静态成员初始化
 PCB* ProcessManager::idle_pcb;
 ProcessControlBlock* ProcessManager::current_pcb = nullptr;
+
+void ProcessManager::sleep_current_process(uint32_t ticks)
+{
+    ProcessControlBlock* pcb = get_current_process();
+    if(!pcb)
+        return;
+
+    pcb->state = PROCESS_SLEEPING; // 需要确保枚举值已定义
+    pcb->sleep_ticks = ticks;      // 需要在PCB结构中添加该字段
+
+    // 触发调度让出CPU
+    schedule();
+}

@@ -1,18 +1,10 @@
 #ifndef SYSCALL_USER_H
 #define SYSCALL_USER_H
 
+#include "syscall.h"
+
 #include <stdint.h>
 #include <unistd.h>
-
-// 系统调用号
-#define SYS_FORK 1
-#define SYS_EXEC 2
-#define SYS_OPEN 3
-#define SYS_READ 4
-#define SYS_WRITE 5
-#define SYS_CLOSE 6
-#define SYS_SEEK 7
-#define SYS_EXIT 8
 
 // 系统调用接口
 extern "C" {
@@ -85,6 +77,21 @@ inline void syscall_exit(int status)
     while(1)
         ; // 防止返回
 }
+
+// 添加用户空间getpid封装
+}
+inline pid_t syscall_getpid() {
+    uint32_t ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(SYS_GETPID));
+    return ret;
+}
+
+inline int syscall_nanosleep(const struct timespec *req, struct timespec *rem) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_NANOSLEEP), "b"((uint32_t)req), "c"((uint32_t)rem));
+    return ret;
 }
 
 #endif // SYSCALL_USER_H

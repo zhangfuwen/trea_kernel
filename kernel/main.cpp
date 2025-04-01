@@ -65,13 +65,14 @@ extern "C" void kernel_main()
         debug_debug("fork syscall called!\n");
         return ProcessManager::fork();
     });
+    set_log_level(LOG_INFO);
 
     // 注册时钟中断处理函数
     InterruptManager::registerHandler(0x20, []() {
         Kernel* kernel = &Kernel::instance();
         kernel->tick();
         if(kernel->get_ticks() % 5 == 0) {
-            debug_rate_limited("timer interrupt called!\n");
+            // debug_rate_limited("timer interrupt called!\n");
             Scheduler::timer_tick();
         }
     });

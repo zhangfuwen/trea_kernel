@@ -11,6 +11,7 @@ enum ProcessState {
     PROCESS_NEW,
     PROCESS_READY,
     PROCESS_RUNNING,
+    PROCESS_SLEEPING,
     PROCESS_WAITING,
     PROCESS_TERMINATED,
     EXITED
@@ -76,6 +77,7 @@ struct ProcessControlBlock {
     uint32_t time_slice;                      // 时间片
     uint32_t total_time;                      // 总执行时间
     uint32_t exit_status; // 退出状态码
+    uint32_t sleep_ticks;
 
     UserMemory user_mm;        // 用户空间内存管理器
     Registers regs;
@@ -133,6 +135,7 @@ public:
     static void cloneMemorySpace(ProcessControlBlock* child, ProcessControlBlock* parent);
     // static void cloneMemory(ProcessControlBlock* pcb);
     static int allocUserStack(ProcessControlBlock* pcb);
+    static void sleep_current_process(uint32_t ticks);
     static ProcessControlBlock * current_pcb;
     static PCB * idle_pcb;
 

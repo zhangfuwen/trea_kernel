@@ -167,9 +167,11 @@ syscall_interrupt:
     mov eax, [syscall_number]
     push eax ; syscall number
     call handleSyscall         ; 调用C函数
+    mov [arg1], eax
     add esp, 16
 
     RESTORE_REGS_FOR_CONTEXT_SWITCH
+    mov eax, [arg1]
     sti
     iretd            ; 返回
 

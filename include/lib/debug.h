@@ -54,9 +54,57 @@ int format_string_v(char* buffer, size_t size, const char* format, va_list args)
 // 修改后的format_string函数
 void format_string(char* buffer, size_t size, const char* format, ...);
 
+const char* get_filename_from_path(const char* path);
 // 核心打印函数
-void _debug_print(
-    LogLevel level, const char* file, int line, const char* func, const char* format, ...);
+inline void _debug_print(
+    LogLevel level, const char* file, int line, const char* func, const char* format, ...)
+{
+    if(level > current_log_level)
+        return;
+
+    // 保存当前颜色
+    uint8_t old_color = VGA_COLOR_LIGHT_GREY;
+
+    // 设置日志级别对应的颜色
+    Console::setColor(log_level_colors[level], VGA_COLOR_BLACK);
+
+    // 打印日志级别前缀
+    Console::print(log_level_prefix[level]);
+
+#ifndef NO_PID
+    // 获取当前进程PID
+    int pid = 0;
+    ProcessControlBlock* current = ProcessManager::get_current_process();
+    if(current) {
+        pid = current->pid;
+    }
+
+    // 打印PID、文件名、行号和函数名
+    char info_buffer[256];
+    format_string(info_buffer, sizeof(info_buffer), "[PID:%d] (%s:%d %s): ", pid,
+        get_filename_from_path(file), line, func);
+    Console::print(info_buffer);
+#else
+    char info_buffer[256];
+    format_string(info_buffer, sizeof(info_buffer), "%s:%d %s(): ", file, line, func);
+    Console::print(info_buffer);
+
+#endif
+
+    // 格式化并打印用户消息
+    char msg_buffer[512];
+    va_list args;
+    va_start(args, format);
+
+    // 使用接受va_list的格式化函数
+    format_string_v(msg_buffer, sizeof(msg_buffer), format, args);
+    va_end(args);
+
+    Console::print(msg_buffer);
+
+    // 恢复颜色
+    Console::setColor(old_color, VGA_COLOR_BLACK);
+}
 // 设置当前日志级别
 inline void set_log_level(LogLevel level)
 {
@@ -91,7 +139,7 @@ inline void set_log_level(LogLevel level)
         static constexpr uint32_t interval_ticks = 100; /* 100 ticks = 1秒（假设1tick=10ms） */    \
         uint32_t current_tick = Kernel::instance().get_ticks();                                    \
         if(current_tick - last_print > interval_ticks) {                                           \
-            _debug_print(LOG_DEBUG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__);             \
+            _debug_print(LOG_INFO, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__);             \
             last_print = current_tick;                                                             \
         }                                                                                          \
     } while(0)

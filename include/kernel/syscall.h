@@ -14,7 +14,9 @@ enum SyscallNumber {
     SYS_WRITE = 5,
     SYS_CLOSE = 6,
     SYS_SEEK = 7,
-    SYS_EXIT = 8
+    SYS_EXIT = 8,
+    SYS_GETPID = 9,
+    SYS_NANOSLEEP = 10,
 };
 
 // 系统调用处理函数类型
@@ -24,6 +26,8 @@ typedef int (*SyscallHandler)(uint32_t, uint32_t, uint32_t, uint32_t);
 int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t);
 int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t);
 int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessControlBlock *pcb);
+int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
+int sys_getpid();
 
 // 系统调用管理器
 class SyscallManager

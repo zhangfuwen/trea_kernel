@@ -20,7 +20,9 @@ public:
     virtual ssize_t write(const void* buffer, size_t size) override
     {
         const char* chars = static_cast<const char*>(buffer);
+        Console::setColor(VGA_COLOR_RED, VGA_COLOR_BLACK);
         Console::print((const char *)buffer);
+        Console::setColor(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
         // for(size_t i = 0; i < size; i++) {
         //     Console::putchar(chars[i]);
         // }

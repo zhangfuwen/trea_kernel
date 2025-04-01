@@ -15,12 +15,30 @@
 #include "kernel/user_memory.h"
 #include "kernel/vfs.h"
 #include "lib/debug.h"
+#include "lib/time.h"
 
 // 系统调用处理函数声明
 int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t)
 {
     sys_execve(path_ptr, argv_ptr, envp_ptr, nullptr);
 }
+
+int nanosleepHandler(uint32_t req_ptr, uint32_t rem_ptr, uint32_t, uint32_t) {
+    // 将用户空间指针转换为内核可访问的指针
+    timespec* req = reinterpret_cast<timespec*>(req_ptr);
+
+    // 计算总纳秒数（简单实现，不考虑溢出）
+    uint64_t total_ns = req->tv_sec * 1000000000ULL + req->tv_nsec;
+
+    // 转换为时钟滴答数（假设1 tick=10ms）
+    uint32_t ticks = total_ns >> 24;
+
+    // 挂起当前进程
+    ProcessManager::sleep_current_process(ticks);
+
+    return 0; // 返回成功
+}
+
 
 // 静态成员初始化
 SyscallHandler SyscallManager::handlers[256];
@@ -36,8 +54,22 @@ void SyscallManager::init()
     // 注册系统调用处理函数
     registerHandler(SYS_EXEC, execveHandler);
     registerHandler(SYS_EXIT, exitHandler);
+    registerHandler(SYS_NANOSLEEP, nanosleepHandler);
+// 在系统调用初始化代码段中添加
+    registerHandler(SYS_GETPID, getpid_handler);
 
     Console::print("SyscallManager initialized\n");
+}
+
+int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+{
+    return sys_getpid();
+}
+
+int sys_getpid() {
+    auto pcb =  ProcessManager::get_current_process();
+    debug_info("pcb is %x, pid is %d\n", pcb, pcb->pid);
+    return pcb->pid;
 }
 
 // 注册系统调用处理程序
@@ -71,7 +103,7 @@ void SyscallManager::defaultHandler()
 }
 
 // execve系统调用处理函数
-int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessControlBlock *pcb)
+int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessControlBlock* pcb)
 {
     debug_debug("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
 
@@ -94,9 +126,10 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
     // 读取文件内容
     auto filep = pcb->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
     debug_debug("File allocated at %x\n", filep);
-    auto pages = Kernel::instance().kernel_mm().alloc_pages(attr->size/4096);
-    for(int i = 0; i < attr->size/4096; i++) {
-        pcb->user_mm.map_pages((uint32_t)filep + i*4096, pages[i].pfn*4096, 4096, PAGE_USER|PAGE_WRITE|PAGE_PRESENT);
+    auto pages = Kernel::instance().kernel_mm().alloc_pages(attr->size / 4096);
+    for(int i = 0; i < attr->size / 4096; i++) {
+        pcb->user_mm.map_pages((uint32_t)filep + i * 4096, pages[i].pfn * 4096, 4096,
+            PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
     }
     debug_debug("File allocated at %x\n", filep);
     int size = kernel::sys_read(fd, (uint32_t)filep, attr->size, pcb);
@@ -116,9 +149,10 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
 
     // auto loadAddr = pcb->user_mm.allocate_area(0x4000, PAGE_WRITE, 0);
     // auto paddr = Kernel::instance().kernel_mm().allocPage();
-    // pcb->user_mm.map_pages((uint32_t)loadAddr, paddr, 0x1000, PAGE_WRITE | PAGE_USER|PAGE_PRESENT);
+    // pcb->user_mm.map_pages((uint32_t)loadAddr, paddr, 0x1000, PAGE_WRITE |
+    // PAGE_USER|PAGE_PRESENT);
     auto loadAddr = 0;
-    if(!ElfLoader::load_elf(filep, size,(uint32_t)loadAddr)) {
+    if(!ElfLoader::load_elf(filep, size, (uint32_t)loadAddr)) {
         pcb->user_mm.free_area((uint32_t)filep);
         debug_err("Failed to load ELF file\n");
         return -1;
@@ -129,7 +163,7 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
     uint32_t entry_point = header->entry;
     debug_debug("entry_point: %x\n", entry_point);
 
-    ProcessManager::switch_to_user_mode(entry_point+(uint32_t)loadAddr, pcb);
+    ProcessManager::switch_to_user_mode(entry_point + (uint32_t)loadAddr, pcb);
     // pcb->mm.free_area((uint32_t)filep);
 
     return 0;

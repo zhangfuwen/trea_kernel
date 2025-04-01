@@ -1,5 +1,8 @@
 #define NO_PID 1
 #include "kernel/syscall_user.h"
+#include "lib/time.h"
+
+#include <lib/debug.h>
 
 const char* filename = "/dev/console";
 
@@ -19,19 +22,16 @@ int main()
     // syscall_fork();
     // syscall_exit(NO_PID);
 
-    int fd = syscall_open(filename);
+    char buf[1024] = "hello world!\n";
     while(true) {
-        if(fd < 0) {
-            // debug_err("Failed to open console!\n");
-            return -1;
-        } else {
-            // debug_debug("open console: %d\n", fd);
-            char buf[1024] = "hello world!\n";
-            int ret = syscall_write(2, buf, 13);
-            if(ret < 0) {
-                // debug_err("Failed to write to console!\n");
-            }
-        }
+        int pid = syscall_getpid();
+        format_string(buf, 1024, "pid: %d\n", pid);
+        syscall_write(2, buf, strlen(buf));
+        struct timespec ts = {
+            .tv_sec = 0,
+            .tv_nsec = 1000 * 1000 * 1000,
+        };
+        syscall_nanosleep(&ts, &ts);
         asm volatile("nop");
         asm volatile("nop");
         asm volatile("nop");
