@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 编译选项
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding -O2 -Wall -Wextra -m32 -I/usr/include/c++/13/i386-linux-gnu -I/usr/include/i386-linux-gnu -Iinclude -nostartfiles -static-libstdc++ -static-libgcc -fno-exceptions -fno-rtti -fno-use-cxa-atexit")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding -O2 -Wall -Werror=return-type -Wextra -m32 -I/usr/include/c++/13/i386-linux-gnu -I/usr/include/i386-linux-gnu -Iinclude -nostartfiles -static-libstdc++ -static-libgcc -fno-exceptions -fno-rtti -fno-use-cxa-atexit")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ffreestanding -O2 -nostdlib -m32 -no-pie -Wl,--build-id=none -static  -nodefaultlibs  -static-libstdc++ -static-libgcc")
 
 # 添加子目录
@@ -53,7 +53,7 @@ set(ROOTFS_CPIO_PATH "\"${CMAKE_BINARY_DIR}/\"")
 
 # 主内核目标
 add_executable(kernel.bin
-    kernel/main.cpp
+        kernel/main.cpp
         rootfs.asm
         boot.asm
         linker.ld
@@ -72,8 +72,8 @@ set_source_files_properties(
         COMPILE_FLAGS "-f elf32 -g -F dwarf"
 )
 set_source_files_properties(
-    ${CMAKE_BINARY_DIR}/rootfs.cpio
-    PROPERTIES
+        ${CMAKE_BINARY_DIR}/rootfs.cpio
+        PROPERTIES
         GENERATED TRUE
 )
 
@@ -84,17 +84,17 @@ add_dependencies(kernel.bin init)
 
 # 链接所有模块
 target_link_libraries(kernel.bin
-    arch_x86
-    kernel_core
-    drivers_core
-    kernel_lib
+        arch_x86
+        kernel_core
+        drivers_core
+        kernel_lib
 )
 
 # 自定义目标：创建ISO镜像
 add_custom_target(kernel.iso
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/iso/boot/grub
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/kernel.bin ${CMAKE_BINARY_DIR}/iso/boot/
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/boot/grub.cfg ${CMAKE_BINARY_DIR}/iso/boot/grub/
-    COMMAND grub-mkrescue -o ${CMAKE_BINARY_DIR}/kernel.iso ${CMAKE_BINARY_DIR}/iso
-    DEPENDS kernel.bin
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/iso/boot/grub
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/kernel.bin ${CMAKE_BINARY_DIR}/iso/boot/
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/boot/grub.cfg ${CMAKE_BINARY_DIR}/iso/boot/grub/
+        COMMAND grub-mkrescue -o ${CMAKE_BINARY_DIR}/kernel.iso ${CMAKE_BINARY_DIR}/iso
+        DEPENDS kernel.bin
 )

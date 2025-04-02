@@ -6,21 +6,27 @@
 
 void BuddyAllocator::init(uint32_t start_addr, uint32_t size)
 {
+    debug_info("BuddyAllocator::init(start_addr 0x%x, size:%d(0x%x))\n", start_addr, size, size);
     // 先分配PageInfo元数据空间
     page_count = size / PAGE_SIZE;
     uint32_t info_bytes = page_count * sizeof(PageInfo);
     info_bytes = (info_bytes + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1); // 按页对齐
 
-    // 设置page_info指针并初始化
-    page_info = reinterpret_cast<PageInfo*>(Kernel::instance().kernel_mm().phys2Virt(start_addr));
-    memset(page_info, 0, info_bytes);
-
     // 调整实际管理的内存区域
     real_start = start_addr;
     memory_start = start_addr + info_bytes;
     memory_size = size - info_bytes;
+    debug_info("page_info size:%d(0x%x), memory_start:0x%x\n", info_bytes, info_bytes, memory_start);
+
+    // 设置page_info指针并初始化
+    page_info = reinterpret_cast<PageInfo*>(Kernel::instance().kernel_mm().phys2Virt(start_addr));
+    debug_debug("memset page_info(0x%x, phys:0x%x), size:%d(0x%x)\n", page_info, start_addr, info_bytes, info_bytes);
+    memset(page_info, 0, info_bytes);
+    debug_debug("memset page_info done\n");
+
 
     // 初始化所有空闲链表为空
+    debug_debug("init free_lists\n");
     for(int i = 0; i <= MAX_ORDER; i++) {
         free_lists[i] = nullptr;
     }
@@ -30,6 +36,7 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size)
     uint32_t total_pages = memory_size / PAGE_SIZE;
     uint32_t order = get_block_order(total_pages);
 
+    debug_debug("total_pages:%d\n", total_pages);
     FreeBlock* block = (FreeBlock*)Kernel::instance().kernel_mm().phys2Virt(memory_start);
     block->next = nullptr;
     block->size = 1 << order;

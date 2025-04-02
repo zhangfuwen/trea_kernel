@@ -1,3 +1,4 @@
+#define NO_PID
 #include "kernel/syscall_user.h"
 #include "lib/debug.h"
 #include "lib/string.h"
@@ -5,6 +6,11 @@
 // 最大命令长度
 #define MAX_CMD_LEN 256
 #define MAX_ARGS 16
+
+void *operator new[](size_t size) {
+    static char buffer[MAX_CMD_LEN];
+    return buffer;
+}
 
 // 解析命令行参数
 int parse_cmd(char* cmd, char* argv[]) {

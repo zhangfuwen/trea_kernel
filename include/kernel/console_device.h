@@ -8,8 +8,8 @@ namespace kernel
 class ConsoleDevice : public FileDescriptor
 {
 public:
-    ConsoleDevice() = default;
-    virtual ~ConsoleDevice() = default;
+    ConsoleDevice();
+    virtual ~ConsoleDevice();
 
     // 键盘输入缓冲区大小
     static const size_t INPUT_BUFFER_SIZE = 1024;

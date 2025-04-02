@@ -3,11 +3,16 @@
 # 输入参数
 if [ $# -lt 2 ]; then
     echo "Usage: $0 <iso_file> <disk_image>"
-    exit 1
+    echo "using test.img"
 fi
 # 定义变量
 iso_file=$1
-disk_image=$2
+
+if [ $# -eq 1 ]; then
+    disk_image="test.img"
+else
+    disk_image=$2
+fi
 
 # 检查qemu-system-i386是否已安装
 if ! command -v qemu-system-i386 &> /dev/null; then

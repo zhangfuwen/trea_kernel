@@ -67,7 +67,8 @@ int statHandler(uint32_t path_ptr, uint32_t attr_ptr, uint32_t, uint32_t)
 
 int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t)
 {
-    sys_execve(path_ptr, argv_ptr, envp_ptr, nullptr);
+    auto ret = sys_execve(path_ptr, argv_ptr, envp_ptr, nullptr);
+    return ret;
 }
 
 int nanosleepHandler(uint32_t req_ptr, uint32_t rem_ptr, uint32_t, uint32_t) {

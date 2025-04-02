@@ -9,7 +9,7 @@ namespace kernel
 {
 
 // 文件类型
-enum class FileType {
+enum class FileType : unsigned char {
     Regular,   // 普通文件
     Directory, // 目录
     Device     // 设备文件

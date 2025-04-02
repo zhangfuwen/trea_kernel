@@ -1,6 +1,7 @@
 #include <stddef.h>
 
 #include "lib/debug.h"
+#include "lib/string.h"
 
 // 字符串长度计算
 size_t strlen(const char* str)
@@ -91,10 +92,66 @@ void* memcpy(void* dest, const void* src, size_t n)
 }
 
 // 内存设置
-void* memset(void* s, int c, size_t n)
+void memset(void* s, int c, size_t n)
 {
     unsigned char* p = (unsigned char*)s;
     while(n--)
         *p++ = (unsigned char)c;
-    return s;
+}
+
+char* strdup(const char* s) {
+    size_t len = strlen(s) + 1;
+    char* new_str = new char[len];
+    if (new_str) {
+        memcpy(new_str, s, len);
+    }
+    return new_str;
+}
+
+char* strtok(char* str, const char* delim) {
+    static char* last = nullptr;
+
+    if (str) {
+        last = str;
+    } else if (!last) {
+        return nullptr;
+    }
+
+    // 跳过前导分隔符
+    char* start = last;
+    while (*start && strchr(delim, *start)) {
+        start++;
+    }
+
+    if (!*start) {
+        last = nullptr;
+        return nullptr;
+    }
+
+    // 查找token结束位置
+    char* end = start;
+    while (*end && !strchr(delim, *end)) {
+        end++;
+    }
+
+    if (*end) {
+        *end = '\0';
+        last = end + 1;
+    } else {
+        last = nullptr;
+    }
+
+    return start;
+}
+
+int memcmp(const void* s1, const void* s2, size_t n) {
+    const unsigned char* p1 = (const unsigned char*)s1;
+    const unsigned char* p2 = (const unsigned char*)s2;
+
+    for (size_t i = 0; i < n; i++) {
+        if (p1[i] != p2[i]) {
+            return p1[i] - p2[i];
+        }
+    }
+    return 0;
 }

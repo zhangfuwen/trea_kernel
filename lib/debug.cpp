@@ -23,7 +23,6 @@ LogOutputInterface log_output_handler = {
     [](LogLevel level, const char* message) {
         ensure_serial_initialized();
         serial_puts(message);
-        serial_puts("\n"); // 添加换行符
     }
 };
 
@@ -329,4 +328,53 @@ int format_string(char* buffer, size_t size, const char* format, ...)
     va_end(args);
     return len;
 }
+
+
+void hexdump(const void* buf, size_t size) {
+    const uint8_t* data = static_cast<const uint8_t*>(buf);
+    size_t address = 0;
+    char line[78]; // 8 + 1 + 8*3 + 3*2 + 16 + 1 = 78
+
+    while (size > 0) {
+        size_t line_size = (size > 16) ? 16 : size;
+        char* p = line;
+
+        // 地址部分 (00000000: )
+        p += format_string(p, 9, "%08zx:", address);
+        *p++ = ' ';
+
+        // 十六进制部分
+        for (size_t i = 0; i < 16; i++) {
+            if (i < line_size) {
+                p += format_string(p, 3, "%02x", data[i]);
+            } else {
+                p += format_string(p, 3, "  ");
+            }
+            // 每8字节加空格分隔
+            if (i == 7) *p++ = ' ';
+            *p++ = ' ';
+        }
+
+        // ASCII部分
+        *p++ = '|';
+        *p++ = ' ';
+        for (size_t i = 0; i < 16; i++) {
+            if (i < line_size) {
+                uint8_t c = data[i];
+                *p++ = (c >= 32 && c <= 126) ? c : '.';
+            } else {
+                *p++ = ' ';
+            }
+        }
+        *p = '\0';
+
+        // 使用调试输出
+        debug_debug("%s\n", line);
+
+        data += line_size;
+        address += line_size;
+        size -= line_size;
+    }
+}
+
 

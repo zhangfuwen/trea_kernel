@@ -1,5 +1,5 @@
-#include "kernel/kernel.h"
-#include <lib/debug.h>
+#include "../include/kernel/kernel.h"
+#include <../include/lib/debug.h>
 #include <stddef.h>
 
 // 全局new操作符实现

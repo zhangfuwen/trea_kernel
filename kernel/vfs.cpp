@@ -145,7 +145,8 @@ int sys_close(uint32_t fd_num, ProcessControlBlock* pcb)
 int seekHandler(uint32_t fd_num, uint32_t offset, uint32_t c, uint32_t d)
 {
     auto pcb = ProcessManager::get_current_process();
-    sys_seek(fd_num, offset, pcb);
+    auto ret = sys_seek(fd_num, offset, pcb);
+    return ret;
 }
 int sys_seek(uint32_t fd_num, uint32_t offset, ProcessControlBlock* pcb)
 {

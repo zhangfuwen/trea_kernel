@@ -1,21 +1,22 @@
+#include <arch/x86/gdt.h>
+#include <arch/x86/idt.h>
+#include <arch/x86/interrupt.h>
+#include <arch/x86/paging.h>
+#include <arch/x86/pit.h>
+#include <drivers/block_device.h>
+#include <drivers/ext2.h>
+#include <kernel/buddy_allocator.h>
+#include <kernel/elf_loader.h>
+#include <kernel/memfs.h>
+#include <kernel/process.h>
+#include <kernel/scheduler.h>
+#include <kernel/syscall_user.h>
+#include <kernel/vfs.h>
+#include <lib/console.h>
+#include <lib/debug.h>
 #include <lib/ioport.h>
-
-#include "arch/x86/gdt.h"
-#include "arch/x86/idt.h"
-#include "arch/x86/interrupt.h"
-#include "arch/x86/paging.h"
-#include "arch/x86/pit.h"
-#include "kernel/buddy_allocator.h"
-#include "kernel/elf_loader.h"
-#include "kernel/memfs.h"
-#include "kernel/process.h"
-#include "kernel/scheduler.h"
-#include "kernel/syscall_user.h"
-#include "kernel/vfs.h"
-#include "lib/console.h"
-#include "lib/debug.h"
-#include "lib/serial.h"
-#include "unistd.h"
+#include <lib/serial.h>
+#include <unistd.h>
 
 using namespace kernel;
 
@@ -26,16 +27,16 @@ extern "C" void syscall_interrupt();
 extern "C" void page_fault_interrupt();
 extern "C" void general_protection_interrupt();
 extern "C" void segmentation_fault_interrupt();
-ProcessControlBlock * init_proc= nullptr;
+ProcessControlBlock* init_proc = nullptr;
 void init()
 {
     auto pcb = ProcessManager::get_current_process();
     Kernel::instance().kernel_mm().paging().loadPageDirectory(pcb->regs.cr3);
-    debug_debug("load page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb,pcb->pid);
+    debug_debug("load page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb, pcb->pid);
     while(true) {
         debug_rate_limited("init process!\n");
         sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_proc);
-    //    asm volatile("hlt");
+        //    asm volatile("hlt");
     }
 };
 
@@ -59,13 +60,15 @@ extern "C" void kernel_main()
     Kernel::init_all();
     Kernel* kernel = &Kernel::instance();
     kernel->init();
+    serial_puts("Kernel initialized!\n");
+    debug_debug("Kernel initialized!\n");
     // 注册系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
     SyscallManager::registerHandler(SYS_FORK, [](uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
         debug_debug("fork syscall called!\n");
         return ProcessManager::fork();
     });
-    set_log_level(LOG_INFO);
+    set_log_level(LOG_DEBUG);
 
     // 注册时钟中断处理函数
     InterruptManager::registerHandler(0x20, []() {
@@ -119,7 +122,7 @@ extern "C" void kernel_main()
     // 初始化磁盘设备
     debug_debug("Initializing disk device...\n");
     auto disk = new DiskDevice();
-    if (!disk->init()) {
+    if(!disk->init()) {
         debug_err("Failed to initialize disk device!\n");
         return;
     }
@@ -128,17 +131,17 @@ extern "C" void kernel_main()
     // 初始化ext2文件系统
     debug_debug("Initializing ext2 filesystem...\n");
     auto ext2fs = new Ext2FileSystem(disk);
-    VFSManager::instance().register_fs("/mnt", ext2fs);
-    debug_debug("Ext2 filesystem mounted at /mnt\n");
+    // VFSManager::instance().register_fs("/mnt", ext2fs);
+    // debug_debug("Ext2 filesystem mounted at /mnt\n");
 
-    // 打印根目录内容
-    auto root = ext2fs->open("/mnt");
-    if (root) {
-        FileAttribute attr;
-        ext2fs->stat("/mnt", &attr);
-        debug_info("Root directory size: %d bytes\n", attr.size);
-        delete root;
-    }
+    // // 打印根目录内容
+    // auto root = ext2fs->open("/mnt");
+    // if(root) {
+    //     FileAttribute attr;
+    //     ext2fs->stat("/mnt", &attr);
+    //     debug_info("Root directory size: %d bytes\n", attr.size);
+    //     delete root;
+    // }
 
     // 初始化内存文件系统
     debug_debug("Trying to new memfs ...\n");
@@ -195,7 +198,7 @@ extern "C" void kernel_main()
     debug_info("Trying to execute /init...\n");
     ProcessManager::initIdle();
     debug_debug("Trying to execute /init...\n");
-    init_proc= ProcessManager::kernel_thread("init", (uint32_t)init, 0, nullptr);
+    init_proc = ProcessManager::kernel_thread("init", (uint32_t)init, 0, nullptr);
     debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
     ProcessManager::cloneMemorySpace(init_proc, (ProcessControlBlock*)ProcessManager::idle_pcb);
     ProcessManager::allocUserStack(init_proc);
@@ -204,23 +207,11 @@ extern "C" void kernel_main()
 
     debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
     init_proc->print();
+    debug_debug("init_proc initialized\n");
 
     asm volatile("sti");
-    // sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, initProc);
-    // if(pid == 0) {
-    //     // 子进程
-    //     debug_debug("child process!\n");
-    //     sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr);
-    //     while(1) {
-    //         debug_debug("child process!\n");
-    //         asm volatile("hlt");
-    //     }
-    //
-    // } else {
-        // asm volatile("cli");
-        while(1) {
-            debug_rate_limited("idle process!\n");
-            asm volatile("hlt");
-        }
-    // }
+    while(1) {
+        debug_rate_limited("idle process!\n");
+        asm volatile("hlt");
+    }
 }

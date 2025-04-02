@@ -1,6 +1,6 @@
-#include <kernel/vfs.h>
-#include <lib/console.h>
-#include <kernel/console_device.h>
+#include "kernel/vfs.h"
+#include "lib/console.h"
+#include "kernel/console_device.h"
 #include <drivers/keyboard.h>
 #include <arch/x86/interrupt.h>
 

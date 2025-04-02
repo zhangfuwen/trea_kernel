@@ -3,6 +3,7 @@ add_library(drivers_core
     keyboard.cpp
     block_device.cpp
     ext2.cpp
+        ../include/drivers/keyboard.h
 )
 
 # 添加包含目录

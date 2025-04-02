@@ -1,3 +1,4 @@
+#include <lib/ioport.h>
 #include <stdint.h>
 
 // 键盘端口
@@ -7,13 +8,6 @@
 // 键盘状态标志
 #define KEYBOARD_OUTPUT_FULL 0x01
 
-// 从端口读取一个字节
-static inline uint8_t inb(uint16_t port)
-{
-    uint8_t ret;
-    asm volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
 
 // 读取键盘状态
 static uint8_t keyboard_read_status()

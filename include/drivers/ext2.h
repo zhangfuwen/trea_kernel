@@ -31,6 +31,9 @@ struct Ext2Inode {
     uint32_t direct_blocks[EXT2_DIRECT_BLOCKS];  // 直接块
     uint32_t indirect_block;        // 一级间接块
     uint32_t double_indirect_block; // 二级间接块
+    uint16_t i_links_count;  // 链接计数
+    uint16_t i_blocks;       // 使用块数
+    uint32_t i_block[15];    // 数据块指针
 };
 
 // 目录项结构
@@ -42,6 +45,7 @@ struct Ext2DirEntry {
     char     name[EXT2_NAME_LEN];   // 文件名
 };
 
+class Ext2FileDescriptor;
 // EXT2文件系统实现
 class Ext2FileSystem : public FileSystem {
 public:
@@ -57,8 +61,10 @@ public:
     virtual int rmdir(const char* path) override;
 
 private:
+    friend class Ext2FileDescriptor;
     BlockDevice* device;
     Ext2SuperBlock* super_block;
+    uint32_t current_dir_inode = 2; // 默认根目录
 
     // 内部辅助函数
     bool read_super_block();
@@ -66,6 +72,23 @@ private:
     bool write_inode(uint32_t inode_num, const Ext2Inode* inode);
     uint32_t allocate_block();
     uint32_t allocate_inode();
+};
+
+class Ext2FileDescriptor : public kernel::FileDescriptor {
+public:
+    Ext2FileDescriptor(uint32_t inode, Ext2FileSystem* fs);
+    ~Ext2FileDescriptor() override;
+
+    ssize_t read(void* buffer, size_t size) override;
+    ssize_t write(const void* buffer, size_t size) override;
+    int seek(size_t offset) override;
+    int close() override;
+
+private:
+    friend class Ext2FileSystem;
+    uint32_t m_inode;
+    off_t m_position;
+    Ext2FileSystem* m_fs;
 };
 
 } // namespace kernel

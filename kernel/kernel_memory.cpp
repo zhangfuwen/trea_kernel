@@ -151,7 +151,7 @@ void KernelMemory::increment_ref_count(uint32_t physAddr)
 // 初始化内核内存管理
 void KernelMemory::init()
 {
-    serial_puts("KernelMemory::init()");
+    serial_puts("KernelMemory::init()\n");
     page_manager.init();
     // // 建立直接映射区的页表映射（包括DMA区域和普通区域）
     // for (uint32_t phys_addr = 0; phys_addr < NORMAL_ZONE_END * PAGE_SIZE;
@@ -161,12 +161,12 @@ void KernelMemory::init()
     //     read/write, present
     // }
 
-    serial_puts("KernelMemory::init() 2");
+    serial_puts("KernelMemory::init() 2\n");
     // 初始化各个内存区域
     // dma_zone.init(ZoneType::ZONE_DMA, DMA_ZONE_START, DMA_ZONE_END);
     normal_zone.init(ZoneType::ZONE_NORMAL, NORMAL_ZONE_START, NORMAL_ZONE_END);
     // high_zone.init(ZoneType::ZONE_HIGH, HIGH_ZONE_START, HIGH_ZONE_END);
-    serial_puts("KernelMemory::init() 2");
+    serial_puts("KernelMemory::init() 3");
 
     // 初始化VMALLOC区域
     //    vmalloc_tree.init();

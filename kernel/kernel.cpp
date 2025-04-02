@@ -67,7 +67,7 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
     auto pgd = pcb->user_mm.getPageDirectory();
     auto& user_mm = pcb->user_mm;
 
-    __printPDPTE((void*)fault_addr, (PageDirectory*)pgd);
+    // __printPDPTE((void*)fault_addr, (PageDirectory*)pgd);
 
     if(fault_addr >= 0x40000000 && fault_addr < 0xC0000000) {
         is_user = true;

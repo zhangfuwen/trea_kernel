@@ -5,8 +5,9 @@ add_library(kernel_core
     scheduler.cpp
     elf_loader.cpp
     elf_loader_reloc.cpp
-    memory_operators.cpp
     buddy_allocator.cpp
+        memory_operators.cpp
+        console_device.cpp
     memfs.cpp
     syscall.cpp
     vfs.cpp

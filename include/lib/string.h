@@ -26,4 +26,24 @@ char* strrchr(const char* s, int c);
 void* memcpy(void* dest, const void* src, size_t n);
 
 // 内存设置
-void* memset(void* s, int c, size_t n);
+void memset(void* s, int c, size_t n);
+
+// 添加以下声明
+int memcmp(const void* s1, const void* s2, size_t n);
+char* strdup(const char* s);
+char* strtok(char* str, const char* delim);
+char* strtok(char* str, const char* delim);
+
+// 添加在文件末尾
+template<typename T>
+const T& min(const T& a, const T& b) {
+    return (a < b) ? a : b;
+}
+
+template<typename T>
+const T& max(const T& a, const T& b) {
+    return (a > b) ? a : b;
+}
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
