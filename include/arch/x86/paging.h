@@ -103,7 +103,6 @@ public:
     PageManager();
     void init();
     static void mapKernelSpace();
-    static int copyMemorySpace(PageDirectory* src, PageDirectory*& out);
     /**
      * @brief 复制内存空间，使用写时复制技术
      * @param src 源页目录
@@ -133,14 +132,11 @@ public:
     {
         return curPgdVirt;
     }
-    PageTable* createPageTable();
-
     // 切换页目录
     void switchPageDirectory(PageDirectory* dirVirt, void* dirPhys);
 
 private:
     static void copyKernelSpace(PageDirectory* src, PageDirectory* dst);
-    uint32_t nextFreePage;
     PageDirectory* curPgdVirt;
 };
 
