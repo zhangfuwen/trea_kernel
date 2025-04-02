@@ -98,6 +98,8 @@ const char* parse_format_flags(const char* format, FormatFlags& flags, va_list& 
         format++;
         if(*format == 'h')
             format++; // 支持hh
+    } else if(*format == 'z') {
+        format++; // 支持z (size_t)
     }
 
     flags.type = *format;
@@ -484,6 +486,56 @@ int format_string(char* buffer, size_t size, const char* format, ...)
     va_end(args);
     return len;
 }
+
+void hexdump(const void* buf, size_t size, void(printf_func)(const char*)) {
+    const uint8_t* data = static_cast<const uint8_t*>(buf);
+    size_t address = 0;
+    char line[78]; // 8 + 1 + 8*3 + 3*2 + 16 + 1 = 78
+
+    while (size > 0) {
+        size_t line_size = (size > 16) ? 16 : size;
+        char* p = line;
+
+        // 地址部分 (00000000: )
+        p += format_string(p, 9, "%08zx:", address);
+        *p++ = ' ';
+
+        // 十六进制部分
+        for (size_t i = 0; i < line_size; i++) {
+            p += format_string(p, 3, "%02x", data[i]);
+            // 每8字节加空格分隔
+            if (i == 7) *p++ = ' ';
+            *p++ = ' ';
+        }
+        // 补齐剩余的十六进制部分
+        for (size_t i = line_size; i < 16; i++) {
+            p += format_string(p, 3, "  ");
+            if (i == 7) *p++ = ' ';
+            *p++ = ' ';
+        }
+
+        // ASCII部分
+        *p++ = '|';
+        *p++ = ' ';
+        for (size_t i = 0; i < line_size; i++) {
+            uint8_t c = data[i];
+            *p++ = (c >= 32 && c <= 126) ? c : '.';
+        }
+        // 补齐剩余的 ASCII 部分
+        for (size_t i = line_size; i < 16; i++) {
+            *p++ = ' ';
+        }
+        *p = '\0';
+
+        // 使用调试输出
+        printf_func(line);
+
+        data += line_size;
+        address += line_size;
+        size -= line_size;
+    }
+}
+
 
 
 

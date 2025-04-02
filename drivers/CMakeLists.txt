@@ -11,6 +11,8 @@ target_include_directories(drivers_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )
 
+target_link_libraries(drivers_core PRIVATE kernel_lib)
+
 # 编译选项
 target_compile_options(drivers_core PRIVATE
     -ffreestanding

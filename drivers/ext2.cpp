@@ -12,7 +12,10 @@ Ext2FileSystem::Ext2FileSystem(BlockDevice* device) : device(device)
     auto ret = read_super_block();
     debug_debug("read_super_block ret %d, super block:0x%x\n", ret, super_block);
     if(ret) {
-        hexdump(super_block, sizeof(Ext2SuperBlock));
+        hexdump(super_block, sizeof(Ext2SuperBlock), [](const char*line) {
+            debug_debug("%s\n", line);
+        });
+        super_block->print();
     }
     if(!ret) {
         // 初始化新的文件系统
@@ -49,6 +52,20 @@ char* Ext2FileSystem::get_name()
 {
     return "ext2";
 }
+
+void Ext2SuperBlock::print()
+{
+    debug_debug("Ext2SuperBlock:\n");
+    debug_debug("  inodes_count: %d\n", inodes_count);
+    debug_debug("  blocks_count: %d\n", blocks_count);
+    debug_debug("  first_data_block: %d\n", first_data_block);
+    debug_debug("  block_size: %d\n", block_size);
+    debug_debug("  blocks_per_group: %d\n", blocks_per_group);
+    debug_debug("  inodes_per_group: %d\n", inodes_per_group);
+    debug_debug("  magic: 0x%x\n", magic);
+    debug_debug("  state: %d\n", state);
+}
+
 
 bool Ext2FileSystem::read_super_block()
 {
