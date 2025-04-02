@@ -2,6 +2,7 @@
 #include <drivers/ext2.h>
 #include <lib/debug.h>
 #include <lib/string.h>
+#include <kernel/dirent.h>
 
 namespace kernel
 {
@@ -550,6 +551,109 @@ int Ext2FileSystem::list(const char* path, void* buffer, size_t buffer_size)
             entry = (Ext2DirEntry*)((uint8_t*)entry + entry->rec_len);
         }
     }
+    
+    delete[] block;
+    delete dir_inode;
+    
+    return bytes_written; // 返回写入的字节数
+}
+
+// 实现目录遍历功能，用于getdents系统调用
+int Ext2FileSystem::iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos)
+{
+    // 从路径获取目录的inode
+    Ext2FileDescriptor* fd = (Ext2FileDescriptor*)open(path);
+    if(!fd) {
+        debug_err("directory not found");
+        return -1; // 路径不存在
+    }
+    
+    uint32_t dir_inode_num = fd->m_inode;
+    delete fd; // 不再需要文件描述符
+    
+    // 读取目录的inode
+    Ext2Inode* dir_inode = read_inode(dir_inode_num);
+    if(!dir_inode || (dir_inode->mode & 0xF000) != 0x4000) {
+        // 不是目录
+        delete dir_inode;
+        return -1;
+    }
+    
+    // 准备缓冲区
+    uint8_t* output_buffer = static_cast<uint8_t*>(buffer);
+    size_t bytes_written = 0;
+    
+    // 读取目录块
+    auto block_size = super_block->block_size;
+    uint8_t* block = new uint8_t[block_size];
+    
+    // 计算当前位置对应的块索引和块内偏移
+    uint32_t current_pos = *pos;
+    uint32_t block_idx = current_pos / block_size;
+    uint32_t block_offset = current_pos % block_size;
+    
+    // 遍历目录中的块，从当前位置开始
+    for(uint32_t i = block_idx; i < dir_inode->blocks && bytes_written < buffer_size; i++) {
+        if(!device->read_block(dir_inode->i_block[i], block)) {
+            continue; // 跳过读取失败的块
+        }
+        
+        // 遍历块中的目录项，从当前偏移开始
+        Ext2DirEntry* entry = (Ext2DirEntry*)(block + (i == block_idx ? block_offset : 0));
+        while((uint8_t*)entry < block + block_size) {
+            if(entry->inode) { // 有效的目录项
+                // 获取文件类型
+                Ext2Inode* entry_inode = read_inode(entry->inode);
+                uint8_t d_type = 0; // DT_UNKNOWN
+                if(entry_inode) {
+                    if((entry_inode->mode & 0xF000) == 0x4000) {
+                        d_type = 2; // DT_DIR
+                    } else if((entry_inode->mode & 0xF000) == 0x8000) {
+                        d_type = 1; // DT_REG
+                    }
+                    delete entry_inode;
+                }
+                
+                // 计算dirent结构体大小
+                uint16_t reclen = sizeof(dirent) + entry->name_len + 1; // +1 for null terminator
+                // 对齐到4字节边界
+                reclen = (reclen + 3) & ~3;
+                
+                // 检查缓冲区是否足够
+                if(bytes_written + reclen > buffer_size) {
+                    break; // 缓冲区已满
+                }
+                
+                // 填充dirent结构体
+                dirent* dent = (dirent*)(output_buffer + bytes_written);
+                dent->d_ino = entry->inode;
+                dent->d_off = current_pos + ((uint8_t*)entry - block);
+                dent->d_reclen = reclen;
+                dent->d_type = d_type;
+                memcpy(dent->d_name, entry->name, entry->name_len);
+                dent->d_name[entry->name_len] = '\0'; // 添加null终止符
+                
+                bytes_written += reclen;
+            }
+            
+            // 更新当前位置
+            current_pos += entry->rec_len;
+            
+            // 移动到下一个目录项
+            entry = (Ext2DirEntry*)((uint8_t*)entry + entry->rec_len);
+            
+            // 如果已经填满缓冲区，退出循环
+            if(bytes_written + sizeof(dirent) > buffer_size) {
+                break;
+            }
+        }
+        
+        // 重置块内偏移，因为下一个块从头开始
+        block_offset = 0;
+    }
+    
+    // 更新位置指针
+    *pos = current_pos;
     
     delete[] block;
     delete dir_inode;

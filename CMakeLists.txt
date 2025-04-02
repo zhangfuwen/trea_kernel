@@ -69,7 +69,7 @@ add_subdirectory(tests)
 add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/rootfs.cpio
         COMMAND ${CMAKE_COMMAND} -E echo "开始执行脚本...."
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cpio_fs.sh ${CMAKE_BINARY_DIR}
+        COMMAND bash ${CMAKE_SOURCE_DIR}/tools/cpio_fs.sh ${CMAKE_BINARY_DIR}
         COMMAND ${CMAKE_COMMAND} -E echo "脚本执行完成。"
         COMMENT "每次构建前执行脚本"
         DEPENDS init

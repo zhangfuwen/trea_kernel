@@ -85,7 +85,7 @@ inline void _debug_print(
 #else
     char info_buffer[256];
     len = format_string(msg_buffer, sizeof(msg_buffer),
-        "%s %s:%d %s(): ", log_level_prefix[current_log_level], file, line, func);
+        "%s %s:%d %s(): ", log_level_prefix[current_log_level], get_filename_from_path(file), line, func);
 #endif
 
     va_list args;

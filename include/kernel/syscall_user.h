@@ -130,4 +130,21 @@ inline int syscall_rmdir(const char* path) {
     return ret;
 }
 
+// getdents系统调用
+inline int syscall_getdents(int fd, void* dirp, size_t count, uint32_t* pos) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_GETDENTS), "b"(fd), "c"(dirp), "d"(count), "S"(pos));
+    return ret;
+}
+
+inline int syscall_log(const char* message, uint32_t len) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_LOG), "b"((uint32_t)message), "c"(len));
+    return ret;
+}
+
 #endif // SYSCALL_USER_H

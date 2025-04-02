@@ -3,6 +3,8 @@ add_executable(init
     init.cpp
         linker.ld
         init.asm
+        utils.h
+        utils.cpp
 )
 set_source_files_properties(
         init.asm

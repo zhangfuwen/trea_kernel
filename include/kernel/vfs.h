@@ -73,6 +73,9 @@ public:
 
     // 列出目录内容
     virtual int list(const char* path, void* buffer, size_t buffer_size) { return -1; }
+
+    // 遍历目录内容，用于getdents系统调用
+    virtual int iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos) { return -1; }
 };
 
 // VFS管理器
@@ -105,6 +108,9 @@ public:
 
     // 列出目录内容
     int list(const char* path, void* buffer, size_t buffer_size);
+
+    // 遍历目录内容，用于getdents系统调用
+    int iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos);
 
 private:
     VFSManager() = default;

@@ -21,6 +21,8 @@ enum SyscallNumber {
     SYS_MKDIR = 12,
     SYS_UNLINK = 13,
     SYS_RMDIR = 14,
+    SYS_GETDENTS = 15,
+    SYS_LOG = 16,
 };
 
 // 系统调用处理函数类型
@@ -36,6 +38,9 @@ int statHandler(uint32_t path_ptr, uint32_t attr_ptr, uint32_t, uint32_t);
 int mkdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 int unlinkHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 int rmdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
+int getdentsHandler(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr);
+void sys_log(const char* message, uint32_t len);
+int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t);
 
 // 系统调用管理器
 class SyscallManager
