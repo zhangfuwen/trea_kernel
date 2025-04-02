@@ -137,17 +137,19 @@ extern "C" void kernel_main()
     // 初始化ext2文件系统
     debug_debug("Initializing ext2 filesystem...\n");
     auto ext2fs = new Ext2FileSystem(disk);
-    // VFSManager::instance().register_fs("/mnt", ext2fs);
-    // debug_debug("Ext2 filesystem mounted at /mnt\n");
+    VFSManager::instance().register_fs("/mnt", ext2fs);
+    debug_debug("Ext2 filesystem mounted at /mnt\n");
 
-    // // 打印根目录内容
-    // auto root = ext2fs->open("/mnt");
-    // if(root) {
-    //     FileAttribute attr;
-    //     ext2fs->stat("/mnt", &attr);
-    //     debug_info("Root directory size: %d bytes\n", attr.size);
-    //     delete root;
-    // }
+    // 打印根目录内容
+    auto root = VFSManager::instance().open("/mnt");
+    if(root) {
+        FileAttribute attr;
+        VFSManager::instance().stat("/mnt", &attr);
+        debug_info("mnt directory size: %d bytes\n", attr.size);
+        delete root;
+    } else {
+        debug_err("Failed to open /mnt\n");
+    }
 
     // 初始化内存文件系统
     debug_debug("Trying to new memfs ...\n");

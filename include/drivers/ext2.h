@@ -21,6 +21,7 @@ struct Ext2SuperBlock {
     uint32_t inodes_per_group;      // 每组inode数
     uint16_t magic;                 // 魔数
     uint16_t state;                 // 文件系统状态
+    uint8_t padding[512-30];
     void print();
 };
 

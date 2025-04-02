@@ -75,6 +75,7 @@ const BlockDeviceInfo& DiskDevice::get_info() const {
 }
 
 bool DiskDevice::read_block(uint32_t block_num, void* buffer) {
+    debug_info("read_block\n");
     if (block_num >= info.total_blocks || !buffer) {
         debug_err("Invalid block number(%d, 0x%x) or buffer:0x%x\n", block_num, buffer, buffer);
         return false;
@@ -82,27 +83,29 @@ bool DiskDevice::read_block(uint32_t block_num, void* buffer) {
 
     // 计算扇区偏移
     size_t offset = block_num * info.block_size;
-    
+
     // 设置LBA地址
     outb(0x1F6, 0xE0 | ((block_num >> 24) & 0x0F));
     outb(0x1F2, 1);                           // 扇区数
     outb(0x1F3, block_num & 0xFF);
     outb(0x1F4, (block_num >> 8) & 0xFF);
     outb(0x1F5, (block_num >> 16) & 0xFF);
-    
+
     // 发送读命令
     outb(0x1F7, 0x20);
-    
+
     // 等待数据准备好
     while ((inb(0x1F7) & 0x88) != 0x08);
-    
+    debug_debug("disk realy ready!\n");
+
     // 读取数据
+    debug_debug("Reading block 0x%x, size:%d(0x%x)\n", block_num, info.block_size, info.block_size);
     for (size_t i = 0; i < info.block_size; i += 2) {
         uint16_t data = inw(0x1F0);
         ((uint8_t*)buffer)[i] = data & 0xFF;
         ((uint8_t*)buffer)[i + 1] = (data >> 8) & 0xFF;
     }
-    
+
     return true;
 }
 

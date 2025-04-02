@@ -17,28 +17,28 @@ Ext2FileSystem::Ext2FileSystem(BlockDevice* device) : device(device)
         });
         super_block->print();
     }
-    if(!ret) {
-        // 初始化新的文件系统
-        // super_block->inodes_count = 1024;
-        // super_block->blocks_count = device->get_info().total_blocks;
-        // super_block->first_data_block = 1;
-        // super_block->block_size = device->get_info().block_size;
-        // super_block->blocks_per_group = 8192;
-        // super_block->inodes_per_group = 1024;
-        // super_block->magic = EXT2_MAGIC;
-        // super_block->state = 1; // 文件系统正常
-        //
-        // // 写入超级块
-        // device->write_block(0, super_block);
-        //
-        // // 初始化根目录
-        // auto root_inode = new Ext2Inode();
-        // root_inode->mode = 0x4000; // 目录类型
-        // root_inode->size = 0;
-        // root_inode->blocks = 0;
-        // write_inode(1, root_inode);
-        // delete root_inode;
-    }
+    // if(!ret) {
+    //     // 初始化新的文件系统
+    //     // super_block->inodes_count = 1024;
+    //     // super_block->blocks_count = device->get_info().total_blocks;
+    //     // super_block->first_data_block = 1;
+    //     // super_block->block_size = device->get_info().block_size;
+    //     // super_block->blocks_per_group = 8192;
+    //     // super_block->inodes_per_group = 1024;
+    //     // super_block->magic = EXT2_MAGIC;
+    //     // super_block->state = 1; // 文件系统正常
+    //     //
+    //     // // 写入超级块
+    //     // device->write_block(0, super_block);
+    //     //
+    //     // // 初始化根目录
+    //     // auto root_inode = new Ext2Inode();
+    //     // root_inode->mode = 0x4000; // 目录类型
+    //     // root_inode->size = 0;
+    //     // root_inode->blocks = 0;
+    //     // write_inode(1, root_inode);
+    //     // delete root_inode;
+    // }
 }
 
 Ext2FileSystem::~Ext2FileSystem()
@@ -74,7 +74,7 @@ bool Ext2FileSystem::read_super_block()
         debug_err("read_super_block failed\n");
         return false;
     }
-    ret = super_block->magic == EXT2_MAGIC;
+    ret = (super_block->magic == EXT2_MAGIC);
     if (!ret) {
         debug_err("read_super_block failed, magic error:0x%x, expect:0x%x\n", super_block->magic, EXT2_MAGIC);
         return false;

@@ -124,6 +124,7 @@ panic:
     debug_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
     debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
+    // printPDPTE((void*)fault_addr);
     asm volatile("hlt");
 
     // 终止当前进程或触发内核panic

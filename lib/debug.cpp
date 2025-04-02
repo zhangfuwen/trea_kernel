@@ -24,6 +24,9 @@ LogOutputInterface log_output_handler = {
     [](LogLevel level, const char* message) {
         ensure_serial_initialized();
         serial_puts(message);
+        if (level < LOG_INFO) {
+            Console::print(message);
+        }
     }
 };
 
@@ -98,9 +101,10 @@ const char* parse_format_flags(const char* format, FormatFlags& flags, va_list& 
         format++;
         if(*format == 'h')
             format++; // 支持hh
-    } else if(*format == 'z') {
-        format++; // 支持z (size_t)
     }
+    // else if(*format == 'z') {
+    //     format++; // 支持z (size_t)
+    // }
 
     flags.type = *format;
     return format;
@@ -497,7 +501,13 @@ void hexdump(const void* buf, size_t size, void(printf_func)(const char*)) {
         char* p = line;
 
         // 地址部分 (00000000: )
-        p += format_string(p, 9, "%08zx:", address);
+        auto len = format_string(p, 9, "%08x:", address);
+        for(int i = 0; i < 9; i++) {
+            if (p[i] == '\0' || p[i] == '\n') {
+                p[i] = ' ';
+            }
+        }
+        p+= 9;
         *p++ = ' ';
 
         // 十六进制部分
