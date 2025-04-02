@@ -4,8 +4,6 @@
 #include "kernel/zone.h"
 #include <stdint.h>
 
-
-
 using namespace MemoryConstants;
 
 // 内核内存管理类
@@ -14,50 +12,31 @@ class KernelMemory
 public:
     // 构造函数
     KernelMemory();
-    PageManager& paging()
-    {
-        return page_manager;
-    }
+    PageManager& paging() { return page_manager; }
 
     // 初始化内核内存管理
     void init();
 
-    // 分配小块连续物理内存（返回虚拟地址）
-    void* kmalloc(uint32_t size);
+    // 分配虚拟内存
+    VADDR kmalloc(uint32_t size);
+    void kfree(VADDR addr);
+    VADDR vmalloc(uint32_t size);
+    void vfree(VADDR addr);
+    VADDR kmap(PADDR phys_addr);
+    void kunmap(VADDR addr);
 
-    // 释放通过kmalloc分配的内存
-    void kfree(void* addr);
-
-    // 分配大块非连续虚拟内存
-    void* vmalloc(uint32_t size);
-
-    // 释放通过vmalloc分配的内存
-    void vfree(void* addr);
-
-    // 将物理页面临时映射到内核空间
-    void* kmap(uint32_t phys_addr);
-
-    // 解除kmap的映射
-    void kunmap(void* addr);
-
-    // 获取虚拟地址对应的物理地址
-    uint32_t virt2Phys(void* virt_addr);
-    void* phys2Virt(uint32_t phys_addr);
-
-    // 获取虚拟地址对应的页框号
-    uint32_t getPfn(void* virt_addr);
-
-    // 分配连续的物理页面
+    // 分配物理页面
+    PADDR allocPage();
+    void freePage(PADDR physAddr);
+    void decrement_ref_count(PADDR physAddr);
+    void increment_ref_count(PADDR physAddr);
     struct page* alloc_pages(uint32_t count);
-
-    // 使用物理地址
-    uint32_t allocPage();
-    void freePage(uint32_t physAddr);
-    void decrement_ref_count(uint32_t physAddr);
-    void increment_ref_count(uint32_t physAddr);
-
-    // 释放已分配的页面
     void free_pages(struct page* pages, uint32_t count);
+
+    // 地址转换
+    PADDR virt2Phys(VADDR virt_addr);
+    VADDR phys2Virt(PADDR phys_addr);
+    PFN getPfn(VADDR virt_addr);
 
 private:
     // 根据大小选择合适的内存区域

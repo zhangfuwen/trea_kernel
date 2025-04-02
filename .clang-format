@@ -8,5 +8,5 @@ PointerAlignment: Left
 SpaceBeforeParens: Never
 IndentCaseLabels: true
 AccessModifierOffset: -4
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: All
 AlignAfterOpenBracket: DontAlign

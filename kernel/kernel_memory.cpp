@@ -42,24 +42,6 @@ struct page* KernelMemory::alloc_pages(uint32_t count)
     return pages;
 }
 
-// 分配连续的物理页面
-PADDR KernelMemory::allocPage()
-{
-    // 根据页面数量选择合适的区域
-    Zone* zone = get_zone_for_allocation(PAGE_SIZE);
-    if(!zone) {
-        return 0;
-    }
-
-    // 从区域中分配物理页面
-    uint32_t pfn = zone->allocPages(1);
-    if(!pfn) {
-        return 0;
-    }
-
-    return pfn * PAGE_SIZE;
-}
-
 // 释放已分配的页面
 void KernelMemory::free_pages(struct page* pages, uint32_t count)
 {
@@ -93,8 +75,27 @@ void KernelMemory::free_pages(struct page* pages, uint32_t count)
     // 释放页面描述符数组
     delete[] pages;
 }
+
+// 分配连续的物理页面
+PADDR KernelMemory::allocPage()
+{
+    // 根据页面数量选择合适的区域
+    Zone* zone = get_zone_for_allocation(PAGE_SIZE);
+    if(!zone) {
+        return 0;
+    }
+
+    // 从区域中分配物理页面
+    uint32_t pfn = zone->allocPages(1);
+    if(!pfn) {
+        return 0;
+    }
+
+    return pfn * PAGE_SIZE;
+}
+
 // 释放已分配的页面
-void KernelMemory::freePage(uint32_t physAddr)
+void KernelMemory::freePage(PADDR physAddr)
 {
     uint32_t pfn = physAddr / PAGE_SIZE;
     Zone* zone = nullptr;
@@ -113,7 +114,7 @@ void KernelMemory::freePage(uint32_t physAddr)
 }
 
 // 释放已分配的页面
-void KernelMemory::decrement_ref_count(uint32_t physAddr)
+void KernelMemory::decrement_ref_count(PADDR physAddr)
 {
     uint32_t pfn = physAddr / PAGE_SIZE;
     Zone* zone = nullptr;
@@ -130,7 +131,7 @@ void KernelMemory::decrement_ref_count(uint32_t physAddr)
     // 释放物理页面
     zone->decRefPage(pfn);
 }
-void KernelMemory::increment_ref_count(uint32_t physAddr)
+void KernelMemory::increment_ref_count(PADDR physAddr)
 {
     uint32_t pfn = physAddr / PAGE_SIZE;
     Zone* zone = nullptr;
@@ -173,7 +174,7 @@ void KernelMemory::init()
 }
 
 // 分配小块连续物理内存（返回虚拟地址）
-void* KernelMemory::kmalloc(uint32_t size)
+VADDR KernelMemory::kmalloc(uint32_t size)
 {
     // 根据大小选择合适的区域
     Zone* zone = get_zone_for_allocation(size);
@@ -208,7 +209,7 @@ void* KernelMemory::kmalloc(uint32_t size)
 }
 
 // 释放通过kmalloc分配的内存
-void KernelMemory::kfree(void* addr)
+void KernelMemory::kfree(VADDR addr)
 {
     if(!addr)
         return;
@@ -227,7 +228,7 @@ void KernelMemory::kfree(void* addr)
 }
 
 // 分配大块非连续虚拟内存
-void* KernelMemory::vmalloc(uint32_t size)
+VADDR KernelMemory::vmalloc(uint32_t size)
 {
     if(size == 0)
         return nullptr;
@@ -279,7 +280,7 @@ void* KernelMemory::vmalloc(uint32_t size)
 }
 
 // 释放通过vmalloc分配的内存
-void KernelMemory::vfree(void* addr)
+void KernelMemory::vfree(VADDR addr)
 {
     if(!addr)
         return;
@@ -319,7 +320,7 @@ void KernelMemory::vfree(void* addr)
 }
 
 // 将物理页面临时映射到内核空间
-void* KernelMemory::kmap(uint32_t phys_addr)
+VADDR KernelMemory::kmap(PADDR phys_addr)
 {
     // 从KMAP区域分配虚拟地址
     static uint32_t next_kmap_addr = KMAP_START;
@@ -333,7 +334,7 @@ void* KernelMemory::kmap(uint32_t phys_addr)
 }
 
 // 解除kmap的映射
-void KernelMemory::kunmap(void* addr)
+void KernelMemory::kunmap(VADDR addr)
 {
     if(!addr)
         return;
@@ -345,17 +346,17 @@ void KernelMemory::kunmap(void* addr)
 }
 
 // 获取虚拟地址对应的物理地址
-uint32_t KernelMemory::virt2Phys(void* virt_addr)
+PADDR KernelMemory::virt2Phys(VADDR virt_addr)
 {
     return (uint32_t)virt_addr - KERNEL_DIRECT_MAP_START;
 }
-void* KernelMemory::phys2Virt(uint32_t phys_addr)
+VADDR KernelMemory::phys2Virt(PADDR phys_addr)
 {
     return (void*)(phys_addr + KERNEL_DIRECT_MAP_START);
 }
 
 // 获取虚拟地址对应的页框号
-uint32_t KernelMemory::getPfn(void* virt_addr)
+PFN KernelMemory::getPfn(VADDR virt_addr)
 {
     uint32_t phys_addr = virt2Phys(virt_addr);
     return phys_addr >> 12; // 右移12位得到页框号
