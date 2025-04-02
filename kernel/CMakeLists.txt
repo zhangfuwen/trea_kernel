@@ -36,3 +36,5 @@ target_compile_options(kernel_core PRIVATE
     -Wall
     -Wextra
 )
+target_compile_options(kernel_core PRIVATE ${OS_COMPILE_OPTIONS})
+target_link_options(kernel_core PRIVATE ${OS_LINK_OPTIONS})

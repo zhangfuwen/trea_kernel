@@ -1,6 +1,8 @@
 #include "drivers/block_device.h"
-#include <lib/string.h>
 #include "lib/ioport.h"
+#include <lib/string.h>
+
+#include <lib/debug.h>
 
 namespace kernel {
 
@@ -74,6 +76,7 @@ const BlockDeviceInfo& DiskDevice::get_info() const {
 
 bool DiskDevice::read_block(uint32_t block_num, void* buffer) {
     if (block_num >= info.total_blocks || !buffer) {
+        debug_err("Invalid block number(%d, 0x%x) or buffer:0x%x\n", block_num, buffer, buffer);
         return false;
     }
 

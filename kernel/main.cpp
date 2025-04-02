@@ -22,6 +22,9 @@ using namespace kernel;
 
 #include "kernel/kernel.h"
 
+// 声明测试函数
+void run_format_string_tests();
+
 extern "C" void timer_interrupt();
 extern "C" void syscall_interrupt();
 extern "C" void page_fault_interrupt();
@@ -61,6 +64,9 @@ extern "C" void kernel_main()
     Kernel* kernel = &Kernel::instance();
     kernel->init();
     serial_puts("Kernel initialized!\n");
+
+    // 运行格式化字符串测试
+    run_format_string_tests();
     debug_debug("Kernel initialized!\n");
     // 注册系统调用处理函数
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);

@@ -99,6 +99,7 @@ void memset(void* s, int c, size_t n)
         *p++ = (unsigned char)c;
 }
 
+#ifndef TESTING
 char* strdup(const char* s) {
     size_t len = strlen(s) + 1;
     char* new_str = new char[len];
@@ -107,6 +108,7 @@ char* strdup(const char* s) {
     }
     return new_str;
 }
+#endif
 
 char* strtok(char* str, const char* delim) {
     static char* last = nullptr;

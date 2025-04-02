@@ -17,4 +17,6 @@ target_compile_options(drivers_core PRIVATE
     -O2
     -Wall
     -Wextra
+        ${OS_COMPILE_OPTIONS}
 )
+target_link_options(drivers_core PRIVATE ${OS_LINK_OPTIONS})

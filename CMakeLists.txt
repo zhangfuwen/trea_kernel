@@ -3,6 +3,7 @@ project(CustomKernel)
 
 # 启用ASM_NASM语言支持
 enable_language(ASM_NASM)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # 设置NASM编译器输出格式
 set(CMAKE_ASM_NASM_OBJECT_FORMAT elf32)
@@ -12,20 +13,57 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 编译选项
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffreestanding -O2 -Wall -Werror=return-type -Wextra -m32 -I/usr/include/c++/13/i386-linux-gnu -I/usr/include/i386-linux-gnu -Iinclude -nostartfiles -static-libstdc++ -static-libgcc -fno-exceptions -fno-rtti -fno-use-cxa-atexit")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ffreestanding -O2 -nostdlib -m32 -no-pie -Wl,--build-id=none -static  -nodefaultlibs  -static-libstdc++ -static-libgcc")
+# 移除原有的全局设置
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -Wall -Werror=return-type -Wextra -m32 -I/usr/include/c++/13/i386-linux-gnu -I/usr/include/i386-linux-gnu -Iinclude -nostartfiles -static-libstdc++ -static-libgcc -fno-exceptions -fno-rtti -fno-use-cxa-atexit")
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -O2 -m32 -no-pie -Wl,--build-id=none -static  -static-libstdc++ -static-libgcc")
+# 为目标设置编译选项
+set(OS_COMPILE_OPTIONS
+        -ffreestanding
+        -O2
+        -Wall
+        -Werror=return-type
+        -Wextra
+        -m32
+        -I/usr/include/c++/13/i386-linux-gnu
+        -I/usr/include/i386-linux-gnu
+        -Iinclude
+        -nostartfiles
+        -static-libstdc++
+        -static-libgcc
+        -fno-exceptions
+        -fno-rtti
+        -fno-use-cxa-atexit
+        -fpermissive
+)
+
+# 为目标设置链接选项
+set(OS_LINK_OPTIONS
+        -ffreestanding
+        -nostdlib
+        -nodefaultlibs
+        -O2
+        -m32
+        -no-pie
+        -Wl,--build-id=none
+        -static
+        -static-libstdc++
+        -static-libgcc
+)
+
+
 
 # 添加子目录
-
-
 add_subdirectory(rootfs)
 add_subdirectory(arch)
-
 add_subdirectory(kernel)
 add_subdirectory(drivers)
 add_subdirectory(lib)
+add_subdirectory(tests)
 
-# ... 现有代码 ...
+# 为其他目标（如果有）设置编译和链接选项
+# 例如：
+# target_compile_options(another_target PRIVATE ${TARGET_COMPILE_OPTIONS})
+# target_link_options(another_target PRIVATE ${TARGET_LINK_OPTIONS})
 
 # 创建一个自定义目标来执行脚本
 add_custom_command(
@@ -59,6 +97,9 @@ add_executable(kernel.bin
         linker.ld
         ${CMAKE_BINARY_DIR}/rootfs.cpio
 )
+# 为主内核目标设置编译和链接选项
+target_compile_options(kernel.bin PRIVATE ${OS_COMPILE_OPTIONS})
+target_link_options(kernel.bin PRIVATE ${OS_LINK_OPTIONS})
 add_dependencies(kernel.bin run_cpio_fs_script)
 #add_dependencies(kernel.bin ${CMAKE_BINARY_DIR}/rootfs.cpio)
 target_link_options(kernel.bin PRIVATE "-T${CMAKE_CURRENT_SOURCE_DIR}/linker.ld")

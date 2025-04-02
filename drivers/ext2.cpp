@@ -1,5 +1,6 @@
 #include "drivers/block_device.h"
 #include <drivers/ext2.h>
+#include <lib/debug.h>
 #include <lib/string.h>
 
 namespace kernel
@@ -8,27 +9,32 @@ namespace kernel
 Ext2FileSystem::Ext2FileSystem(BlockDevice* device) : device(device)
 {
     super_block = new Ext2SuperBlock();
-    if(!read_super_block()) {
+    auto ret = read_super_block();
+    debug_debug("read_super_block ret %d, super block:0x%x\n", ret, super_block);
+    if(ret) {
+        hexdump(super_block, sizeof(Ext2SuperBlock));
+    }
+    if(!ret) {
         // 初始化新的文件系统
-        super_block->inodes_count = 1024;
-        super_block->blocks_count = device->get_info().total_blocks;
-        super_block->first_data_block = 1;
-        super_block->block_size = device->get_info().block_size;
-        super_block->blocks_per_group = 8192;
-        super_block->inodes_per_group = 1024;
-        super_block->magic = EXT2_MAGIC;
-        super_block->state = 1; // 文件系统正常
-
-        // 写入超级块
-        device->write_block(0, super_block);
-
-        // 初始化根目录
-        auto root_inode = new Ext2Inode();
-        root_inode->mode = 0x4000; // 目录类型
-        root_inode->size = 0;
-        root_inode->blocks = 0;
-        write_inode(1, root_inode);
-        delete root_inode;
+        // super_block->inodes_count = 1024;
+        // super_block->blocks_count = device->get_info().total_blocks;
+        // super_block->first_data_block = 1;
+        // super_block->block_size = device->get_info().block_size;
+        // super_block->blocks_per_group = 8192;
+        // super_block->inodes_per_group = 1024;
+        // super_block->magic = EXT2_MAGIC;
+        // super_block->state = 1; // 文件系统正常
+        //
+        // // 写入超级块
+        // device->write_block(0, super_block);
+        //
+        // // 初始化根目录
+        // auto root_inode = new Ext2Inode();
+        // root_inode->mode = 0x4000; // 目录类型
+        // root_inode->size = 0;
+        // root_inode->blocks = 0;
+        // write_inode(1, root_inode);
+        // delete root_inode;
     }
 }
 
@@ -46,10 +52,17 @@ char* Ext2FileSystem::get_name()
 
 bool Ext2FileSystem::read_super_block()
 {
-    if(!device->read_block(0, super_block)) {
+    auto ret = device->read_block(0, super_block);
+    if(!ret) {
+        debug_err("read_super_block failed\n");
         return false;
     }
-    return super_block->magic == EXT2_MAGIC;
+    ret = super_block->magic == EXT2_MAGIC;
+    if (!ret) {
+        debug_err("read_super_block failed, magic error:0x%x, expect:0x%x\n", super_block->magic, EXT2_MAGIC);
+        return false;
+    }
+    return true;
 }
 
 Ext2Inode* Ext2FileSystem::read_inode(uint32_t inode_num)

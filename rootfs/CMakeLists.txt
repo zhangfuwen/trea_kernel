@@ -34,4 +34,6 @@ target_compile_options(init PRIVATE
     -Wextra
     -fPIC
 )
+target_compile_options(init PRIVATE ${OS_COMPILE_OPTIONS})
+target_link_options(init PRIVATE ${OS_LINK_OPTIONS})
 
