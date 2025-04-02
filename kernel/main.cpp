@@ -5,6 +5,7 @@
 #include <arch/x86/pit.h>
 #include <drivers/block_device.h>
 #include <drivers/ext2.h>
+#include <drivers/keyboard.h>
 #include <kernel/buddy_allocator.h>
 #include <kernel/elf_loader.h>
 #include <kernel/memfs.h>
@@ -26,6 +27,9 @@ using namespace kernel;
 void run_format_string_tests();
 
 extern "C" void timer_interrupt();
+extern "C" void keyboard_interrupt();
+extern "C" void ide1_interrupt();
+extern "C" void ide2_interrupt();
 extern "C" void syscall_interrupt();
 extern "C" void page_fault_interrupt();
 extern "C" void general_protection_interrupt();
@@ -77,22 +81,32 @@ extern "C" void kernel_main()
     set_log_level(LOG_DEBUG);
 
     // 注册时钟中断处理函数
-    InterruptManager::registerHandler(0x20, []() {
-        Kernel* kernel = &Kernel::instance();
-        kernel->tick();
-        if(kernel->get_ticks() % 5 == 0) {
-            // debug_rate_limited("timer interrupt called!\n");
-            Scheduler::timer_tick();
-        }
+    InterruptManager::registerHandler(0x20, []() { Scheduler::timer_tick(); });
+    // 注册键盘中断处理函数
+    keyboard_init();
+    InterruptManager::registerHandler(0x21, []() {
+        // debug_debug("keyboard interrupt called!\n");
+        // auto code = keyboard_get_scancode();
+        // auto ascii = scancode_to_ascii(code);
+        // debug_debug("ascii 0x%x scancode 0x%x\n", ascii, code);
+
     });
+
+
     PIT::init();
     // 初始化IDT
     IDT::init();
-    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x08, 0xEE);
+    // 异常
     IDT::setGate(INT_PAGE_FAULT, (uint32_t)page_fault_interrupt, 0x08, 0xEE);
-    IDT::setGate(INT_SYSCALL, (uint32_t)syscall_interrupt, 0x08, 0xEE);
     IDT::setGate(INT_GP_FAULT, (uint32_t)general_protection_interrupt, 0x08, 0xEE);
     IDT::setGate(INT_SEGMENT_NP, (uint32_t)segmentation_fault_interrupt, 0x08, 0xEE);
+
+    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x08, 0xEE);
+    IDT::setGate(IRQ_KEYBOARD, (uint32_t)keyboard_interrupt, 0x08, 0xEE);
+    IDT::setGate(IRQ_ATA1, (uint32_t)ide1_interrupt, 0x08, 0xEE);
+    IDT::setGate(IRQ_ATA2, (uint32_t)ide2_interrupt, 0x08, 0xEE);
+    // 软中断
+    IDT::setGate(INT_SYSCALL, (uint32_t)syscall_interrupt, 0x08, 0xEE);
     IDT::loadIDT();
     serial_puts("IDT initialized!\n");
 
@@ -146,6 +160,9 @@ extern "C" void kernel_main()
         FileAttribute attr;
         VFSManager::instance().stat("/mnt", &attr);
         debug_info("mnt directory size: %d bytes\n", attr.size);
+        char buffer[512];
+        VFSManager::instance().list("/mnt", buffer, 512);
+        debug_info("Directory listing:\n%s\n", buffer);
         delete root;
     } else {
         debug_err("Failed to open /mnt\n");

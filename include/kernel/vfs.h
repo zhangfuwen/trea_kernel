@@ -70,6 +70,9 @@ public:
 
     // 删除目录
     virtual int rmdir(const char* path) = 0;
+
+    // 列出目录内容
+    virtual int list(const char* path, void* buffer, size_t buffer_size) { return -1; }
 };
 
 // VFS管理器
@@ -99,6 +102,9 @@ public:
 
     // 删除目录
     int rmdir(const char* path);
+
+    // 列出目录内容
+    int list(const char* path, void* buffer, size_t buffer_size);
 
 private:
     VFSManager() = default;

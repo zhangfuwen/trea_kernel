@@ -349,11 +349,11 @@ int ProcessManager::fork()
 bool ProcessManager::schedule()
 {
     auto current = (PCB*)current_pcb;
-    debug_debug("schedule enter, current pcb 0x%x!\n", current);
+    // debug_debug("schedule enter, current pcb 0x%x!\n", current);
     auto next = current->pcb.next;
     while(next != &current->pcb) {
-        debug_debug("schedule called, current: %d, next:%d, nextstate:%d\n", current->pcb.pid,
-            next->pid, next->state);
+        // debug_debug("schedule called, current: %d, next:%d, nextstate:%d\n", current->pcb.pid,
+            // next->pid, next->state);
         if(next->state == PROCESS_READY || next->state == PROCESS_RUNNING) {
             break;
         }
@@ -372,10 +372,10 @@ bool ProcessManager::schedule()
         return false; // 所有进程都处于就绪状态，无需切换
     } else {
         next->state = PROCESS_RUNNING;
-        debug_debug("switch to next process: %d\n", next->pid);
+        // debug_debug("switch to next process: %d\n", next->pid);
         current_pcb = next;
-        debug_debug("will schedule to new process: pcb:\n");
-        next->print();
+        // debug_debug("will schedule to new process: pcb:\n");
+        // next->print();
     }
     return true;
 }

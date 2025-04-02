@@ -61,6 +61,7 @@ public:
     virtual int mkdir(const char* path) override;
     virtual int unlink(const char* path) override;
     virtual int rmdir(const char* path) override;
+    virtual int list(const char* path, void* buffer, size_t buffer_size) override;
 
 private:
     friend class Ext2FileDescriptor;

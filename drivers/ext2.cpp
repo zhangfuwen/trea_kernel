@@ -476,6 +476,85 @@ ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size) {
     return total_written;
 }
 
-} // namespace kernel
+// 实现目录列表功能
+int Ext2FileSystem::list(const char* path, void* buffer, size_t buffer_size)
+{
+    // 从路径获取目录的inode
+    Ext2FileDescriptor* fd = (Ext2FileDescriptor*)open(path);
+    if(!fd) {
+        debug_err("directory not found");
+        return -1; // 路径不存在
+    }
+    
+    uint32_t dir_inode_num = fd->m_inode;
+    delete fd; // 不再需要文件描述符
+    
+    // 读取目录的inode
+    Ext2Inode* dir_inode = read_inode(dir_inode_num);
+    if(!dir_inode || (dir_inode->mode & 0xF000) != 0x4000) {
+        // 不是目录
+        delete dir_inode;
+        return -1;
+    }
+    
+    // 准备缓冲区
+    char* output_buffer = static_cast<char*>(buffer);
+    size_t bytes_written = 0;
+    
+    // 读取目录块
+    auto block_size = super_block->block_size;
+    uint8_t* block = new uint8_t[block_size];
+    
+    // 遍历目录中的所有块
+    for(uint32_t i = 0; i < dir_inode->blocks && bytes_written < buffer_size; i++) {
+        if(!device->read_block(dir_inode->i_block[i], block)) {
+            continue; // 跳过读取失败的块
+        }
+        
+        // 遍历块中的所有目录项
+        Ext2DirEntry* entry = (Ext2DirEntry*)block;
+        while((uint8_t*)entry < block + block_size && bytes_written < buffer_size) {
+            if(entry->inode) { // 有效的目录项
+                // 获取文件类型
+                Ext2Inode* entry_inode = read_inode(entry->inode);
+                FileType type = FileType::Regular;
+                if(entry_inode) {
+                    if((entry_inode->mode & 0xF000) == 0x4000) {
+                        type = FileType::Directory;
+                    }
+                    delete entry_inode;
+                }
+                
+                // 计算需要的空间
+                size_t entry_size = entry->name_len + sizeof(FileType) + sizeof(size_t);
+                if(bytes_written + entry_size <= buffer_size) {
+                    // 写入文件类型
+                    memcpy(output_buffer + bytes_written, &type, sizeof(FileType));
+                    bytes_written += sizeof(FileType);
+                    
+                    // 写入文件名长度
+                    size_t name_len = entry->name_len;
+                    memcpy(output_buffer + bytes_written, &name_len, sizeof(size_t));
+                    bytes_written += sizeof(size_t);
+                    
+                    // 写入文件名
+                    memcpy(output_buffer + bytes_written, entry->name, entry->name_len);
+                    bytes_written += entry->name_len;
+                } else {
+                    // 缓冲区已满
+                    break;
+                }
+            }
+            
+            // 移动到下一个目录项
+            entry = (Ext2DirEntry*)((uint8_t*)entry + entry->rec_len);
+        }
+    }
+    
+    delete[] block;
+    delete dir_inode;
+    
+    return bytes_written; // 返回写入的字节数
+}
 
-// 其他接口方法实现...} // namespace kernel
+} // namespace kernel

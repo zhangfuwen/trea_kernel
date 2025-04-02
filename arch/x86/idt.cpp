@@ -14,6 +14,8 @@ void IDT::init()
     // 加载IDT
     IDT::idtPointer.limit = (sizeof(IDTEntry) * 256) - 1;
     IDT::idtPointer.base = reinterpret_cast<uintptr_t>(&IDT::entries[0]);
+
+
     IDT::loadIDT();
 }
 

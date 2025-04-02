@@ -1,7 +1,8 @@
 #define NO_PID
 #include "kernel/syscall_user.h"
-#include "lib/debug.h"
 #include "lib/string.h"
+#include "lib/debug.h"
+
 
 // 最大命令长度
 #define MAX_CMD_LEN 256
@@ -73,30 +74,45 @@ void cmd_rm(const char* path) {
         debug_debug("rm: cannot remove '%s'\n", path);
     }
 }
+LogOutputInterface my_log_output_interface {
+    .print = [](LogLevel level, const char* message) {
+        syscall_write(1, message, strlen(message));
+    }
+};
 
 int main() {
     char cmd_buf[MAX_CMD_LEN];
     char* argv[MAX_ARGS + 1];
+
+    set_log_output_handler(my_log_output_interface);
     
     while (true) {
         // 显示提示符
         const char* prompt = "shell> ";
         syscall_write(1, prompt, strlen(prompt));
-        
-        // 读取命令
-        int n = syscall_read(0, cmd_buf, sizeof(cmd_buf));
-        if (n <= 0) continue;
-        
-        // 回显用户输入
-        syscall_write(1, cmd_buf, n);
-        
-        // 去掉末尾的换行符
-        if (cmd_buf[n-1] == '\n') cmd_buf[n-1] = '\0';
-        
+
+        int n = 0;
+        while(true) {
+            int ret = syscall_read(0, cmd_buf, sizeof(cmd_buf));
+            if(ret > 0 ) {
+                syscall_write(1, cmd_buf + n, ret);
+                n += ret;
+            }
+
+            if (n > 0 && (cmd_buf[n-1] == '\n' || cmd_buf[n-1] == '\r')) {
+                cmd_buf[n-1] = '\0';
+                break;
+            }
+            if(n>=MAX_CMD_LEN) {
+                cmd_buf[n-1] = '\0';
+                break;
+            }
+        }
+
         // 解析命令
         int argc = parse_cmd(cmd_buf, argv);
         if (argc == 0) continue;
-        
+
         // 执行命令
         if (strcmp(argv[0], "ls") == 0) {
             cmd_ls(argc > 1 ? argv[1] : ".");
@@ -119,6 +135,6 @@ int main() {
             }
         }
     }
-    
+
     return 0;
 }

@@ -30,7 +30,7 @@ void InterruptManager::init()
     // registerHandler(0x80, syscallHandler);
 
     // 注册各种中断处理程序
-    registerHandler(0x21, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
+    // registerHandler(0x21, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
     registerHandler(0x22, []() { debug_debug("IRQ 2\n"); });
     registerHandler(0x23, []() { debug_debug("IRQ 3\n"); });
     registerHandler(0x24, []() { debug_debug("IRQ 4\n"); });

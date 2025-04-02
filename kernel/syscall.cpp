@@ -135,11 +135,11 @@ void SyscallManager::registerHandler(uint32_t syscall_num, SyscallHandler handle
 int SyscallManager::handleSyscall(
     uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4)
 {
-    debug_debug("syscall_num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n", syscall_num, arg1, arg2,
-        arg3, arg4);
+    // debug_debug("syscall_num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n", syscall_num, arg1, arg2,
+    //     arg3, arg4);
     if(syscall_num < 256 && handlers[syscall_num]) {
         auto ret = handlers[syscall_num](arg1, arg2, arg3, arg4);
-        debug_debug("syscall_num: %d, ret:%d\n", syscall_num, ret);
+        // debug_debug("syscall_num: %d, ret:%d\n", syscall_num, ret);
         return ret;
     }
     debug_debug("syscall end ret -1 : num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n");

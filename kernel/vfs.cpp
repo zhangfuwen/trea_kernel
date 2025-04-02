@@ -56,7 +56,7 @@ int readHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 }
 int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
 {
-    debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
+//    debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
 
     if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
@@ -70,29 +70,26 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControl
         debug_debug("No current process\n");
         return -1;
     }
-    debug_debug("process: %x\n", process);
+ //   debug_debug("process: %x\n", process);
 
     auto fd_table = process->fd_table;
     if(!fd_table[fd_num]) {
         debug_debug("File descriptor %d not open\n", fd_num);
         return -1;
     }
-    debug_debug("fd_table: %x\n", fd_table);
+//    debug_debug("fd_table: %x\n", fd_table);
 
     auto fd = fd_table[fd_num];
     if(!fd) {
-        debug_debug("File descriptor %d not open\n", fd_num);
+        debug_err("File descriptor %d not open\n", fd_num);
         return -1;
     }
-    debug_debug("fd: %x\n", fd);
+    //debug_debug("fd: %x\n", fd);
 
-    ssize_t bytes_read = fd->read(buffer, size);
-    if(bytes_read < 0) {
-        debug_debug("Failed to read from file descriptor %d\n", fd_num);
-        return -1;
-    }
+    ssize_t bytes_read = 0;
+    bytes_read = fd->read(buffer, size);
 
-    debug_debug("Read %d bytes from fd %d\n", bytes_read, fd_num);
+    //debug_debug("Read %d bytes from fd %d\n", bytes_read, fd_num);
     return bytes_read;
 }
 
@@ -104,8 +101,8 @@ int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d
 }
 int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
 {
-    debug_debug(
-        "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
+    // debug_debug(
+    //     "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
 
     if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
@@ -115,7 +112,7 @@ int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessContro
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
     ssize_t bytes_written = pcb->fd_table[fd_num]->write(buffer, size);
 
-    debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
+//    debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
     return bytes_written;
 }
 
@@ -285,6 +282,16 @@ int VFSManager::rmdir(const char* path)
     if(!fs)
         return -1;
     return fs->rmdir(remaining_path);
+}
+
+// 列出目录内容
+int VFSManager::list(const char* path, void* buffer, size_t buffer_size)
+{
+    const char* remaining_path;
+    FileSystem* fs = find_fs(path, &remaining_path);
+    if(!fs)
+        return -1;
+    return fs->list(remaining_path, buffer, buffer_size);
 }
 
 } // namespace kernel

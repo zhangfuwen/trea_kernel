@@ -119,6 +119,9 @@ general_protection_interrupt:
 
 ; 定义具体中断
 idtentry 0x20, timer_interrupt, handleInterrupt
+idtentry 0x21, keyboard_interrupt, handleInterrupt
+idtentry 0x2E, ide1_interrupt, handleInterrupt
+idtentry 0x2F, ide2_interrupt, handleInterrupt
 
 ; 页面错误中断处理
 [global page_fault_interrupt]
