@@ -1,6 +1,9 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#define NO_PID
+#include "lib/debug.h"
+
 #include "kernel/syscall_user.h"
 extern LogOutputInterface my_log_output_interface;
 // 打印字符串

@@ -1,10 +1,14 @@
 # 创建内核库
 add_executable(init
     init.cpp
-        linker.ld
-        init.asm
-        utils.h
-        utils.cpp
+    commands.cpp
+    cmds/ls.cpp
+    cmds/cat.cpp
+    cmds/rm.cpp
+    linker.ld
+    init.asm
+    utils.h
+    utils.cpp
 )
 set_source_files_properties(
         init.asm
@@ -36,6 +40,9 @@ target_compile_options(init PRIVATE
     -Wextra
     -fPIC
 )
-target_compile_options(init PRIVATE ${OS_COMPILE_OPTIONS})
+target_compile_options(init PRIVATE
+        ${OS_COMPILE_OPTIONS}
+        -I${CMAKE_CURRENT_SOURCE_DIR}
+)
 target_link_options(init PRIVATE ${OS_LINK_OPTIONS})
 

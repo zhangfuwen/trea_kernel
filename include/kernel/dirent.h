@@ -26,7 +26,4 @@ enum {
     DT_LNK     = 7,  // 符号链接
 };
 
-// getdents系统调用号
-#define SYS_GETDENTS 15
-
 } // namespace kernel

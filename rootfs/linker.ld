@@ -20,6 +20,12 @@ SECTIONS {
         *(.bss)
     }
 
+    .cmd_table BLOCK(4K) : ALIGN(4K) {
+        __cmd_table_start = .;
+        *(.cmd_table)
+        __cmd_table_end = .;
+    }
+
     .initramfs BLOCK(4K) : ALIGN(4K) {
         *(.initramfs)
     }

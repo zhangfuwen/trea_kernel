@@ -56,7 +56,7 @@ int readHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 }
 int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
 {
-//    debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
+    // debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
 
     if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
@@ -89,7 +89,7 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControl
     ssize_t bytes_read = 0;
     bytes_read = fd->read(buffer, size);
 
-    //debug_debug("Read %d bytes from fd %d\n", bytes_read, fd_num);
+    // debug_debug("Read %d bytes from fd %d, buffer:0x%x\n", bytes_read, fd_num, buffer);
     return bytes_read;
 }
 

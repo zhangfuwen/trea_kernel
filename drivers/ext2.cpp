@@ -189,7 +189,7 @@ void free_inode(uint32_t inode_num)
 
 FileDescriptor* Ext2FileSystem::open(const char* path)
 {
-
+    debug_debug("open %s\n", path);
     // 从根目录开始查找（inode 2）
     uint32_t current_inode = 2;
 
@@ -199,6 +199,7 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
 
     while(token) {
         Ext2Inode* inode = read_inode(current_inode);
+        debug_debug("inode->mode 0x%x\n", inode->mode);
         if(!inode || (inode->mode & 0xF000) != 0x4000) {
             delete inode;
             delete[] parts;
@@ -244,13 +245,17 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
 
 int Ext2FileSystem::stat(const char* path, FileAttribute* attr)
 {
+    debug_debug("Ext2FileSystem::stat path:%s\n", path);
     Ext2FileDescriptor* fd = (Ext2FileDescriptor*)open(path);
-    if(!fd)
+    if(!fd) {
+        debug_debug("Ext2FileSystem::open failed\n");
         return -1;
+    }
 
     Ext2Inode* inode = read_inode(fd->m_inode);
     attr->size = inode->size;
     attr->type = (inode->mode & 0xF000) == 0x4000 ? FileType::Directory : FileType::Regular;
+    debug_debug("inode->mode:0x%x\n", inode->mode);
     delete inode;
     delete fd;
     return 0;
@@ -561,6 +566,7 @@ int Ext2FileSystem::list(const char* path, void* buffer, size_t buffer_size)
 // 实现目录遍历功能，用于getdents系统调用
 int Ext2FileSystem::iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos)
 {
+    debug_debug("iterate path: %s\n", path);
     // 从路径获取目录的inode
     Ext2FileDescriptor* fd = (Ext2FileDescriptor*)open(path);
     if(!fd) {
