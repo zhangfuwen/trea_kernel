@@ -5,6 +5,10 @@ add_executable(init
     cmds/ls.cpp
     cmds/cat.cpp
     cmds/rm.cpp
+    cmds/cd.cpp
+    cmds/echo.cpp
+    cmds/find.cpp
+    cmds/xxd.cpp
     linker.ld
     init.asm
     utils.h

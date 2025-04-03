@@ -18,6 +18,7 @@ int strncmp(const char* s1, const char* s2, size_t n);
 
 // 查找字符串中的字符
 char* strchr(const char* s, int c);
+char* strstr(const char* haystack, const char* needle);
 
 // 查找字符串中最后一个匹配的字符
 char* strrchr(const char* s, int c);

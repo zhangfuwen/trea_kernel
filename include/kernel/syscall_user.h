@@ -147,4 +147,13 @@ inline int syscall_log(const char* message, uint32_t len) {
     return ret;
 }
 
+// chdir系统调用
+inline int syscall_chdir(const char* path) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_CHDIR), "b"((uint32_t)path));
+    return ret;
+}
+
 #endif // SYSCALL_USER_H

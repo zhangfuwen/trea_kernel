@@ -107,6 +107,9 @@ public:
     // 删除目录
     int rmdir(const char* path);
 
+    // 切换当前工作目录
+    int chdir(const char* path);
+
 private:
     VFSManager() = default;
 };

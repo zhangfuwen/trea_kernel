@@ -23,6 +23,7 @@ enum SyscallNumber {
     SYS_RMDIR = 14,
     SYS_GETDENTS = 15,
     SYS_LOG = 16,
+    SYS_CHDIR = 17,
 };
 
 // 系统调用处理函数类型
@@ -42,6 +43,8 @@ int getdentsHandler(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos
 int sys_getdents(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr);
 void sys_log(const char* message, uint32_t len);
 int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t);
+int chdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
+int sys_chdir(const char* path);
 
 // 系统调用管理器
 class SyscallManager

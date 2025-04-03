@@ -285,5 +285,38 @@ int VFSManager::rmdir(const char* path)
     return fs->rmdir(remaining_path);
 }
 
+// 切换当前工作目录
+int VFSManager::chdir(const char* path)
+{
+    debug_debug("VFSManager::chdir: changing to %s\n", path);
+
+    // 获取对应的文件系统
+    const char* remaining_path;
+    FileSystem* fs = find_fs(path, &remaining_path);
+    if (!fs) {
+        debug_debug("VFSManager::chdir: no filesystem found for %s\n", path);
+        return -1;
+    }
+
+    // 检查目标路径是否存在且为目录
+    FileAttribute attr;
+    if (fs->stat(remaining_path, &attr) < 0) {
+        debug_debug("VFSManager::chdir: failed to stat %s\n", remaining_path);
+        return -1;
+    }
+
+    if (attr.type != FT_DIR) {
+        debug_debug("VFSManager::chdir: %s is not a directory\n", remaining_path);
+        return -1;
+    }
+
+    // 更新当前进程的工作目录
+    auto pcb = ProcessManager::get_current_process();
+    strncpy(pcb->cwd, path, sizeof(pcb->cwd) - 1);
+    pcb->cwd[sizeof(pcb->cwd) - 1] = '\0';
+
+    debug_debug("VFSManager::chdir: changed to %s\n", path);
+    return 0;
+}
 
 } // namespace kernel

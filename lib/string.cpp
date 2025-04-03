@@ -157,3 +157,36 @@ int memcmp(const void* s1, const void* s2, size_t n) {
     }
     return 0;
 }
+
+// 在字符串中查找子字符串
+char* strstr(const char* haystack, const char* needle) {
+    if (!haystack || !needle) {
+        return nullptr;
+    }
+
+    // 空字符串匹配任何字符串的开头
+    if (!*needle) {
+        return (char*)haystack;
+    }
+
+    // 朴素字符串匹配算法
+    while (*haystack) {
+        const char* h = haystack;
+        const char* n = needle;
+
+        // 尝试匹配子串
+        while (*h && *n && *h == *n) {
+            h++;
+            n++;
+        }
+
+        // 如果needle完全匹配，返回当前位置
+        if (!*n) {
+            return (char*)haystack;
+        }
+
+        haystack++;
+    }
+
+    return nullptr;
+}

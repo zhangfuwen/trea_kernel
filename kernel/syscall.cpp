@@ -132,6 +132,7 @@ void SyscallManager::init()
     registerHandler(SYS_RMDIR, rmdirHandler);
     registerHandler(SYS_GETDENTS, getdentsHandler);
     registerHandler(SYS_LOG, logHandler);
+    registerHandler(SYS_CHDIR, chdirHandler);
 
     Console::print("SyscallManager initialized\n");
 }
@@ -181,6 +182,18 @@ int SyscallManager::handleSyscall(
 }
 
 // 默认系统调用处理程序
+// chdir系统调用处理函数
+int sys_chdir(const char* path)
+{
+    return kernel::VFSManager::instance().chdir(path);
+}
+
+int chdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
+{
+    const char* path = reinterpret_cast<const char*>(path_ptr);
+    return sys_chdir(path);
+}
+
 void SyscallManager::defaultHandler()
 {
     debug_debug("unhandled system call\n");

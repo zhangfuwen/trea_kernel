@@ -86,6 +86,7 @@ struct ProcessControlBlock {
     kernel::FileDescriptor* fd_table[MAX_PROCESS_FDS] = {nullptr};
     int allocate_fd();
     int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
+    char cwd[256] = "/";  // 当前工作目录，默认为根目录
     void print();
 };
 union PCB
