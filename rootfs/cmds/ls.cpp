@@ -52,24 +52,23 @@ void cmd_ls(int argc, char* argv[]) {
             dirent* entry = (dirent*)ptr;
             
             char full_path[256];
-            format_string(full_path, sizeof(full_path), 
-                strcmp(path, "/") == 0 ? "/%s\n" : "%s/%s\n", entry->d_name);
-            syscall_write(1, full_path, strlen(full_path));
+            format_string(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+            // syscall_write(1, full_path, strlen(full_path));
             
-            // kernel::FileAttribute file_attr;
-            // syscall_stat(full_path, &file_attr);
-            //
-            // char type_char = ' ';
-            // switch (entry->d_type) {
-            //     case 2: type_char = 'd'; break;
-            //     case 1: type_char = '-'; break;
-            //     default: type_char = '?';
-            // }
-            //
-            // char line[256];
-            // format_string(line, sizeof(line), "%c %s\t%d bytes\n",
-            //              type_char, entry->d_name, file_attr.size);
-            // syscall_write(1, line, strlen(line));
+            kernel::FileAttribute file_attr;
+            syscall_stat(full_path, &file_attr);
+
+            char type_char = ' ';
+            switch (entry->d_type) {
+                case 2: type_char = 'd'; break;
+                case 1: type_char = '-'; break;
+                default: type_char = '?';
+            }
+
+            char line[256];
+            format_string(line, sizeof(line), "%c %s\t%d bytes\n",
+                         type_char, entry->d_name, file_attr.size);
+            syscall_write(1, line, strlen(line));
             
             ptr += entry->d_reclen;
         }

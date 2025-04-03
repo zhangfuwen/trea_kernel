@@ -80,6 +80,13 @@ int main() {
             int ret = syscall_read(0, cmd_buf + n, sizeof(cmd_buf));
             if(ret > 0 ) {
                 // debug_debug("ret:%d, n:%d, cmd[%x]", ret, n, cmd_buf[n]);
+                if (ret == 1 && cmd_buf[n] == '\b') {
+                    if (n > 0) {
+                        n--;
+                        syscall_write(1, "\b \b", 3);
+                    }
+                    continue;
+                }
                 syscall_write(1, cmd_buf + n, ret);
                 n += ret;
             }

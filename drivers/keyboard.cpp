@@ -2,6 +2,40 @@
 #include <lib/ioport.h>
 #include <stdint.h>
 
+// Linux input event structure
+struct input_event {
+    uint32_t time_sec;    // seconds
+    uint32_t time_usec;   // microseconds
+    uint16_t type;        // event type
+    uint16_t code;        // event code
+    int32_t value;        // event value
+};
+
+// Event types
+#define EV_KEY          0x01
+#define EV_REP          0x14
+
+// Buffer size for keyboard events
+#define EVENT_BUFFER_SIZE 32
+
+// Circular buffer for keyboard events
+static input_event event_buffer[EVENT_BUFFER_SIZE];
+static int buffer_head = 0;
+static int buffer_tail = 0;
+
+// Add event to buffer
+static void push_event(uint16_t type, uint16_t code, int32_t value) {
+    input_event event;
+    event.time_sec = 0;  // TODO: Implement real time
+    event.time_usec = 0;
+    event.type = type;
+    event.code = code;
+    event.value = value;
+
+    event_buffer[buffer_tail] = event;
+    buffer_tail = (buffer_tail + 1) % EVENT_BUFFER_SIZE;
+}
+
 // 键盘端口
 #define KEYBOARD_DATA_PORT 0x60
 #define KEYBOARD_STATUS_PORT 0x64
@@ -27,13 +61,40 @@ static uint8_t keyboard_read_data()
 
 // 记录 Shift 键状态
 volatile int shift_pressed = 0;
+volatile uint8_t precode = 0;
 
 // 普通字符映射表（无 Shift 按下）
 char normal_scancode_map[256];
+char extended_scancode_map[256];
 
 // 在代码中手动设置元素的值
 void init_normal_scancode_map()
 {
+    extended_scancode_map[0x48] = 24 ; // 0xE0 0x48是向上箭头
+    extended_scancode_map[0x50] = 25 ; // 0xE0 0x50是向下箭头
+    extended_scancode_map[0x4D] = 26 ; // 0xE0 0x4D是向右箭头
+    extended_scancode_map[0x4B] = 27 ; // 0xE0 0x4B是向左箭头
+
+    // normal_scancode_map[0x52] = 0 ; // 0xE0 0x52是插入键
+    extended_scancode_map[0x53] = 0 ; // 0xE0 0x53是删除键
+    // normal_scancode_map[0x52] = 30 ; // 0xE0 0x52是 Home 键
+    // normal_scancode_map[0x53] = 31 ; // 0xE0 0x53是 End 键
+    // normal_scancode_map[0x54] = 32 ; // 0xE0 0x54是 Page Up 键
+    // normal_scancode_map[0x55] = 33 ; // 0xE0 0x55是 Page Down 键
+
+    normal_scancode_map[0x3b] = 0 ; //  0x3b是 F1 键
+    normal_scancode_map[0x3c] = 0 ; //  0x3c是 F2 键
+    normal_scancode_map[0x3d] = 0 ; //  0x3d是 F3 键
+    normal_scancode_map[0x3e] = 0 ; //  0x3e是 F4 键
+    normal_scancode_map[0x3f] = 0 ; //  0x3f是 F5 键
+    normal_scancode_map[0x40] = 0 ; //  0x40是 F6 键
+    normal_scancode_map[0x41] = 0 ; //  0x41是 F7 键
+    normal_scancode_map[0x42] = 0 ; //  0x42是 F8 键
+    normal_scancode_map[0x43] = 0 ; //  0x43是 F9 键
+    normal_scancode_map[0x44] = 0 ; //  0x44是 F10 键
+    normal_scancode_map[0x57] = 0 ; //  0x57是 F11 键
+    normal_scancode_map[0x58] = 0 ; //  0x58是 F12 键
+
     normal_scancode_map[0x1E] = 'a';
     normal_scancode_map[0x30] = 'b';
     normal_scancode_map[0x2E] = 'c';
@@ -139,7 +200,7 @@ void init_shift_scancode_map() {
     shift_scancode_map[0x0E] = '\b';
     shift_scancode_map[0x11] = '\t';
     shift_scancode_map[0x1C] = '\n';
-    normal_scancode_map[0x39] = ' ';
+    shift_scancode_map[0x39] = ' ';
 }
 
 
@@ -153,26 +214,47 @@ void keyboard_init()
     }
     init_normal_scancode_map();
     init_shift_scancode_map();
+    
+    // 初始化事件缓冲区
+    memset(event_buffer, 0, sizeof(event_buffer));
+    buffer_head = buffer_tail = 0;
+
+    // 启用键盘中断
+    outb(0x21, inb(0x21) & ~0x02);
 }
 
 
 // 根据扫描码和 Shift 状态获取 ASCII 码
 char scancode_to_ascii(unsigned char scancode) {
+    bool is_release = (scancode & 0x80) != 0;
+    uint8_t ascii = 0;
     if (scancode == 0x2A || scancode == 0x36) {
         // 左 Shift 或右 Shift 按下
         shift_pressed = 1;
-        return 0;
+        goto out;
     } else if (scancode == 0xAA || scancode == 0xB6) {
         // 左 Shift 或右 Shift 释放
         shift_pressed = 0;
-        return 0;
+        goto out;
     }
 
-    if (shift_pressed) {
-        return shift_scancode_map[scancode];
-    } else {
-        return normal_scancode_map[scancode];
+
+    // // 生成input事件
+    // push_event(EV_KEY, key_code, is_release ? 0 : 1);
+    //
+    if (!is_release) {
+        if (shift_pressed) {
+            ascii = shift_scancode_map[scancode];
+        } else {
+            ascii = normal_scancode_map[scancode];
+        }
+        if (precode == 0xE0) {
+            ascii = extended_scancode_map[scancode];
+        }
     }
+out:
+    precode = scancode;
+    return ascii;
 }
 
 // 获取按键扫描码
