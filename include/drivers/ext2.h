@@ -1,10 +1,11 @@
 #pragma once
-#include <stddef.h>
-#include <stdint.h>
 #include "block_device.h"
 #include <kernel/vfs.h>
+#include <stddef.h>
+#include <stdint.h>
 
-namespace kernel {
+namespace kernel
+{
 
 // EXT2文件系统常量
 constexpr uint16_t EXT2_MAGIC = 0xEF53;
@@ -13,43 +14,121 @@ constexpr uint32_t EXT2_NAME_LEN = 255;
 
 // 超级块结构
 struct Ext2SuperBlock {
-    uint32_t inodes_count;          // Inodes数量
-    uint32_t blocks_count;          // 块数量
-    uint32_t first_data_block;      // 第一个数据块
-    uint32_t block_size;            // 块大小
-    uint32_t blocks_per_group;      // 每组块数
-    uint32_t inodes_per_group;      // 每组inode数
-    uint16_t magic;                 // 魔数
-    uint16_t state;                 // 文件系统状态
-    uint8_t padding[512-30];
+    uint32_t inodes_count;      /* Inodes count */
+    uint32_t blocks_count;      /* Blocks count */
+    uint32_t r_blocks_count;    /* Reserved blocks count */
+    uint32_t free_blocks_count; /* Free blocks count */
+    uint32_t free_inodes_count; /* Free inodes count */
+    uint32_t first_data_block;  /* First Data Block */
+    uint32_t log_block_size;    /* Block size */
+    uint32_t log_frag_size;     /* Fragment size */
+    uint32_t blocks_per_group;  /* # Blocks per group */
+    uint32_t frags_per_group;   /* # Fragments per group */
+    uint32_t inodes_per_group;  /* # Inodes per group */
+    uint32_t mtime;             /* Mount time */
+    uint32_t wtime;             /* Write time */
+    uint16_t mnt_count;         /* Mount count */
+    uint16_t max_mnt_count;     /* Maximal mount count */
+    uint16_t magic;             /* Magic signature */
+    uint16_t state;             /* File system state */
+    uint16_t errors;            /* Behaviour when detecting errors */
+    uint16_t minor_rev_level;   /* minor revision level */
+    uint32_t lastcheck;         /* time of last check */
+    uint32_t checkinterval;     /* max. time between checks */
+    uint32_t creator_os;        /* OS */
+    uint32_t rev_level;         /* Revision level */
+    uint16_t def_resuid;        /* Default uid for reserved blocks */
+    uint16_t def_resgid;        /* Default gid for reserved blocks */
+    /*
+     * These fields are for EXT2_DYNAMIC_REV superblocks only.
+     *
+     * Note: the difference between the compatible feature set and
+     * the incompatible feature set is that if there is a bit set
+     * in the incompatible feature set that the kernel doesn't
+     * know about, it should refuse to mount the filesystem.
+     *
+     * e2fsck's requirements are more strict; if it doesn't know
+     * about a feature in either the compatible or incompatible
+     * feature set, it must abort and not try to meddle with
+     * things it doesn't understand...
+     */
+    uint32_t first_ino;              /* First non-reserved inode */
+    uint16_t inode_size;             /* size of inode structure */
+    uint16_t block_group_nr;         /* block group # of this superblock */
+    uint32_t feature_compat;         /* compatible feature set */
+    uint32_t feature_incompat;       /* incompatible feature set */
+    uint32_t feature_ro_compat;      /* readonly-compatible feature set */
+    uint8_t uuid[16];                /* 128-bit uuid for volume */
+    char s_volume_name[16];          /* volume name */
+    char s_last_mounted[64];         /* directory where last mounted */
+    uint32_t algorithm_usage_bitmap; /* For compression */
+    /*
+     * Performance hints.  Directory preallocation should only
+     * happen if the EXT2_COMPAT_PREALLOC flag is on.
+     */
+    uint8_t prealloc_blocks;     /* Nr of blocks to try to preallocate*/
+    uint8_t prealloc_dir_blocks; /* Nr to preallocate for dirs */
+    uint16_t padding1;
+    /*
+     * Journaling support valid if EXT3_FEATURE_COMPAT_HAS_JOURNAL set.
+     */
+    uint8_t journal_uuid[16]; /* uuid of journal superblock */
+    uint32_t journal_inum;    /* inode number of journal file */
+    uint32_t journal_dev;     /* device number of journal file */
+    uint32_t last_orphan;     /* start of list of inodes to delete */
+    uint32_t hash_seed[4];    /* HTREE hash seed */
+    uint8_t def_hash_version; /* Default hash version to use */
+    uint8_t reserved_char_pad;
+    uint16_t reserved_word_pad;
+    uint32_t default_mount_opts;
+    uint32_t first_meta_bg; /* First metablock block group */
+    uint32_t reserved[190]; /* Padding to the end of the block */
+    uint32_t block_size() { return 1024 << log_block_size; }
     void print();
 };
 
 // Inode结构
 struct Ext2Inode {
-    uint16_t mode;                  // 文件类型和权限
-    uint32_t size;                  // 文件大小
-    uint32_t blocks;                // 占用的块数
-    uint32_t direct_blocks[EXT2_DIRECT_BLOCKS];  // 直接块
-    uint32_t indirect_block;        // 一级间接块
-    uint32_t double_indirect_block; // 二级间接块
-    uint16_t i_links_count;  // 链接计数
-    uint16_t i_blocks;       // 使用块数
-    uint32_t i_block[15];    // 数据块指针
+    uint16_t mode; // 文件类型和权限
+    uint16_t uid;
+    uint32_t size; // 文件大小
+    uint32_t atime;
+    uint32_t ctime;
+    uint32_t mtime;
+    uint32_t dtime;
+    uint16_t gid;
+    uint16_t i_links_count; // 链接计数
+    uint32_t blocks;        // 占用的块数
+    uint32_t flags;
+    uint32_t osd1;
+    uint32_t i_block[15]; // 数据块指针
+    uint32_t i_generation;
+    uint32_t i_file_acl;
+    uint32_t i_dir_acl;
+    uint32_t i_faddr;
+    struct {
+        uint8_t l_i_frag;  /* Fragment number */
+        uint8_t l_i_fsize; /* Fragment size */
+        uint16_t i_pad1;
+        uint16_t l_i_uid_high; /* these 2 fields    */
+        uint16_t l_i_gid_high; /* were reserved2[0] */
+        uint32_t l_i_reserved2;
+    } osd2;
 };
 
 // 目录项结构
 struct Ext2DirEntry {
-    uint32_t inode;                 // Inode号
-    uint16_t rec_len;               // 目录项长度
-    uint8_t  name_len;              // 名称长度
-    uint8_t  file_type;             // 文件类型
-    char     name[EXT2_NAME_LEN];   // 文件名
+    uint32_t inode;           // Inode号
+    uint16_t rec_len;         // 目录项长度
+    uint8_t name_len;         // 名称长度
+    uint8_t file_type;        // 文件类型
+    char name[EXT2_NAME_LEN]; // 文件名
 };
 
 class Ext2FileDescriptor;
 // EXT2文件系统实现
-class Ext2FileSystem : public FileSystem {
+class Ext2FileSystem : public FileSystem
+{
 public:
     Ext2FileSystem(BlockDevice* device);
     virtual ~Ext2FileSystem();
@@ -78,7 +157,8 @@ private:
     uint32_t allocate_inode();
 };
 
-class Ext2FileDescriptor : public kernel::FileDescriptor {
+class Ext2FileDescriptor : public kernel::FileDescriptor
+{
 public:
     Ext2FileDescriptor(uint32_t inode, Ext2FileSystem* fs);
     ~Ext2FileDescriptor() override;
