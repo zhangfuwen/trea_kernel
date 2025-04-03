@@ -11,7 +11,7 @@ namespace kernel
 struct MemFSInode {
     char name[256];       // 文件名
     FileType type;        // 文件类型
-    FilePermission perm;  // 文件权限
+    uint32_t mode;        // 文件权限
     uint8_t* data;        // 文件数据
     size_t size;          // 文件大小
     size_t capacity;      // 数据缓冲区容量
@@ -32,6 +32,7 @@ public:
     virtual ssize_t write(const void* buffer, size_t size) override;
     virtual int seek(size_t offset) override;
     virtual int close() override;
+    virtual int iterate(void* buffer, size_t buffer_size, uint32_t* pos) override;
 
 private:
     MemFSInode* inode;

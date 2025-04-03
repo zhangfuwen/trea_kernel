@@ -3,30 +3,36 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <unistd.h>
+//#include <sys/types.h>
 
 struct ProcessControlBlock;
 namespace kernel
 {
 
-// 文件类型
-enum class FileType : unsigned char {
-    Regular,   // 普通文件
-    Directory, // 目录
-    Device     // 设备文件
+// 文件类型枚举
+enum FileType {
+    FT_UNKNOWN = 0,
+    FT_REG     = 1,  // 普通文件
+    FT_DIR     = 2,  // 目录
+    FT_CHR     = 3,  // 字符设备
+    FT_BLK     = 4,  // 块设备
+    FT_FIFO    = 5,  // FIFO
+    FT_SOCK    = 6,  // 套接字
+    FT_LNK     = 7,  // 符号链接
 };
 
-// 文件权限
-struct FilePermission {
-    bool read;    // 读权限
-    bool write;   // 写权限
-    bool execute; // 执行权限
-};
-
-// 文件属性
+// 文件属性结构
 struct FileAttribute {
-    FileType type;       // 文件类型
-    FilePermission perm; // 文件权限
-    size_t size;         // 文件大小
+    FileType type;    // 文件类型
+    size_t size;      // 文件大小
+    uint32_t mode;    // 文件权限
+    uint32_t uid;     // 用户ID
+    uint32_t gid;     // 组ID
+    uint32_t atime;   // 访问时间
+    uint32_t mtime;   // 修改时间
+    uint32_t ctime;   // 创建时间
+    uint32_t blksize; // 块大小
+    uint32_t blocks;  // 块数量
 };
 
 int sys_open(uint32_t path_ptr, ProcessControlBlock* pcb);
@@ -45,6 +51,7 @@ public:
     virtual ssize_t write(const void* buffer, size_t size) = 0;
     virtual int seek(size_t offset) = 0;
     virtual int close() = 0;
+    virtual int iterate(void* buffer, size_t buffer_size, uint32_t* pos) = 0;
 };
 
 // 文件系统接口
@@ -70,12 +77,6 @@ public:
 
     // 删除目录
     virtual int rmdir(const char* path) = 0;
-
-    // 列出目录内容
-    virtual int list(const char* path, void* buffer, size_t buffer_size) { return -1; }
-
-    // 遍历目录内容，用于getdents系统调用
-    virtual int iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos) { return -1; }
 };
 
 // VFS管理器
@@ -105,12 +106,6 @@ public:
 
     // 删除目录
     int rmdir(const char* path);
-
-    // 列出目录内容
-    int list(const char* path, void* buffer, size_t buffer_size);
-
-    // 遍历目录内容，用于getdents系统调用
-    int iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos);
 
 private:
     VFSManager() = default;

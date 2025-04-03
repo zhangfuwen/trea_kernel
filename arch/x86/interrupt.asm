@@ -15,6 +15,7 @@ syscall_number: dd 0
 arg1: dd 0
 arg2: dd 0
 arg3: dd 0
+arg4: dd 0
 page_fault_errno: dd 0
 segmentation_fault_errno: dd 0
 fault_errno: dd 0
@@ -159,8 +160,11 @@ syscall_interrupt:
     mov [arg1], ebx
     mov [arg2], ecx
     mov [arg3], edx
+    mov [arg4], esi
     SAVE_REGS_FOR_CONTEXT_SWITCH
 
+    mov esi, [arg4]
+    push esi ; arg4
     mov edx, [arg3]
     push edx ; arg3
     mov ecx, [arg2]
@@ -171,7 +175,7 @@ syscall_interrupt:
     push eax ; syscall number
     call handleSyscall         ; 调用C函数
     mov [arg1], eax
-    add esp, 16
+    add esp, 20
 
     RESTORE_REGS_FOR_CONTEXT_SWITCH
     mov eax, [arg1]

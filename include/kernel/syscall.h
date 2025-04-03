@@ -39,6 +39,7 @@ int mkdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 int unlinkHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 int rmdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 int getdentsHandler(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr);
+int sys_getdents(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr);
 void sys_log(const char* message, uint32_t len);
 int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t);
 

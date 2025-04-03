@@ -6,8 +6,8 @@ namespace kernel {
 
 // 块设备的基本参数
 struct BlockDeviceInfo {
-    size_t block_size;      // 块大小（字节）
-    size_t total_blocks;    // 总块数
+    size_t sector_size;      // 块大小（字节）
+    size_t total_sectors;    // 总块数
     bool   read_only;       // 是否只读
 };
 
@@ -58,9 +58,12 @@ public:
     virtual const BlockDeviceInfo& get_info() const override;
     virtual bool read_block(uint32_t block_num, void* buffer) override;
     virtual bool write_block(uint32_t block_num, const void* buffer) override;
+    bool read_sector(uint32_t sector_num, void* buffer);
+    bool write_sector(uint32_t sector_num, const void* buffer);
     virtual void sync() override;
 
 private:
+    uint32_t block_size;
     BlockDeviceInfo info;
 };
 

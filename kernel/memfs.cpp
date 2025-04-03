@@ -82,6 +82,37 @@ int MemFSFileDescriptor::close()
     return 0;
 }
 
+int MemFSFileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
+{
+    if (!inode || inode->type != FT_DIR) {
+        return -1; // 非目录不支持遍历
+    }
+
+    MemFSInode* child = inode->children;
+    uint32_t count = 0;
+
+    // 跳过已经遍历过的项
+    while (child && count < *pos) {
+        child = child->next;
+        count++;
+    }
+
+    if (!child) {
+        return 0; // 遍历结束
+    }
+
+    // 复制文件名到缓冲区
+    size_t name_len = strlen(child->name);
+    if (name_len + 1 > buffer_size) {
+        return -1; // 缓冲区太小
+    }
+
+    strcpy((char*)buffer, child->name);
+    (*pos)++;
+
+    return name_len;
+}
+
 MemFS::MemFS() : root(nullptr) {}
 
 char* MemFS::get_name()
@@ -97,7 +128,7 @@ MemFS::~MemFS()
 
 void MemFS::init()
 {
-    root = create_inode("", FileType::Directory);
+    root = create_inode("", FT_DIR);
     printk("MemFS initialized with root directory\n");
     debug_info("MemFS root inode created at %x\n", (unsigned int)root);
 }
@@ -163,11 +194,11 @@ int MemFS::load_initramfs(const void* data, size_t size)
         }
 
         // 创建文件或目录
-        FileType type = is_directory(header) ? FileType::Directory : FileType::Regular;
+        FileType type = is_directory(header) ? FT_DIR : FT_REG;
         MemFSInode* inode = create_inode(name, type);
 
         debug_debug("Inode created at %x\n", (unsigned int)inode);
-        if(type == FileType::Regular && filesize > 0) {
+        if(type == FT_REG && filesize > 0) {
             debug_debug("Creating data buffer for file, size: %d bytes\n", filesize);
             inode->data = new uint8_t[filesize];
             inode->size = filesize;
@@ -253,7 +284,7 @@ MemFSInode* MemFS::create_inode(const char* name, FileType type)
     MemFSInode* inode = new MemFSInode;
     strncpy(inode->name, name, sizeof(inode->name) - 1);
     inode->type = type;
-    inode->perm = {true, true, true};
+    inode->mode = 0755; // 设置默认权限
     inode->data = nullptr;
     inode->size = 0;
     inode->capacity = 0;
@@ -322,7 +353,7 @@ int MemFS::stat(const char* path, FileAttribute* attr)
         return -1;
 
     attr->type = inode->type;
-    attr->perm = inode->perm;
+    attr->mode = inode->mode;
     attr->size = inode->size;
     return 0;
 }
@@ -343,7 +374,7 @@ int MemFS::mkdir(const char* path)
     parent_path[parent_len] = '\0';
 
     MemFSInode* parent = find_inode(parent_path);
-    if(!parent || parent->type != FileType::Directory)
+    if(!parent || parent->type != FT_DIR)
         return -1;
 
     // 获取目录名
@@ -358,7 +389,7 @@ int MemFS::mkdir(const char* path)
     }
 
     // 创建新目录
-    MemFSInode* dir = create_inode(name, FileType::Directory);
+    MemFSInode* dir = create_inode(name, FT_DIR);
     dir->parent = parent;
     dir->next = parent->children;
     parent->children = dir;
@@ -372,7 +403,7 @@ int MemFS::unlink(const char* path)
         return -1;
 
     MemFSInode* file = find_inode(path);
-    if(!file || file->type != FileType::Regular)
+    if(!file || file->type != FT_REG)
         return -1;
 
     // 从父目录中移除
@@ -402,7 +433,7 @@ int MemFS::rmdir(const char* path)
         return -1;
 
     MemFSInode* dir = find_inode(path);
-    if(!dir || dir->type != FileType::Directory)
+    if(!dir || dir->type != FT_DIR)
         return -1;
 
     // 检查目录是否为空

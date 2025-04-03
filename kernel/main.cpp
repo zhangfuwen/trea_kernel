@@ -158,11 +158,24 @@ extern "C" void kernel_main()
     auto root = VFSManager::instance().open("/mnt");
     if(root) {
         FileAttribute attr;
-        VFSManager::instance().stat("/mnt", &attr);
+        VFSManager::instance().stat("/mnt/", &attr);
         debug_info("mnt directory size: %d bytes\n", attr.size);
-        char buffer[512];
-        VFSManager::instance().list("/mnt", buffer, 512);
-        debug_info("Directory listing:\n%s\n", buffer);
+            char buf[4096];
+            ssize_t nread;
+            struct dirent *dirp;
+
+            // while ((nread = sys_getdents(fd, buf, sizeof(buf))) > 0) {
+            //     for (char *b = buf; b < buf + nread;) {
+            //         dirp = (struct dirent *)b;
+            //         debug_debug("File: %s\n", dirp->d_name);
+            //         b += dirp->d_reclen;
+            //     }
+            // }
+            //
+            // if (nread == -1) {
+            //     perror("getdents");
+            // }
+        // ... 已有代码 ...
         delete root;
     } else {
         debug_err("Failed to open /mnt\n");

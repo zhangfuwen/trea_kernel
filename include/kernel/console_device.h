@@ -18,6 +18,9 @@ public:
     virtual ssize_t write(const void* buffer, size_t size) override;
     virtual int seek(size_t offset) override;
     virtual int close() override;
+    virtual int iterate(void* buffer, size_t buffer_size, uint32_t* pos) override {
+        return -1; // 控制台设备不支持目录遍历
+    }
 
 private:
     char input_buffer[INPUT_BUFFER_SIZE];
@@ -47,8 +50,8 @@ public:
     virtual int stat(const char* path, FileAttribute* attr) override
     {
         if(attr) {
-            attr->type = FileType::Device;
-            attr->perm = {true, true, false};
+            attr->type = FT_CHR;
+            attr->mode = 0666; // 设置读写权限
             attr->size = 0;
         }
         return 0;

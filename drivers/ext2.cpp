@@ -1,8 +1,8 @@
 #include "drivers/block_device.h"
 #include <drivers/ext2.h>
+#include <kernel/dirent.h>
 #include <lib/debug.h>
 #include <lib/string.h>
-#include <kernel/dirent.h>
 
 namespace kernel
 {
@@ -14,9 +14,8 @@ Ext2FileSystem::Ext2FileSystem(BlockDevice* device) : device(device)
     auto ret = read_super_block();
     debug_debug("read_super_block ret %d, super block:0x%x\n", ret, super_block);
     if(ret) {
-        hexdump(super_block, sizeof(Ext2SuperBlock), [](const char*line) {
-            debug_debug("%s\n", line);
-        });
+        hexdump(super_block, sizeof(Ext2SuperBlock),
+            [](const char* line) { debug_debug("%s\n", line); });
         super_block->print();
     }
     // if(!ret) {
@@ -50,9 +49,58 @@ Ext2FileSystem::~Ext2FileSystem()
     }
 }
 
-char* Ext2FileSystem::get_name()
+char* Ext2FileSystem::get_name() { return "ext2"; }
+
+// 打印 Ext2GroupDesc 结构体的成员，包含十进制和十六进制值
+void Ext2GroupDesc::print()
 {
-    return "ext2";
+    auto& group_desc = *(Ext2GroupDesc*)this;
+    debug_debug("Ext2 Group Descriptor:\n");
+    debug_debug("  bg_block_bitmap:      %d (0x%x)\n", group_desc.bg_block_bitmap,
+        group_desc.bg_block_bitmap);
+    debug_debug("  bg_inode_bitmap:      %d (0x%x)\n", group_desc.bg_inode_bitmap,
+        group_desc.bg_inode_bitmap);
+    debug_debug("  bg_inode_table:       %d (0x%x)\n", group_desc.bg_inode_table,
+        group_desc.bg_inode_table);
+    debug_debug("  bg_free_blocks_count: %d (0x%x)\n", group_desc.bg_free_blocks_count,
+        group_desc.bg_free_blocks_count);
+    debug_debug("  bg_free_inodes_count: %d (0x%x)\n", group_desc.bg_free_inodes_count,
+        group_desc.bg_free_inodes_count);
+    debug_debug("  bg_used_dirs_count:   %d (0x%x)\n", group_desc.bg_used_dirs_count,
+        group_desc.bg_used_dirs_count);
+    debug_debug("  bg_pad:               %d (0x%x)\n", group_desc.bg_pad, group_desc.bg_pad);
+    for(int i = 0; i < 3; ++i) {
+        debug_debug("  bg_reserved[%d]:    %d (0x%x)\n", i, group_desc.bg_reserved[i],
+            group_desc.bg_reserved[i]);
+    }
+}
+void Ext2Inode::print()
+{
+    debug_debug("Ext2Inode:\n");
+    debug_debug("  mode: 0x%04x (%d)\n", mode, mode);
+    debug_debug("  uid: %u (0x%x)\n", uid, uid);
+    debug_debug("  size: %u (0x%x)\n", size, size);
+    debug_debug("  atime: %u (0x%x)\n", atime, atime);
+    debug_debug("  ctime: %u (0x%x)\n", ctime, ctime);
+    debug_debug("  mtime: %u (0x%x)\n", mtime, mtime);
+    debug_debug("  dtime: %u (0x%x)\n", dtime, dtime);
+    debug_debug("  gid: %u (0x%x)\n", gid, gid);
+    debug_debug("  i_links_count: %u (0x%x)\n", i_links_count, i_links_count);
+    debug_debug("  i_blocks: %u (0x%x)\n", blocks, blocks);
+    debug_debug("  flags: %u (0x%x)\n", flags, flags);
+    debug_debug("  osd1: %u (0x%x)\n", osd1, osd1);
+    debug_debug("  i_generation: %u (0x%x)\n", i_generation, i_generation);
+    debug_debug("  i_file_acl: %u (0x%x)\n", i_file_acl, i_file_acl);
+    debug_debug("  i_dir_acl: %u (0x%x)\n", i_dir_acl, i_dir_acl);
+    debug_debug("  i_faddr: %u (0x%x)\n", i_faddr, i_faddr);
+    debug_debug("  osd2: {\n");
+    debug_debug("    l_i_frag: %u (0x%x)\n", osd2.l_i_frag, osd2.l_i_frag);
+    debug_debug("    l_i_fsize: %u (0x%x)\n", osd2.l_i_fsize, osd2.l_i_fsize);
+    debug_debug("    i_pad1: %u (0x%x)\n", osd2.i_pad1, osd2.i_pad1);
+    debug_debug("    l_i_uid_high: %u (0x%x)\n", osd2.l_i_uid_high, osd2.l_i_uid_high);
+    debug_debug("    l_i_gid_high: %u (0x%x)\n", osd2.l_i_gid_high, osd2.l_i_gid_high);
+    debug_debug("    l_i_reserved2: %u (0x%x)\n", osd2.l_i_reserved2, osd2.l_i_reserved2);
+    debug_debug("  }\n");
 }
 
 void Ext2SuperBlock::print()
@@ -87,38 +135,105 @@ void Ext2SuperBlock::print()
     debug_debug("  block_group_nr: %d (0x%x)\n", block_group_nr, block_group_nr);
 }
 
-
 bool Ext2FileSystem::read_super_block()
 {
-    auto ret = device->read_block(2, super_block);
+    // 读取超级块
+    auto block_size = 4096;
+    auto super_block_offset = 1024;
+    auto buffer = new uint8_t[block_size];
+    auto ret = device->read_block(super_block_offset / block_size, buffer);
     if(!ret) {
         debug_err("read_super_block failed\n");
         return false;
     }
-    ret = (super_block->magic == EXT2_MAGIC);
-    if (!ret) {
-        debug_err("read_super_block failed, magic error:0x%x, expect:0x%x\n", super_block->magic, EXT2_MAGIC);
+
+    auto copy_offset = super_block_offset % block_size;
+    memcpy(super_block, buffer + copy_offset, sizeof(Ext2SuperBlock));
+    debug_debug("read_super_block buffer, copy_offset:%d(0x%x):\n", copy_offset, copy_offset);
+    hexdump(buffer + copy_offset, sizeof(*super_block),
+        [](const char* line) { debug_debug("%s\n", line); });
+    delete[] buffer;
+
+    if(super_block->magic != EXT2_MAGIC) {
+        debug_err("read_super_block failed, magic error:0x%x, expect:0x%x\n", super_block->magic,
+            EXT2_MAGIC);
         return false;
     }
+
+    // debug_debug("ext4 block size:%d(0x%x)\n", super_block->block_size(),
+    // super_block->block_size()); debug_debug("device block size:%d(0x%x)\n",
+    // device->get_info().block_size, device->get_info().block_size); uint32_t block_size =
+    // super_block->block_size(); auto num_sectors_per_block = block_size /
+    // device->get_info().block_size; debug_debug("num_sectors_per_block: %d(0x%x)\n",
+    // num_sectors_per_block, num_sectors_per_block);
+
+    // 读取块组描述符表（位于超级块下一个块）
+    uint32_t group_desc_block = super_block->first_data_block + 1;
+    uint8_t* group_desc_buffer = new uint8_t[block_size];
+
+    debug_debug("group_desc_block:%d(0x%x)\n", group_desc_block, group_desc_block);
+    if(!device->read_block(group_desc_block, group_desc_buffer)) {
+        debug_err("读取块组描述符表失败 block:%u\n", group_desc_block);
+        delete[] group_desc_buffer;
+        return false;
+    }
+
+    // 解析第一个块组描述符
+    memcpy(&group_desc, group_desc_buffer, sizeof(Ext2GroupDesc));
+    delete[] group_desc_buffer;
+
+    debug_debug("块组描述符 bg_inode_table=%u\n", group_desc.bg_inode_table);
+    group_desc.print();
+
+    // 读取根目录inode（inode号2）
+    uint32_t inode_table_block = group_desc.bg_inode_table;
+    uint32_t inodes_per_block = block_size / super_block->inode_size;
+    uint32_t root_inode_offset = (EXT2_ROOT_INO - 1) % inodes_per_block * super_block->inode_size;
+
+    uint8_t* inode_table_buffer = new uint8_t[block_size];
+    if(!device->read_block(inode_table_block, inode_table_buffer)) {
+        debug_err("读取inode表块失败 block:%u\n", inode_table_block);
+        delete[] inode_table_buffer;
+        return false;
+    }
+
+    memcpy(&root_inodes, inode_table_buffer + root_inode_offset, sizeof(Ext2Inode));
+    delete[] inode_table_buffer;
+
+    debug_debug("根目录inode信息：\n");
+    root_inodes.print();
+
     return true;
 }
 
+uint32_t Ext2Inode::inode_table_block() { return 4; }
+
 Ext2Inode* Ext2FileSystem::read_inode(uint32_t inode_num)
 {
+    // debug_debug("ext4 block size:%d(0x%x)\n", super_block->block_size(),
+    // super_block->block_size()); debug_debug("device block size:%d(0x%x)\n",
+    // device->get_info().block_size, device->get_info().block_size);
+    uint32_t block_size = super_block->block_size();
+    // auto num_sectors_per_block = block_size / device->get_info().block_size;
+    // debug_debug("num_sectors_per_block: %d(0x%x)\n", num_sectors_per_block,
+    // num_sectors_per_block);
+
     debug_debug("[ext2] 读取inode %u (总数:%u)\n", inode_num, super_block->inodes_count);
     if(inode_num == 0 || inode_num > super_block->inodes_count) {
         debug_err("无效的inode编号 %u (范围1-%u)\n", inode_num, super_block->inodes_count);
         return nullptr;
     }
 
-    uint32_t block_size = device->get_info().block_size;
-    uint32_t inodes_per_block = block_size / sizeof(Ext2Inode);
-    uint32_t block_num = (inode_num - 1) / inodes_per_block + super_block->first_data_block;
+    uint32_t inodes_per_block = block_size / super_block->inode_size;
+    uint32_t block_num = (inode_num - 1) / inodes_per_block + group_desc.bg_inode_table;
     uint32_t offset = (inode_num - 1) % inodes_per_block;
-    debug_debug("计算块号:%u 偏移:%u (块大小:%u inode大小:%zu)\n", 
-              block_num, offset, block_size, sizeof(Ext2Inode));
+    debug_debug("计算块号:%u 偏移:%u (块大小:%u inode大小:%u)\n", block_num, offset, block_size,
+        super_block->inode_size);
 
-    auto block_buffer = new uint8_t[block_size];
+    // block_num = block_num*num_sectors_per_block + offset/device->get_info().block_size;
+    // offset = offset % device->get_info().block_size;
+    auto block_buffer = new uint8_t[super_block->block_size()];
+
     if(!device->read_block(block_num, block_buffer)) {
         debug_err("读取块%u失败\n", block_num);
         delete[] block_buffer;
@@ -126,9 +241,10 @@ Ext2Inode* Ext2FileSystem::read_inode(uint32_t inode_num)
     }
 
     auto inode = new Ext2Inode();
-    memcpy(inode, block_buffer + offset * sizeof(Ext2Inode), sizeof(Ext2Inode));
-    debug_debug("读取inode %u完成 mode:0x%x size:%u blocks:%u\n",
-              inode_num, inode->mode, inode->size, inode->blocks);
+    memcpy(inode, block_buffer + offset * super_block->inode_size, sizeof(Ext2Inode));
+    // inode->print();
+    debug_debug("读取inode %u完成 mode:0x%x size:%u blocks:%u\n", inode_num, inode->mode,
+        inode->size, inode->blocks);
 
     delete[] block_buffer;
     return inode;
@@ -142,7 +258,7 @@ bool Ext2FileSystem::write_inode(uint32_t inode_num, const Ext2Inode* inode)
         return false;
     }
 
-    uint32_t block_size = device->get_info().block_size;
+    uint32_t block_size = device->get_info().sector_size;
     uint32_t inodes_per_block = block_size / sizeof(Ext2Inode);
     uint32_t block_num = (inode_num - 1) / inodes_per_block + super_block->first_data_block;
     uint32_t offset = (inode_num - 1) % inodes_per_block;
@@ -165,14 +281,14 @@ bool Ext2FileSystem::write_inode(uint32_t inode_num, const Ext2Inode* inode)
 
 uint32_t Ext2FileSystem::allocate_block()
 {
-    debug_debug("[ext2] 开始分配数据块 (first_data_block:%u blocks_count:%u)\n", 
-              super_block->first_data_block, super_block->blocks_count);
-    auto block_buffer = new uint8_t[device->get_info().block_size];
+    debug_debug("[ext2] 开始分配数据块 (first_data_block:%u blocks_count:%u)\n",
+        super_block->first_data_block, super_block->blocks_count);
+    auto block_buffer = new uint8_t[device->get_info().sector_size];
     for(uint32_t i = super_block->first_data_block; i < super_block->blocks_count; i++) {
         debug_debug("检查块%u...", i);
         if(device->read_block(i, block_buffer)) {
             bool is_free = true;
-            for(size_t j = 0; j < device->get_info().block_size; j++) {
+            for(size_t j = 0; j < device->get_info().sector_size; j++) {
                 if(block_buffer[j] != 0) {
                     is_free = false;
                     break;
@@ -262,7 +378,7 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
 {
     debug_debug("open %s\n", path);
     // 从根目录开始查找（inode 2）
-    uint32_t current_inode = super_block->first_ino;
+    uint32_t current_inode = EXT2_ROOT_INO;
 
     // 分割路径
     char* parts = strdup(path);
@@ -270,7 +386,8 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
 
     while(token) {
         Ext2Inode* inode = read_inode(current_inode);
-        debug_debug("inode->mode 0x%x\n", inode->mode);
+        debug_debug("inode %d(0x%x)\n", current_inode, current_inode);
+        inode->print();
         if(!inode || (inode->mode & 0xF000) != 0x4000) {
             delete inode;
             delete[] parts;
@@ -282,14 +399,16 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
         uint8_t* block = new uint8_t[block_size];
         bool found = false;
         for(uint32_t i = 0; i < inode->blocks; i++) {
+            debug_debug("reading block %d:\n", inode->i_block[i]);
             device->read_block(inode->i_block[i], block);
 
             Ext2DirEntry* entry = (Ext2DirEntry*)block;
             while((uint8_t*)entry < block + block_size) {
+                debug_debug("entry inode:%u name:%s\n", entry->inode, entry->name);
                 if(entry->inode && entry->name_len == strlen(token) &&
                     memcmp(entry->name, token, entry->name_len) == 0) {
                     current_inode = entry->inode;
-                    if(entry->file_type == (unsigned char)FileType::Directory) {
+                    if(entry->file_type == (unsigned char)FT_DIR) {
                         current_dir_inode = current_inode;
                     }
                     found = true;
@@ -325,7 +444,7 @@ int Ext2FileSystem::stat(const char* path, FileAttribute* attr)
 
     Ext2Inode* inode = read_inode(fd->m_inode);
     attr->size = inode->size;
-    attr->type = (inode->mode & 0xF000) == 0x4000 ? FileType::Directory : FileType::Regular;
+    attr->type = (inode->mode & 0xF000) == 0x4000 ? FT_DIR : FT_REG;
     debug_debug("inode->mode:0x%x\n", inode->mode);
     delete inode;
     delete fd;
@@ -345,7 +464,7 @@ int Ext2FileSystem::stat(const char* path, FileAttribute* attr)
 //     Ext2Inode dir_inode{};
 //     dir_inode.mode = 0x41FF; // 目录权限
 //     dir_inode.size = block_size;
-//     dir_inode.blocks = 1;
+//     dir_inode.i_blocks = 1;
 //     dir_inode.i_block[0] = allocate_block(); // 使用正确的块指针字段
 //
 //     write_inode(new_inode, &dir_inode);
@@ -385,8 +504,8 @@ int Ext2FileSystem::unlink(const char* path)
 
     if(inode->i_links_count == 0) {
         // 释放数据块
-        for(uint32_t i = 0; i < inode->i_blocks; i++) { // 修正字段名
-            free_block(inode->i_block[i]);              // 修正字段名
+        for(uint32_t i = 0; i < inode->blocks; i++) { // 修正字段名
+            free_block(inode->i_block[i]);            // 修正字段名
         }
         free_inode(fd->m_inode);
     }
@@ -409,14 +528,13 @@ Ext2FileDescriptor::Ext2FileDescriptor(uint32_t inode, Ext2FileSystem* fs)
 {
 }
 
- Ext2FileDescriptor::~Ext2FileDescriptor()
-{
-
-}
-
+Ext2FileDescriptor::~Ext2FileDescriptor() {}
 
 int Ext2FileDescriptor::seek(size_t offset)
 {
+    // const int SEEK_SET = 0;
+    // const int SEEK_CUR = 1;
+    // const int SEEK_END = 2;
     Ext2Inode* inode = m_fs->read_inode(m_inode);
     if(!inode)
         return 0;
@@ -454,13 +572,116 @@ int Ext2FileDescriptor::close()
     return 0;
 }
 
+int Ext2FileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
+{
+    debug_debug("enter, buffer:%x, size:%d, pos:0x%x\n", buffer, buffer_size, *pos);
+    // 检查是否为目录
+    Ext2Inode* inode = m_fs->read_inode(m_inode);
+    if(!inode || (inode->mode & 0xF000) != 0x4000) {
+        delete inode;
+        return -1; // 不是目录
+    }
+
+    // 准备缓冲区
+    uint8_t* output_buffer = static_cast<uint8_t*>(buffer);
+    size_t bytes_written = 0;
+
+    // 读取目录块
+    auto block_size = m_fs->super_block->block_size();
+    uint8_t* block = new uint8_t[block_size];
+
+    // 计算当前位置对应的块索引和块内偏移
+    *pos = 0;
+    uint32_t current_pos = *pos;
+    uint32_t block_idx = current_pos / block_size;
+    uint32_t block_offset = current_pos % block_size;
+
+    debug_debug("inode->blocks: %d(0x%x), block_idx:%d, current_pos:0x%x\n", inode->blocks,
+        inode->blocks, block_idx, current_pos);
+
+    // 遍历目录中的块，从当前位置开始
+    for(uint32_t i = block_idx; i < inode->blocks && bytes_written < buffer_size; i++) {
+        debug_debug("read block %d(0x%x)\n", inode->i_block[i], inode->i_block[i]);
+        if(!m_fs->device->read_block(inode->i_block[i], block)) {
+            continue; // 跳过读取失败的块
+        }
+
+        // 遍历块中的目录项，从当前偏移开始
+        Ext2DirEntry* entry = (Ext2DirEntry*)(block + (i == block_idx ? block_offset : 0));
+        if (entry->rec_len == 0) {
+            break; // 空目录项，结束遍历
+        }
+        while((uint8_t*)entry < block + block_size) {
+            debug_debug("read entry at 0x%x\n", entry);
+            entry->print();
+            if(entry->inode) { // 有效的目录项
+                // 获取文件类型
+                Ext2Inode* entry_inode = m_fs->read_inode(entry->inode);
+                uint8_t d_type = 0; // DT_UNKNOWN
+                if(entry_inode) {
+                    if((entry_inode->mode & 0xF000) == 0x4000) {
+                        d_type = 2; // DT_DIR
+                    } else if((entry_inode->mode & 0xF000) == 0x8000) {
+                        d_type = 1; // DT_REG
+                    }
+                    delete entry_inode;
+                }
+
+                // 计算dirent结构体大小
+                uint16_t reclen = sizeof(dirent) + entry->name_len + 1; // +1 for null terminator
+                // 对齐到4字节边界
+                reclen = (reclen + 3) & ~3;
+
+                // 检查缓冲区是否足够
+                if(bytes_written + reclen > buffer_size) {
+                    break; // 缓冲区已满
+                }
+
+                // 填充dirent结构体
+                dirent* dent = (dirent*)(output_buffer + bytes_written);
+                dent->d_ino = entry->inode;
+                dent->d_off = current_pos + ((uint8_t*)entry - block);
+                dent->d_reclen = reclen;
+                dent->d_type = d_type;
+                memcpy(dent->d_name, entry->name, entry->name_len);
+                dent->d_name[entry->name_len] = '\0'; // 添加null终止符
+
+                bytes_written += reclen;
+            }
+
+            // 更新当前位置
+            current_pos += entry->rec_len;
+
+            // 移动到下一个目录项
+            entry = (Ext2DirEntry*)((uint8_t*)entry + entry->rec_len);
+
+            // 如果已经填满缓冲区，退出循环
+            if(bytes_written + sizeof(dirent) > buffer_size) {
+                break;
+            }
+        }
+
+        // 重置块内偏移，因为下一个块从头开始
+        block_offset = 0;
+    }
+
+    // 更新位置指针
+    debug_debug("update pos: %d(0x%x)\n", current_pos, current_pos);
+    *pos = current_pos;
+
+    delete[] block;
+    delete inode;
+
+    return bytes_written; // 返回写入的字节数
+}
+
 ssize_t Ext2FileDescriptor::read(void* buffer, size_t size)
 {
     Ext2Inode* inode = m_fs->read_inode(m_inode);
     if(!inode)
         return -1;
 
-    uint32_t block_size = m_fs->device->get_info().block_size;
+    uint32_t block_size = m_fs->device->get_info().sector_size;
     size_t bytes_remaining = inode->size - m_position;
     size_t bytes_to_read = min(size, bytes_remaining);
     size_t total_read = 0;
@@ -493,34 +714,36 @@ ssize_t Ext2FileDescriptor::read(void* buffer, size_t size)
 }
 
 // 在Ext2FileSystem类实现之外添加
-ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size) {
+ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size)
+{
     Ext2Inode* inode = m_fs->read_inode(m_inode);
-    if (!inode || (inode->mode & 0xF000) == 0x4000) { // 目录不可写
+    if(!inode || (inode->mode & 0xF000) == 0x4000) { // 目录不可写
         delete inode;
         return 0;
     }
 
-    uint32_t block_size = m_fs->device->get_info().block_size;
+    uint32_t block_size = m_fs->device->get_info().sector_size;
     const uint8_t* src = static_cast<const uint8_t*>(buffer);
     size_t total_written = 0;
 
-    while (total_written < size) {
+    while(total_written < size) {
         // 计算当前块索引和偏移
         uint32_t block_idx = m_position / block_size;
         uint32_t block_offset = m_position % block_size;
 
         // 需要分配新块的情况
-        if (block_idx >= inode->i_blocks) {
+        if(block_idx >= inode->blocks) {
             uint32_t new_block = m_fs->allocate_block();
-            if (!new_block) break;
+            if(!new_block)
+                break;
 
             inode->i_block[block_idx] = new_block;
-            inode->i_blocks++;
+            inode->blocks++;
         }
 
         // 读取现有块数据（如果需要部分写入）
         uint8_t* block_data = new uint8_t[block_size];
-        if (block_offset > 0 || (size - total_written) < block_size) {
+        if(block_offset > 0 || (size - total_written) < block_size) {
             m_fs->device->read_block(inode->i_block[block_idx], block_data);
         }
 
@@ -529,7 +752,7 @@ ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size) {
         memcpy(block_data + block_offset, src + total_written, write_size);
 
         // 写入块设备
-        if (!m_fs->device->write_block(inode->i_block[block_idx], block_data)) {
+        if(!m_fs->device->write_block(inode->i_block[block_idx], block_data)) {
             delete[] block_data;
             break;
         }
@@ -540,7 +763,7 @@ ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size) {
         delete[] block_data;
 
         // 扩展文件大小
-        if (m_position > inode->size) {
+        if(m_position > inode->size) {
             inode->size = m_position;
         }
     }
@@ -552,190 +775,10 @@ ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size) {
 
     return total_written;
 }
-
-// 实现目录列表功能
-int Ext2FileSystem::list(const char* path, void* buffer, size_t buffer_size)
+void Ext2DirEntry::print()
 {
-    // 从路径获取目录的inode
-    Ext2FileDescriptor* fd = (Ext2FileDescriptor*)open(path);
-    if(!fd) {
-        debug_err("directory not found");
-        return -1; // 路径不存在
-    }
-    
-    uint32_t dir_inode_num = fd->m_inode;
-    delete fd; // 不再需要文件描述符
-    
-    // 读取目录的inode
-    Ext2Inode* dir_inode = read_inode(dir_inode_num);
-    if(!dir_inode || (dir_inode->mode & 0xF000) != 0x4000) {
-        // 不是目录
-        delete dir_inode;
-        return -1;
-    }
-    
-    // 准备缓冲区
-    char* output_buffer = static_cast<char*>(buffer);
-    size_t bytes_written = 0;
-    
-    // 读取目录块
-    auto block_size = super_block->block_size();
-    uint8_t* block = new uint8_t[block_size];
-    
-    // 遍历目录中的所有块
-    for(uint32_t i = 0; i < dir_inode->blocks && bytes_written < buffer_size; i++) {
-        if(!device->read_block(dir_inode->i_block[i], block)) {
-            continue; // 跳过读取失败的块
-        }
-        
-        // 遍历块中的所有目录项
-        Ext2DirEntry* entry = (Ext2DirEntry*)block;
-        while((uint8_t*)entry < block + block_size && bytes_written < buffer_size) {
-            if(entry->inode) { // 有效的目录项
-                // 获取文件类型
-                Ext2Inode* entry_inode = read_inode(entry->inode);
-                FileType type = FileType::Regular;
-                if(entry_inode) {
-                    if((entry_inode->mode & 0xF000) == 0x4000) {
-                        type = FileType::Directory;
-                    }
-                    delete entry_inode;
-                }
-                
-                // 计算需要的空间
-                size_t entry_size = entry->name_len + sizeof(FileType) + sizeof(size_t);
-                if(bytes_written + entry_size <= buffer_size) {
-                    // 写入文件类型
-                    memcpy(output_buffer + bytes_written, &type, sizeof(FileType));
-                    bytes_written += sizeof(FileType);
-                    
-                    // 写入文件名长度
-                    size_t name_len = entry->name_len;
-                    memcpy(output_buffer + bytes_written, &name_len, sizeof(size_t));
-                    bytes_written += sizeof(size_t);
-                    
-                    // 写入文件名
-                    memcpy(output_buffer + bytes_written, entry->name, entry->name_len);
-                    bytes_written += entry->name_len;
-                } else {
-                    // 缓冲区已满
-                    break;
-                }
-            }
-            
-            // 移动到下一个目录项
-            entry = (Ext2DirEntry*)((uint8_t*)entry + entry->rec_len);
-        }
-    }
-    
-    delete[] block;
-    delete dir_inode;
-    
-    return bytes_written; // 返回写入的字节数
-}
-
-// 实现目录遍历功能，用于getdents系统调用
-int Ext2FileSystem::iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos)
-{
-    debug_debug("iterate path: %s\n", path);
-    // 从路径获取目录的inode
-    Ext2FileDescriptor* fd = (Ext2FileDescriptor*)open(path);
-    if(!fd) {
-        debug_err("directory not found");
-        return -1; // 路径不存在
-    }
-    
-    uint32_t dir_inode_num = fd->m_inode;
-    delete fd; // 不再需要文件描述符
-    
-    // 读取目录的inode
-    Ext2Inode* dir_inode = read_inode(dir_inode_num);
-    if(!dir_inode || (dir_inode->mode & 0xF000) != 0x4000) {
-        // 不是目录
-        delete dir_inode;
-        return -1;
-    }
-    
-    // 准备缓冲区
-    uint8_t* output_buffer = static_cast<uint8_t*>(buffer);
-    size_t bytes_written = 0;
-    
-    // 读取目录块
-    auto block_size = super_block->block_size();
-    uint8_t* block = new uint8_t[block_size];
-    
-    // 计算当前位置对应的块索引和块内偏移
-    uint32_t current_pos = *pos;
-    uint32_t block_idx = current_pos / block_size;
-    uint32_t block_offset = current_pos % block_size;
-    
-    // 遍历目录中的块，从当前位置开始
-    for(uint32_t i = block_idx; i < dir_inode->blocks && bytes_written < buffer_size; i++) {
-        if(!device->read_block(dir_inode->i_block[i], block)) {
-            continue; // 跳过读取失败的块
-        }
-        
-        // 遍历块中的目录项，从当前偏移开始
-        Ext2DirEntry* entry = (Ext2DirEntry*)(block + (i == block_idx ? block_offset : 0));
-        while((uint8_t*)entry < block + block_size) {
-            if(entry->inode) { // 有效的目录项
-                // 获取文件类型
-                Ext2Inode* entry_inode = read_inode(entry->inode);
-                uint8_t d_type = 0; // DT_UNKNOWN
-                if(entry_inode) {
-                    if((entry_inode->mode & 0xF000) == 0x4000) {
-                        d_type = 2; // DT_DIR
-                    } else if((entry_inode->mode & 0xF000) == 0x8000) {
-                        d_type = 1; // DT_REG
-                    }
-                    delete entry_inode;
-                }
-                
-                // 计算dirent结构体大小
-                uint16_t reclen = sizeof(dirent) + entry->name_len + 1; // +1 for null terminator
-                // 对齐到4字节边界
-                reclen = (reclen + 3) & ~3;
-                
-                // 检查缓冲区是否足够
-                if(bytes_written + reclen > buffer_size) {
-                    break; // 缓冲区已满
-                }
-                
-                // 填充dirent结构体
-                dirent* dent = (dirent*)(output_buffer + bytes_written);
-                dent->d_ino = entry->inode;
-                dent->d_off = current_pos + ((uint8_t*)entry - block);
-                dent->d_reclen = reclen;
-                dent->d_type = d_type;
-                memcpy(dent->d_name, entry->name, entry->name_len);
-                dent->d_name[entry->name_len] = '\0'; // 添加null终止符
-                
-                bytes_written += reclen;
-            }
-            
-            // 更新当前位置
-            current_pos += entry->rec_len;
-            
-            // 移动到下一个目录项
-            entry = (Ext2DirEntry*)((uint8_t*)entry + entry->rec_len);
-            
-            // 如果已经填满缓冲区，退出循环
-            if(bytes_written + sizeof(dirent) > buffer_size) {
-                break;
-            }
-        }
-        
-        // 重置块内偏移，因为下一个块从头开始
-        block_offset = 0;
-    }
-    
-    // 更新位置指针
-    *pos = current_pos;
-    
-    delete[] block;
-    delete dir_inode;
-    
-    return bytes_written; // 返回写入的字节数
+    debug_debug(
+        "dir:%s, inode: %u, rec_len: %u, name_len: %u\n", name, inode, rec_len, name_len, name_len);
 }
 
 } // namespace kernel

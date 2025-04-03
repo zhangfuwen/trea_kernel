@@ -1,3 +1,4 @@
+#include "lib/time.h"
 #include "kernel/syscall.h"
 
 #include <kernel/elf_loader.h>
@@ -15,7 +16,6 @@
 #include "kernel/user_memory.h"
 #include "kernel/vfs.h"
 #include "lib/debug.h"
-#include "lib/time.h"
 
 // 系统调用处理函数声明
 int sys_mkdir(const char* path)
@@ -26,20 +26,23 @@ int sys_mkdir(const char* path)
 // getdents系统调用处理函数
 int getdentsHandler(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr)
 {
+    return sys_getdents(fd_num, dirp, count, pos_ptr);
+}
+int sys_getdents(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr)
+{
     auto pcb = ProcessManager::get_current_process();
     if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         return -1; // 无效的文件描述符
     }
     
-    // 获取文件路径
-    // 这里简化处理，直接使用"/"作为路径
-    const char* path = "/";
+    // 获取文件描述符
+    auto fd = pcb->fd_table[fd_num];
     
     // 获取位置指针
     uint32_t* pos = reinterpret_cast<uint32_t*>(pos_ptr);
     
-    // 调用VFSManager的iterate方法
-    return kernel::VFSManager::instance().iterate(path, reinterpret_cast<void*>(dirp), count, pos);
+    // 调用文件描述符的iterate方法
+    return fd->iterate(reinterpret_cast<void*>(dirp), count, pos);
 }
 
 int mkdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)

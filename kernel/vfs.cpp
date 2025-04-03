@@ -285,24 +285,5 @@ int VFSManager::rmdir(const char* path)
     return fs->rmdir(remaining_path);
 }
 
-// 列出目录内容
-int VFSManager::list(const char* path, void* buffer, size_t buffer_size)
-{
-    const char* remaining_path;
-    FileSystem* fs = find_fs(path, &remaining_path);
-    if(!fs)
-        return -1;
-    return fs->list(remaining_path, buffer, buffer_size);
-}
-
-// 遍历目录内容，用于getdents系统调用
-int VFSManager::iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos)
-{
-    const char* remaining_path;
-    FileSystem* fs = find_fs(path, &remaining_path);
-    if(!fs)
-        return -1;
-    return fs->iterate(remaining_path, buffer, buffer_size, pos);
-}
 
 } // namespace kernel

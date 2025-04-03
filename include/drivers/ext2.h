@@ -87,6 +87,22 @@ struct Ext2SuperBlock {
     void print();
 };
 
+#define EXT2_NDIR_BLOCKS 12
+#define EXT2_IND_BLOCK EXT2_NDIR_BLOCKS
+#define EXT2_DIND_BLOCK (EXT2_IND_BLOCK + 1)
+#define EXT2_TIND_BLOCK (EXT2_DIND_BLOCK + 1)
+#define EXT2_N_BLOCKS (EXT2_TIND_BLOCK + 1)
+
+/*
+ * Special inode numbers
+ */
+#define EXT2_BAD_INO 1         /* Bad blocks inode */
+#define EXT2_ROOT_INO 2        /* Root inode */
+#define EXT2_BOOT_LOADER_INO 5 /* Boot loader inode */
+#define EXT2_UNDEL_DIR_INO 6   /* Undelete directory inode */
+
+/* First non-reserved inode for old ext2 filesystems */
+#define EXT2_GOOD_OLD_FIRST_INO 11
 // Inode结构
 struct Ext2Inode {
     uint16_t mode; // 文件类型和权限
@@ -101,7 +117,7 @@ struct Ext2Inode {
     uint32_t blocks;        // 占用的块数
     uint32_t flags;
     uint32_t osd1;
-    uint32_t i_block[15]; // 数据块指针
+    uint32_t i_block[EXT2_N_BLOCKS]; // 数据块指针
     uint32_t i_generation;
     uint32_t i_file_acl;
     uint32_t i_dir_acl;
@@ -114,6 +130,22 @@ struct Ext2Inode {
         uint16_t l_i_gid_high; /* were reserved2[0] */
         uint32_t l_i_reserved2;
     } osd2;
+    static uint32_t inode_table_block();
+    void print();
+};
+/*
+ * Structure of a blocks group descriptor
+ */
+struct Ext2GroupDesc {
+    uint32_t bg_block_bitmap;      /* Blocks bitmap block */
+    uint32_t bg_inode_bitmap;      /* Inodes bitmap block */
+    uint32_t bg_inode_table;       /* Inodes table block */
+    uint16_t bg_free_blocks_count; /* Free blocks count */
+    uint16_t bg_free_inodes_count; /* Free inodes count */
+    uint16_t bg_used_dirs_count;   /* Directories count */
+    uint16_t bg_pad;
+    uint32_t bg_reserved[3];
+    void print();
 };
 
 // 目录项结构
@@ -123,6 +155,7 @@ struct Ext2DirEntry {
     uint8_t name_len;         // 名称长度
     uint8_t file_type;        // 文件类型
     char name[EXT2_NAME_LEN]; // 文件名
+    void print();
 };
 
 class Ext2FileDescriptor;
@@ -140,13 +173,13 @@ public:
     virtual int mkdir(const char* path) override;
     virtual int unlink(const char* path) override;
     virtual int rmdir(const char* path) override;
-    virtual int list(const char* path, void* buffer, size_t buffer_size) override;
-    virtual int iterate(const char* path, void* buffer, size_t buffer_size, uint32_t* pos) override;
 
 private:
     friend class Ext2FileDescriptor;
     BlockDevice* device;
     Ext2SuperBlock* super_block;
+    Ext2GroupDesc group_desc;
+    Ext2Inode root_inodes;
     uint32_t current_dir_inode = 2; // 默认根目录
 
     // 内部辅助函数
@@ -167,6 +200,7 @@ public:
     ssize_t write(const void* buffer, size_t size) override;
     int seek(size_t offset) override;
     int close() override;
+    int iterate(void *buffer, size_t buffer_size, uint32_t *pos) override;
 
 private:
     friend class Ext2FileSystem;
