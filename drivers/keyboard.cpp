@@ -108,7 +108,6 @@ void init_normal_scancode_map()
     normal_scancode_map[0x25] = 'k';
     normal_scancode_map[0x26] = 'l';
     normal_scancode_map[0x32] = 'm';
-    normal_scancode_map[0x2D] = 'n';
     normal_scancode_map[0x31] = 'n';
     normal_scancode_map[0x18] = 'o';
     normal_scancode_map[0x19] = 'p';
@@ -119,7 +118,8 @@ void init_normal_scancode_map()
     normal_scancode_map[0x16] = 'u';
     normal_scancode_map[0x2F] = 'v';
     normal_scancode_map[0x2C] = 'w';
-    normal_scancode_map[0x2B] = 'x';
+//    normal_scancode_map[0x2B] = 'x';
+    normal_scancode_map[0x2D] = 'x';
     normal_scancode_map[0x15] = 'y';
     normal_scancode_map[0x2A] = 'z';
     normal_scancode_map[0x02] = '1';
@@ -226,6 +226,7 @@ void keyboard_init()
 
 // 根据扫描码和 Shift 状态获取 ASCII 码
 char scancode_to_ascii(unsigned char scancode) {
+    debug_debug("scancode_to_ascii 0x%x\n", scancode);
     bool is_release = (scancode & 0x80) != 0;
     uint8_t ascii = 0;
     if (scancode == 0x2A || scancode == 0x36) {
