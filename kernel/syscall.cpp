@@ -211,9 +211,10 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
     // 读取文件内容
     auto filep = pcb->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
     debug_debug("File allocated at %x\n", filep);
-    auto pages = Kernel::instance().kernel_mm().alloc_pages(attr->size / 4096);
-    for(int i = 0; i < attr->size / 4096; i++) {
-        pcb->user_mm.map_pages((uint32_t)filep + i * 4096, pages[i].pfn * 4096, 4096,
+    uint32_t num_pages = (attr->size + PAGE_SIZE - 1) / PAGE_SIZE;
+    for(uint32_t i = 0; i < num_pages; i++) {
+        auto phys_addr = Kernel::instance().kernel_mm().alloc_pages(0, 0); // 每次分配一页
+        pcb->user_mm.map_pages((uint32_t)filep + i * PAGE_SIZE, phys_addr, PAGE_SIZE,
             PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
     }
     debug_debug("File allocated at %x\n", filep);

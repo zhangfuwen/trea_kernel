@@ -44,15 +44,16 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size)
     free_lists[order] = block;
 }
 
-uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages)
+uint32_t BuddyAllocator::allocate_pages(uint32_t gfp_mask, uint32_t order)
 {
-    // 计算需要的块大小的order
-    uint32_t order = get_block_order(num_pages);
-    // debug_debug("order: %d\n", order);
+    // 检查order是否超出范围
     if(order > MAX_ORDER) {
-        debug_debug("BuddyAllocator: Requested size is too large!\n");
+        debug_debug("BuddyAllocator: Requested order %d is too large!\n", order);
         return 0;
     }
+
+    // 计算页面数量
+    uint32_t num_pages = 1 << order;
 
     // 查找可用的最小块
     uint32_t current_order = order;
@@ -95,55 +96,61 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t num_pages)
 
     // debug_debug("block3: %x, count:%d\n", block, num_pages);
     auto block_phys = (uint32_t)Kernel::instance().kernel_mm().virt2Phys(block);
-    increment_block_ref_count((uint32_t)block_phys, order);
+    
+    // 设置复合页信息
+    uint32_t start_index = (block_phys - memory_start) / PAGE_SIZE;
+    for(uint32_t i = 0; i < num_pages; i++) {
+        page_info[start_index + i].is_compound = true;
+        page_info[start_index + i].compound_order = order;
+        page_info[start_index + i].compound_head = block_phys;
+    }
+
+    increment_ref_count((uint32_t)block_phys);
     return block_phys;
 }
 
-void BuddyAllocator::free_pages(uint32_t phys, uint32_t num_pages)
+void BuddyAllocator::free_pages(uint32_t phys, uint32_t order)
 {
-    // 减少引用计数（每个页面单独处理）
+    // 验证地址是否有效
+    if(phys < memory_start || phys >= (memory_start + memory_size) ||
+        (phys % PAGE_SIZE != 0)) {
+        debug_err("Invalid phys address: 0x%x\n", phys);
+        return;
+    }
+
+    // 检查所有页面的引用计数
+    uint32_t num_pages = 1 << order;
+    uint32_t start_index = (phys - memory_start) / PAGE_SIZE;
+    
+    // 清除复合页信息并将引用计数清零
     for(uint32_t i = 0; i < num_pages; i++) {
-        uint32_t current_phys = phys + i * PAGE_SIZE;
-        if(current_phys < memory_start || current_phys >= (memory_start + memory_size) ||
-            (current_phys % PAGE_SIZE != 0)) {
-            debug_err("Invalid phys address: 0x%x\n", current_phys);
-            continue;
-        }
-
-        uint32_t index = (current_phys - memory_start) / PAGE_SIZE;
-        if(--page_info[index].ref_count == 0) {
-            auto virt = (uint32_t)Kernel::instance().kernel_mm().phys2Virt(current_phys);
-            uint32_t order = get_block_order(1); // 单页释放
-
-            // 尝试合并伙伴块
-            while(order < MAX_ORDER) {
-                uint32_t buddy_addr = get_buddy_address(virt, 1 << order);
-                bool merged = try_merge_buddy(virt, order);
-                if(!merged)
-                    break;
-
-                // 如果合并成功，移除伙伴块并继续尝试合并更大的块
-                virt = virt < buddy_addr ? virt : buddy_addr;
-                order++;
-            }
-
-            // 将最终的块添加到对应的空闲链表中
-            FreeBlock* block = (FreeBlock*)virt;
-            block->size = 1 << order;
-            block->next = free_lists[order];
-            free_lists[order] = block;
-        }
+        page_info[start_index + i].is_compound = false;
+        page_info[start_index + i].compound_order = 0;
+        page_info[start_index + i].compound_head = 0;
+        page_info[start_index + i].ref_count = 0;
     }
-}
 
-// 新增的block级释放接口
-void BuddyAllocator::decrement_block_ref_count(uint32_t block_phys, uint32_t order)
-{
-    uint32_t pages = 1 << order;
-    for(uint32_t i = 0; i < pages; i++) {
-        // 只减少引用计数，当计数降为0时会自动触发free_pages
-        decrement_ref_count(block_phys + i * PAGE_SIZE);
+    // 转换为虚拟地址并尝试合并
+    auto virt = (uint32_t)Kernel::instance().kernel_mm().phys2Virt(phys);
+    uint32_t current_order = order;
+
+    // 尝试合并伙伴块
+    while(current_order < MAX_ORDER) {
+        uint32_t buddy_addr = get_buddy_address(virt, 1 << current_order);
+        bool merged = try_merge_buddy(virt, current_order);
+        if(!merged)
+            break;
+
+        // 如果合并成功，移除伙伴块并继续尝试合并更大的块
+        virt = virt < buddy_addr ? virt : buddy_addr;
+        current_order++;
     }
+
+    // 将最终的块添加到对应的空闲链表中
+    FreeBlock* block = (FreeBlock*)virt;
+    block->size = 1 << current_order;
+    block->next = free_lists[current_order];
+    free_lists[current_order] = block;
 }
 
 uint32_t BuddyAllocator::get_buddy_address(uint32_t addr, uint32_t size)
@@ -192,7 +199,7 @@ bool BuddyAllocator::try_merge_buddy(uint32_t addr, uint32_t order)
     return false;
 }
 
-void BuddyAllocator::increment_ref_count(uint32_t phys)
+void BuddyAllocator::increment_ref_count(uint32_t phys, uint32_t order)
 {
     // 验证地址在管理范围内且是合法页对齐地址
     if(phys < real_start || phys >= (memory_start + memory_size) || (phys % PAGE_SIZE != 0)) {
@@ -201,27 +208,71 @@ void BuddyAllocator::increment_ref_count(uint32_t phys)
         return;
     }
     uint32_t index = phys / PAGE_SIZE;
-    page_info[index].ref_count++;
-}
-
-// 新增 block 级引用计数接口
-void BuddyAllocator::increment_block_ref_count(uint32_t block_phys, uint32_t order)
-{
-    uint32_t pages = 1 << order;
-
-    for(uint32_t i = 0; i < pages; i++) {
-        increment_ref_count(block_phys + i * PAGE_SIZE);
+    
+    // 如果是复合页的一部分，增加复合页首页的引用计数
+    if(page_info[index].is_compound) {
+        uint32_t head_index = page_info[index].compound_head / PAGE_SIZE;
+        page_info[head_index].ref_count++;
+    } else {
+        // 如果指定了order，将其标记为复合页
+        if(order > 0) {
+            uint32_t num_pages = 1 << order;
+            for(uint32_t i = 0; i < num_pages; i++) {
+                page_info[index + i].is_compound = true;
+                page_info[index + i].compound_order = order;
+                page_info[index + i].compound_head = phys;
+            }
+            page_info[index].ref_count++;
+        } else {
+            page_info[index].ref_count++;
+        }
     }
 }
 
-void BuddyAllocator::decrement_ref_count(uint32_t phys)
+
+void BuddyAllocator::decrement_ref_count(uint32_t phys, uint32_t order)
 {
     if(phys < real_start || phys >= (memory_start + memory_size) || (phys % PAGE_SIZE != 0)) {
         debug_err("Invalid phys address: 0x%x\n", phys);
         return;
     }
     uint32_t index = phys / PAGE_SIZE;
-    if(--page_info[index].ref_count == 0) {
-        free_pages(phys, 1);
+    
+    // 如果order > 0，表示对整个复合页进行操作
+    if(order > 0) {
+        // 确保这是一个复合页的首页
+        if(!page_info[index].is_compound || page_info[index].compound_head != phys) {
+            debug_err("Invalid compound page head: 0x%x\n", phys);
+            return;
+        }
+        
+        // 减少复合页首页的引用计数
+        if(--page_info[index].ref_count == 0) {
+            // 引用计数为0时释放整个复合页
+            free_pages(phys, order);
+        }
+        return;
+    }
+    
+    // order = 0，表示单页操作
+    if(page_info[index].is_compound) {
+        // 如果是复合页的一部分，需要将其拆分出来
+        uint32_t head_index = page_info[index].compound_head / PAGE_SIZE;
+        
+        // 清除复合页标记
+        page_info[index].is_compound = false;
+        page_info[index].compound_order = 0;
+        page_info[index].compound_head = 0;
+        page_info[index].ref_count = 1; // 设置初始引用计数为1
+        
+        // 减少引用计数并在必要时释放页面
+        if(--page_info[index].ref_count == 0) {
+            free_pages(phys, 0);
+        }
+    } else {
+        // 普通页面，直接减少引用计数
+        if(--page_info[index].ref_count == 0) {
+            free_pages(phys, 0);
+        }
     }
 }

@@ -26,7 +26,7 @@ int copyCOWPage(uint32_t fault_addr, uint32_t original_pgd, UserMemory& user_mm)
         auto pte = ((uint32_t*)pt_virt)[pt_index];
         uint32_t old_phys = pte & 0xFFFFF000;
         // 分配新物理页
-        uint32_t new_phys = Kernel::instance().kernel_mm().allocPage();
+        uint32_t new_phys = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
         if(!new_phys) {
             debug_err("COW failed to allocate new page\n");
             return E_PANIC;
@@ -45,7 +45,9 @@ int copyCOWPage(uint32_t fault_addr, uint32_t original_pgd, UserMemory& user_mm)
             fault_addr & ~0xFFF, new_phys, PAGE_SIZE, (flags & ~PAGE_COW) | PAGE_WRITE);
 
         // 减少原页面的引用计数
-        Kernel::instance().kernel_mm().decrement_ref_count(old_phys);
+        // 如果是复合页，BuddyAllocator会自动处理复合页的引用计数
+        // 只会减少复合页首页的引用计数，不会导致错误释放
+        //Kernel::instance().kernel_mm().decrement_ref_count(old_phys);
         return E_OK;
     }
     return E_NOT_COW;
@@ -78,7 +80,7 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
         // 用户态缺页中断
         if(!is_present) {
             // 页面不存在，需要分配新页面
-            auto phys_page = Kernel::instance().kernel_mm().allocPage();
+            auto phys_page = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
             // debug_debug("Allocated pfn 0x%x\n", phys_page);
             if(phys_page) {
                 // 建立用户态页表映射
@@ -148,6 +150,7 @@ void Kernel::init()
 {
     serial_puts("kernel init\n");
     memory_manager.init();
+    timer_ticks = 0;
 }
 
 bool Kernel::is_kernel_mode()

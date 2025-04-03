@@ -27,13 +27,14 @@ void Zone::init(ZoneType type, uint32_t start_pfn, uint32_t end_pfn)
     buddy_allocator.init(zone_start_pfn * 4096, size * 4096);
 }
 
-uint32_t Zone::allocPages(uint32_t count)
+uint32_t Zone::allocPages(uint32_t gfp_mask, uint32_t order)
 {
+    uint32_t count = 1 << order;
     if(count > nr_free_pages) {
         return 0; // 返回0表示分配失败
     }
 
-    uint32_t allocated_addr = buddy_allocator.allocate_pages(count);
+    uint32_t allocated_addr = buddy_allocator.allocate_pages(gfp_mask, order);
     if(allocated_addr == 0) {
         return 0;
     }
@@ -42,14 +43,15 @@ uint32_t Zone::allocPages(uint32_t count)
     return allocated_addr / 4096; // 转换为页帧号
 }
 
-void Zone::freePages(uint32_t pfn, uint32_t count)
+void Zone::freePages(uint32_t pfn, uint32_t order)
 {
+    uint32_t count = 1 << order;
     // 检查pfn是否在当前区域范围内
     if(pfn < zone_start_pfn || pfn + count > zone_end_pfn) {
         return;
     }
 
-    buddy_allocator.free_pages(pfn * 4096, count);
+    buddy_allocator.free_pages(pfn * 4096, order);
     nr_free_pages += count;
 }
 
@@ -105,17 +107,23 @@ bool Zone::migratePagesTo(Zone* target, uint32_t count)
         return false;
     }
 
+    // 计算所需的order
+    uint32_t order = 0;
+    while ((1u << order) < count) {
+        order++;
+    }
+
     // 执行页面迁移
-    uint32_t source_pfn = allocPages(count);
+    uint32_t source_pfn = allocPages(0, order);
     if(source_pfn == 0) {
         return false;
     }
 
     // 在目标区域分配页面
-    uint32_t target_pfn = target->allocPages(count);
+    uint32_t target_pfn = target->allocPages(0, order);
     if(target_pfn == 0) {
         // 如果目标分配失败，恢复源区域
-        freePages(source_pfn, count);
+        freePages(source_pfn, order);
         return false;
     }
 

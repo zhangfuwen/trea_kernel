@@ -14,13 +14,11 @@ public:
     // 键盘输入缓冲区大小
     static const size_t INPUT_BUFFER_SIZE = 1024;
 
-    virtual ssize_t read(void* buffer, size_t size) override;
-    virtual ssize_t write(const void* buffer, size_t size) override;
-    virtual int seek(size_t offset) override;
-    virtual int close() override;
-    virtual int iterate(void* buffer, size_t buffer_size, uint32_t* pos) override {
-        return -1; // 控制台设备不支持目录遍历
-    }
+    ssize_t read(void* buffer, size_t size) override;
+    ssize_t write(const void* buffer, size_t size) override;
+    int seek(size_t offset) override;
+    int close() override;
+    int iterate(void* buffer, size_t buffer_size, uint32_t* pos) override;
 
 private:
     char input_buffer[INPUT_BUFFER_SIZE];

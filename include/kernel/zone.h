@@ -28,10 +28,10 @@ public:
     void init(ZoneType type, uint32_t start_pfn, uint32_t end_pfn);
 
     // 分配页面
-    uint32_t allocPages(uint32_t count);
+    uint32_t allocPages(uint32_t gfp_mask, uint32_t order);
 
     // 释放页面
-    void freePages(uint32_t pfn, uint32_t count);
+    void freePages(uint32_t pfn, uint32_t order);
     void decRefPage(uint32_t pfn);
     void increment_ref_count(uint32_t pfn);
 

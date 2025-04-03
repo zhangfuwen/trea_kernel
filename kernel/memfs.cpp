@@ -1,4 +1,5 @@
 #include <kernel/cpio.h>
+#include <kernel/dirent.h>
 #include <kernel/kernel.h>
 #include <kernel/memfs.h>
 #include <lib/console.h>
@@ -90,6 +91,7 @@ int MemFSFileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos
 
     MemFSInode* child = inode->children;
     uint32_t count = 0;
+    size_t total_written = 0;
 
     // 跳过已经遍历过的项
     while (child && count < *pos) {
@@ -97,20 +99,25 @@ int MemFSFileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos
         count++;
     }
 
-    if (!child) {
-        return 0; // 遍历结束
+    while (child && total_written + sizeof(dirent) <= buffer_size) {
+        dirent* dir = (dirent*)((char*)buffer + total_written);
+        size_t name_len = strlen(child->name);
+        size_t rec_len = sizeof(dirent);
+
+        dir->d_ino = (uint32_t)child; // 使用inode指针作为inode号
+        dir->d_off = count + 1;
+        dir->d_reclen = rec_len;
+        dir->d_type = child->type == FT_DIR ? 4 : 8; // 4=目录, 8=普通文件
+        strcpy(dir->d_name, child->name);
+
+        total_written += rec_len;
+        count++;
+        child = child->next;
     }
 
-    // 复制文件名到缓冲区
-    size_t name_len = strlen(child->name);
-    if (name_len + 1 > buffer_size) {
-        return -1; // 缓冲区太小
-    }
+    *pos = count;
+    return total_written;
 
-    strcpy((char*)buffer, child->name);
-    (*pos)++;
-
-    return name_len;
 }
 
 MemFS::MemFS() : root(nullptr) {}

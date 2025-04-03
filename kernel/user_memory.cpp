@@ -142,7 +142,7 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
         uint32_t* pte0 = pte;
 
         if(type == MEM_TYPE_STACK) {
-            auto phys = (uint32_t)Kernel::instance().kernel_mm().allocPage();
+            auto phys = (uint32_t)Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
             // debug_debug("stack virt:0x%x, phys:0x%x\n", vaddr, phys);
             *pte0 = (phys | flags | PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
             //__printPDPTE( (void*)vaddr, (PageDirectory*)pgd);

@@ -8,6 +8,7 @@ add_library(kernel_core
     buddy_allocator.cpp
         memory_operators.cpp
         console_device.cpp
+        slab_allocator.cpp
     memfs.cpp
     syscall.cpp
     vfs.cpp

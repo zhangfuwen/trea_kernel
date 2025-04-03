@@ -91,7 +91,7 @@ void PageManager::mapPage(uint32_t virt_addr, uint32_t phys_addr, uint32_t flags
     if(!(curPgdVirt->entries[pd_index] & 0x1)) {
         // 创建新页表
         debug_debug("creating new page table\n");
-        pt = (PageTable*)Kernel::instance().kernel_mm().allocPage();
+        pt = (PageTable*)Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
         // debug_debug("created phys:%x\n", pt);
         curPgdVirt->entries[pd_index] =
             reinterpret_cast<uint32_t>(pt) | 3; // Supervisor, read/write, present
@@ -199,7 +199,7 @@ int PageManager::copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dst)
                 debug_err("PageManager: src_pt_paddr 0x%x, pde_idx:%d, pde:0x%x \n", src_pt_paddr, pde_idx, src->entries[pde_idx]);
                 continue;
             }
-            auto dst_pt_paddr = Kernel::instance().kernel_mm().allocPage();
+            auto dst_pt_paddr = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
             debug_debug("src_pt_paddr:0x%x, dst_pt_paddr:0x%x\n", src_pt_paddr, dst_pt_paddr);
             PageTable* dst_pt = (PageTable*)kernel_mm.phys2Virt(dst_pt_paddr);
             PageTable* src_pt = (PageTable*)kernel_mm.phys2Virt(src_pt_paddr);

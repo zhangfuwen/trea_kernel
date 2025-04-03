@@ -7,15 +7,10 @@ public:
     // 初始化伙伴系统分配器
     void init(uint32_t start_addr, uint32_t size);
 
-    // 分配指定页数的内存
-    uint32_t allocate_pages(uint32_t num_pages);
-
-    // 释放之前分配的内存
-    void free_pages(uint32_t phys, uint32_t num_pages);
-    void increment_ref_count(uint32_t phys);
-    void decrement_ref_count(uint32_t phys);
-    void increment_block_ref_count(uint32_t block_phys, uint32_t order);
-    void decrement_block_ref_count(uint32_t block_phys, uint32_t order);
+    uint32_t allocate_pages(uint32_t gfp_mask, uint32_t order);
+    void free_pages(uint32_t phys, uint32_t order);
+    void increment_ref_count(uint32_t phys, uint32_t order = 0);
+    void decrement_ref_count(uint32_t phys, uint32_t order = 0);
 
 private:
     static constexpr uint32_t MIN_ORDER = 0;  // 最小分配单位为1页(4KB)
@@ -36,6 +31,9 @@ private:
     struct PageInfo {
         uint32_t ref_count;
         bool is_cow;
+        bool is_compound;     // 是否为复合页的一部分
+        uint32_t compound_order;  // 如果是复合页，记录复合页的order
+        uint32_t compound_head;   // 复合页的首页物理地址
     };
     PageInfo* page_info = nullptr;
     uint32_t page_count = 0;

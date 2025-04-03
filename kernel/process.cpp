@@ -89,9 +89,9 @@ ProcessControlBlock* ProcessManager::create_process(const char* name)
     uint32_t pid = pid_manager.alloc();
     debug_info("creating process with pid: %d\n", pid);
 
-    auto kernel_mm = Kernel::instance().kernel_mm();
-    auto addr = kernel_mm.alloc_pages(4);
-    auto pcb = new((void*)addr) ProcessControlBlock();
+    auto &kernel_mm = Kernel::instance().kernel_mm();
+    auto addr = kernel_mm.alloc_pages(0, 2); // gfp_mask = 0, order = 2 (4 pages)
+    auto pcb = new((void*)kernel_mm.phys2Virt(addr)) ProcessControlBlock();
 
     // auto pcbAddr = &((PCB*)kernel_mm.alloc_pages(4))->pcb;
     // auto& pcb = *pcbAddr;
@@ -116,7 +116,7 @@ ProcessControlBlock* ProcessManager::kernel_thread(
 {
     auto pPcb = create_process(name);
     auto& pcb = *pPcb;
-    auto kernel_mm = Kernel::instance().kernel_mm();
+    auto &kernel_mm = Kernel::instance().kernel_mm();
 
     auto pgd = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
     debug_debug("ProcessManager: Current Page Directory: %x\n", pgd);
@@ -176,7 +176,7 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
     debug_debug("Copying memory space\n");
     // 使用COW方式复制内存空间
     PageDirectory* parent_pgd = (PageDirectory*)kernel_mm.phys2Virt(parent->regs.cr3);
-    auto paddr = kernel_mm.allocPage();
+    auto paddr = kernel_mm.alloc_pages(0, 0); // gfp_mask = 0, order = 0 (1 page)
     debug_debug("alloc page at 0x%x\n", paddr);
     auto child_pgd = kernel_mm.phys2Virt(paddr);
     debug_debug("child_pgd: 0x%x\n", child_pgd);
@@ -187,11 +187,11 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
     child->regs.cr3 = paddr;
     child->user_mm.init((uint32_t)child_pgd,
         []() {
-            auto page = Kernel::instance().kernel_mm().allocPage();
+            auto page = Kernel::instance().kernel_mm().alloc_pages(0, 0); // gfp_mask = 0, order = 0 (1 page)
             debug_debug("ProcessManager: Allocated Page at %x\n", page);
             return page;
         },
-        [](uint32_t physAddr) { Kernel::instance().kernel_mm().freePage(physAddr); },
+        [](uint32_t physAddr) { Kernel::instance().kernel_mm().free_pages(physAddr, 0); }, // order=0表示释放单个页面
         [](uint32_t physAddr) {
             return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
         });

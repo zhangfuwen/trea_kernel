@@ -13,6 +13,11 @@ ConsoleDevice::ConsoleDevice() {}
 
 ConsoleDevice::~ConsoleDevice() {}
 
+int ConsoleDevice::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
+{
+    return -1; // 字符设备不支持目录遍历
+}
+
 ssize_t ConsoleDevice::read(void* buffer, size_t size)
 {
     // debug_debug("read: %x\n", size);
