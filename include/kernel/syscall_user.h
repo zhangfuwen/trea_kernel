@@ -3,7 +3,7 @@
 
 #include "syscall.h"
 
-#include <stdint.h>
+#include <cstdint>
 #include <unistd.h>
 
 // 系统调用接口
@@ -78,8 +78,15 @@ inline void syscall_exit(int status)
         ; // 防止返回
 }
 
-// 添加用户空间getpid封装
+
+inline int syscall_pwd(char* buf, size_t size) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_PWD), "b"((uint32_t)buf), "c"((uint32_t)size));
+    return ret;
 }
+
 inline pid_t syscall_getpid() {
     uint32_t ret;
     asm volatile("int $0x80" : "=a"(ret) : "a"(SYS_GETPID));
@@ -154,6 +161,7 @@ inline int syscall_chdir(const char* path) {
         : "=a"(ret)
         : "a"(SYS_CHDIR), "b"((uint32_t)path));
     return ret;
+}
 }
 
 #endif // SYSCALL_USER_H

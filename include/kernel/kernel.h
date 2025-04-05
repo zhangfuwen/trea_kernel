@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 
 #include "kernel/kernel_memory.h"
 #include "kernel/slab_allocator.h"

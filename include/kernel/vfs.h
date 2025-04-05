@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
+#include <cstdint>
 #include <unistd.h>
 //#include <sys/types.h>
 
@@ -110,8 +110,12 @@ public:
     // 切换当前工作目录
     int chdir(const char* path);
 
+    // 获取当前工作目录
+    const char* getcwd();
+
 private:
     VFSManager() = default;
+    char current_working_directory[256];
 };
 
 } // namespace kernel

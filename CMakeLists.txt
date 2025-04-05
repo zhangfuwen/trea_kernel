@@ -26,7 +26,7 @@ set(OS_COMPILE_OPTIONS
         -m32
         -I/usr/include/c++/13/i386-linux-gnu
         -I/usr/include/i386-linux-gnu
-        -Iinclude
+        -I${CMAKE_CURRENT_SOURCE_DIR}/include
         -nostartfiles
         -static-libstdc++
         -static-libgcc

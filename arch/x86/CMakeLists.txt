@@ -28,6 +28,7 @@ target_include_directories(arch_x86 PUBLIC
 
 # 编译选项
 target_compile_options(arch_x86 PRIVATE
+        ${OS_COMPILE_OPTIONS}
     -ffreestanding
     -O2
     -Wall

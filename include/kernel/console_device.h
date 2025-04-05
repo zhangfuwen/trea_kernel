@@ -2,6 +2,27 @@
 #include <kernel/vfs.h>
 #include <lib/console.h>
 
+#include <termios.h>
+
+//
+// struct termios {
+//     tcflag_t c_iflag;  // 输入模式标志
+//     tcflag_t c_oflag;  // 输出模式标志
+//     tcflag_t c_cflag;  // 控制模式标志
+//     tcflag_t c_lflag;  // 本地模式标志
+//     cc_t c_cc[NCCS];   // 控制字符
+// };
+
+// 终端控制函数声明
+int tcgetattr(int fd, struct termios *termios_p);
+int tcsetattr(int fd, int optional_actions, const struct termios *termios_p);
+int tcdrain(int fd);
+int tcflow(int fd, int action);
+int tcflush(int fd, int queue_selector);
+int tcsendbreak(int fd, int duration);
+
+
+
 namespace kernel
 {
 

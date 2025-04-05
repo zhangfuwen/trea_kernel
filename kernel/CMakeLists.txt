@@ -1,28 +1,23 @@
+# 添加子目录
+add_subdirectory(memory)
+add_subdirectory(process)
+add_subdirectory(fs)
+add_subdirectory(smp)
+add_subdirectory(core)
+
 # 创建内核核心库
 add_library(kernel_core
-    main.cpp
-    process.cpp
-    scheduler.cpp
-    elf_loader.cpp
-    elf_loader_reloc.cpp
-    buddy_allocator.cpp
-        memory_operators.cpp
-        console_device.cpp
-        slab_allocator.cpp
-    memfs.cpp
-    syscall.cpp
-    vfs.cpp
     ../lib/string.cpp
     ../arch/x86/gdt.cpp
-        exit_handler.cpp
-        process_manager.cpp
-        process_wrapper.cpp
-        user_memory.cpp
-        kernel.cpp
-        zone.cpp
-        kernel_memory.cpp
-        virtual_memory_tree.cpp
-        paging.cpp
+)
+
+# 链接所有子模块
+target_link_libraries(kernel_core
+    kernel_memory
+    kernel_process
+    kernel_fs
+    kernel_smp
+    kernel_core_main
 )
 
 # 添加包含目录

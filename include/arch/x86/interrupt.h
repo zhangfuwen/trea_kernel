@@ -1,7 +1,6 @@
 #ifndef ARCH_X86_INTERRUPT_H
 #define ARCH_X86_INTERRUPT_H
 
-#include "kernel/syscall.h"
 #include <cstdint>
 
 // 处理器异常中断

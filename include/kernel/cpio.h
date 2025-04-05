@@ -2,7 +2,7 @@
 
 #include <lib/string.h>
 #include <stddef.h>
-#include <stdint.h>
+#include <cstdint>
 
 namespace kernel
 {

@@ -5,6 +5,7 @@ add_library(kernel_lib
     serial.cpp
     debug.cpp
     debug_test.cpp
+    log_buffer.cpp
 )
 
 # 添加包含目录

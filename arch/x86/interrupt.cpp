@@ -3,7 +3,7 @@
 #include "arch/x86/interrupt.h"
 #include "lib/ioport.h"
 
-#include <arch/x86/idt.h>
+#include <arch/x86/apic.h>
 
 #include "lib/debug.h"
 extern "C" void remap_pic();
@@ -25,12 +25,9 @@ void InterruptManager::init()
         handlers[i] = defaultHandler;
     }
 
-    // 初始化系统调用处理
-    SyscallManager::init();
-    // registerHandler(0x80, syscallHandler);
-
     // 注册各种中断处理程序
-    // registerHandler(0x21, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
+    registerHandler(0x20, []() { debug_debug("IRQ 0: Timer interrupt\n"); });
+    registerHandler(0x21, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
     registerHandler(0x22, []() { debug_debug("IRQ 2\n"); });
     registerHandler(0x23, []() { debug_debug("IRQ 3\n"); });
     registerHandler(0x24, []() { debug_debug("IRQ 4\n"); });
@@ -52,10 +49,9 @@ void InterruptManager::init()
     registerHandler(0x2E, []() { debug_debug("IRQ 14\n"); });
     registerHandler(0x2F, []() { debug_debug("IRQ 15\n"); });
 
-    // IDT::setGate(0x80, (uint32_t)syscall_interrupt, 0x08, 0x8E);
-    // IDT::setGate(0x20, (uint32_t)timer_interrupt, 0x08, 0x8E);
-    // 重新映射PIC
-    remapPIC();
+    // 初始化APIC而不是PIC
+    // 不再需要重映射PIC
+    debug_debug("APIC initialization will be done in kernel_main\n");
 }
 
 // void InterruptManager::remapPIC() {
@@ -64,10 +60,6 @@ void InterruptManager::init()
 
 // ====== 中断处理核心函数 ======
 
-extern "C" uint32_t handleSyscall(uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3)
-{
-    return SyscallManager::handleSyscall(syscall_num, arg1, arg2, arg3, 0);
-}
 
 extern "C" void handleInterrupt(uint32_t interrupt)
 {
@@ -79,13 +71,15 @@ extern "C" void handleInterrupt(uint32_t interrupt)
         debug_debug("[INT] Unhandled interrupt %d\n", interrupt);
     }
 
-    // 如果是IRQ，需要发送EOI
+    // 如果是IRQ，需要发送EOI到APIC
     if(interrupt >= 0x20 && interrupt <= 0x2F) {
-        if(interrupt >= 0x28) {
-            // 从PIC的中断
-            outb(0xA0, 0x20);
+        // 使用APIC发送EOI
+        arch::apic_send_eoi();
+        
+        // 对于多核系统，可能需要处理处理器间中断
+        if (interrupt == 0x20) { // 时钟中断
+            // 在这里可以添加多核调度相关代码
         }
-        outb(0x20, 0x20);
     }
 }
 
@@ -112,21 +106,11 @@ void InterruptManager::disableInterrupts()
     disable_interrupts();
 }
 
+// 此函数已弃用，系统现在使用APIC而不是PIC
+// 保留此函数仅用于兼容性目的，新代码应该使用arch::apic_init()和arch::ioapic_init()
 void InterruptManager::remapPIC()
 {
-    // 初始化主PIC
-    outb(0x20, 0x11); // 初始化命令
-    outb(0x21, 0x20); // 起始中断向量号
-    outb(0x21, 0x04); // 告诉主PIC从PIC连接在IRQ2
-    outb(0x21, 0x01); // 8086模式
-
-    // 初始化从PIC
-    outb(0xA0, 0x11); // 初始化命令
-    outb(0xA1, 0x28); // 起始中断向量号
-    outb(0xA1, 0x02); // 告诉从PIC连接到主PIC的IRQ2
-    outb(0xA1, 0x01); // 8086模式
-
-    // 清除PIC掩码
-    outb(0x21, 0x0);
-    outb(0xA1, 0x0);
+    // 此函数保留为空，以保持兼容性
+    // 实际上我们使用APIC而不是PIC
+    debug_debug("警告：remapPIC函数已弃用，系统使用APIC而不是PIC，请使用arch::apic_init()代替\n");
 }

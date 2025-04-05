@@ -5,7 +5,6 @@
 #include "kernel/process.h"
 #include <cstdarg>
 #include <lib/console.h>
-#include <lib/string.h>
 #include <cstdint>
 
 // 定义日志级别
@@ -104,7 +103,6 @@ inline void set_log_level(LogLevel level)
 {
     current_log_level = level;
 }
-void hexdump(const void* buf, size_t size);
 
 // 定义各种日志级别的宏
 #define debug_emerg(fmt, ...)                                                                      \

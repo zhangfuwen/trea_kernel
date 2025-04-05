@@ -15,4 +15,15 @@ void cmd_cd(int argc, char* argv[]) {
     }
 }
 
+void cmd_pwd(int argc, char* argv[]) {
+    char cwd[1024];
+    if (syscall_cwd(cwd, sizeof(cwd)) < 0) {
+        debug_debug("pwd: cannot get current directory\n");
+        return;
+    }
+    syscall_write(1, cwd, strlen(cwd));
+    syscall_write(1, "\n", 1);
+}
+
 REGISTER_COMMAND("cd", cmd_cd, "Change the current directory");
+// REGISTER_COMMAND("pwd", cmd_pwd, "Print the current directory");

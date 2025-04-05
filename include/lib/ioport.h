@@ -1,7 +1,7 @@
 #ifndef _IOPORT_H_
 #define _IOPORT_H_
 
-#include <stdint.h>
+#include <cstdint>
 
 // 向端口写入一个字节
 inline void outb(uint16_t port, uint8_t value)

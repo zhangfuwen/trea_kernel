@@ -2,6 +2,8 @@
 [GLOBAL init_idts]
 [GLOBAL enable_interrupts]
 [GLOBAL disable_interrupts]
+; 注意：remap_pic函数已弃用，系统现在使用APIC而不是PIC
+; 保留此导出仅用于兼容性，不应在新代码中调用
 [GLOBAL remap_pic]
 [EXTERN handleInterrupt]
 [EXTERN handleSyscall]
@@ -9,6 +11,7 @@
 [EXTERN restore_context_wrapper]
 [EXTERN page_fault_handler]
 [EXTERN segmentation_fault_handler]
+[EXTERN apic_send_eoi]
 
 [section .data]
 syscall_number: dd 0
@@ -71,6 +74,9 @@ fault_errno: dd 0
     call %3         ; 调用C函数
     add esp, 8      ; 清理错误码和中断号
 
+    ; 对于APIC中断，C函数中已经调用了apic_send_eoi
+    ; 所以这里不需要额外的EOI调用
+
     RESTORE_REGS_FOR_CONTEXT_SWITCH
     sti
     iretd            ; 返回
@@ -123,6 +129,10 @@ idtentry 0x20, timer_interrupt, handleInterrupt
 idtentry 0x21, keyboard_interrupt, handleInterrupt
 idtentry 0x2E, ide1_interrupt, handleInterrupt
 idtentry 0x2F, ide2_interrupt, handleInterrupt
+
+; APIC IPI中断处理
+idtentry 0x40, ipi_interrupt, handleInterrupt  ; 处理器间中断
+idtentry 0x41, ipi_reschedule, handleInterrupt ; 重新调度IPI
 
 ; 页面错误中断处理
 [global page_fault_interrupt]
@@ -183,30 +193,11 @@ syscall_interrupt:
     iretd            ; 返回
 
 remap_pic:
-    ; 初始化主PIC
-    mov al, 0x11    ; 初始化命令
-    out 0x20, al
-    mov al, 0x20    ; 起始中断向量号
-    out 0x21, al
-    mov al, 0x04    ; 告诉主PIC从PIC连接在IRQ2
-    out 0x21, al
-    mov al, 0x01    ; 8086模式
-    out 0x21, al
-
-    ; 初始化从PIC
-    mov al, 0x11    ; 初始化命令
-    out 0xA0, al
-    mov al, 0x28    ; 起始中断向量号
-    out 0xA1, al
-    mov al, 0x02    ; 告诉从PIC连接到主PIC的IRQ2
-    out 0xA1, al
-    mov al, 0x01    ; 8086模式
-    out 0xA1, al
-
-    ; 清除PIC掩码
-    mov al, 0x0
-    out 0x21, al
-    out 0xA1, al
+    ; 警告：此函数已弃用！系统现在使用APIC而不是PIC
+    ; 此函数不应被调用，保留仅用于兼容性目的
+    ; 如果需要初始化中断控制器，请使用arch::apic_init()和arch::ioapic_init()
+    
+    ; 为避免意外影响系统，此函数现在是空操作
     ret
 
 enable_interrupts:

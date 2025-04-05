@@ -1,7 +1,7 @@
 #pragma once
 #include "lib/console.h"
 #include "process.h"
-#include <stdint.h>
+#include <cstdint>
 
 // ELF文件头魔数
 #define ELF_MAGIC 0x464C457F

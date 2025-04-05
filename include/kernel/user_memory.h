@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 
 // 内存区域描述符
 struct MemoryArea {

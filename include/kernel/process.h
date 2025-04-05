@@ -1,7 +1,5 @@
 #pragma once
-#include "lib/console.h"
-#include <kernel/vfs.h>
-#include <stdint.h>
+#include <cstdint>
 
 #include "kernel/console_device.h"
 #include "user_memory.h"
@@ -65,6 +63,8 @@ struct Registers {
     uint32_t eflags; // 标志寄存器
     void print();
 };
+
+class kernel::FileDescriptor;
 
 // 进程控制块结构
 struct ProcessControlBlock {

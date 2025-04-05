@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 
 // 红黑树节点颜色
 enum class Color { RED, BLACK };

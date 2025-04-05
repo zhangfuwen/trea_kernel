@@ -23,6 +23,6 @@ void init()
     // 设置分频值（分两次写入，先低字节后高字节）
     outb(PIT_CHANNEL0, divisor & 0xFF);
     outb(PIT_CHANNEL0, (divisor >> 8) & 0xFF);
-    outb(0x21, inb(0x21) & ~0x01); // 允许IRQ0
+    // 不再直接操作PIC的IRQ0掩码，因为我们使用APIC
 }
 } // namespace PIT

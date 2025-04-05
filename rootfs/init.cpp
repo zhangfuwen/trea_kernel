@@ -59,12 +59,16 @@ int main() {
     extern void cmd_ls(int argc, char* argv[]);
     extern void cmd_rm(int argc, char* argv[]);
     extern void cmd_cat(int argc, char* argv[]);
+    extern void cmd_cd(int argc, char* argv[]);
+    extern void cmd_pwd(int argc, char* argv[]);
     // debug_debug("xxxxxxxxxxxxxxxxxxxxxx\n");
     // cmd_ls(0, nullptr);
 
     register_command({"ls", cmd_ls, "List directory contents"});
     register_command({"rm", cmd_rm, "Remove file"});
     register_command({"cat", cmd_cat, "Concatenate and print files"});
+    register_command({"cd", cmd_cd, "Concatenate and print files"});
+    register_command({"pwd", cmd_pwd, "Concatenate and print files"});
 
     set_log_output_handler(my_log_output_interface);
 

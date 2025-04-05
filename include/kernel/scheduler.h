@@ -1,7 +1,7 @@
 #pragma once
 #include "lib/console.h"
 #include "process.h"
-#include <stdint.h>
+#include <cstdint>
 
 // 任务状态段结构
 struct TaskStateSegment {

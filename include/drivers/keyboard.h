@@ -1,7 +1,7 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
-#include <stdint.h>
+#include <cstdint>
 
 // 按下
 #define KEYBOARD_KEY_DOWN 0x80

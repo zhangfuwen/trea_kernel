@@ -3,7 +3,7 @@
 #include "kernel/virtual_memory_tree.h"
 #include "kernel/zone.h"
 #include "slab_allocator.h"
-#include <stdint.h>
+#include <cstdint>
 
 using namespace MemoryConstants;
 

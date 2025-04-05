@@ -3,7 +3,7 @@
 
 #include "process.h"
 
-#include <stdint.h>
+#include <cstdint>
 
 // 系统调用号
 enum SyscallNumber {
@@ -24,6 +24,7 @@ enum SyscallNumber {
     SYS_GETDENTS = 15,
     SYS_LOG = 16,
     SYS_CHDIR = 17,
+    SYS_PWD = 18,
 };
 
 // 系统调用处理函数类型
