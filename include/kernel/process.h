@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #include "kernel/console_device.h"
+#include "kernel/list.h"
 #include "user_memory.h"
 
 // 进程状态
@@ -64,7 +65,9 @@ struct Registers {
     void print();
 };
 
-class kernel::FileDescriptor;
+namespace kernel {
+    class FileDescriptor;
+}
 
 // 进程控制块结构
 struct ProcessControlBlock {
@@ -78,6 +81,8 @@ struct ProcessControlBlock {
     uint32_t total_time;                      // 总执行时间
     uint32_t exit_status; // 退出状态码
     uint32_t sleep_ticks;
+    struct kernel::list_head sched_list;  // 调度链表节点
+    uint32_t affinity = 0;        // CPU亲和性掩码
 
     UserMemory user_mm;        // 用户空间内存管理器
     Registers regs;

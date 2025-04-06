@@ -1,5 +1,6 @@
 #include <kernel/syscall_user.h>
 #include <lib/debug.h>
+#include "lib/string.h"
 LogOutputInterface my_log_output_interface {
   .print = [](LogLevel level, const char* message) {
     syscall_log(message, 0);

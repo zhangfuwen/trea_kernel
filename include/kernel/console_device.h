@@ -53,12 +53,12 @@ public:
     ConsoleFS() = default;
     virtual ~ConsoleFS() = default;
 
-    char* get_name() override
+    const char* get_name() override
     {
         return "consolefs";
     }
 
-    FileDescriptor* open(const char* path) override
+    FileDescriptor* open([[maybe_unused]] const char* path) override
     {
         if (g_console_device == nullptr) {
             g_console_device = new ConsoleDevice();
@@ -66,7 +66,7 @@ public:
         return g_console_device;
     }
 
-    virtual int stat(const char* path, FileAttribute* attr) override
+    virtual int stat([[maybe_unused]] const char* path, FileAttribute* attr) override
     {
         if(attr) {
             attr->type = FT_CHR;
@@ -76,15 +76,15 @@ public:
         return 0;
     }
 
-    virtual int mkdir(const char* path) override
+    virtual int mkdir([[maybe_unused]] const char* path) override
     {
         return -1;
     }
-    virtual int unlink(const char* path) override
+    virtual int unlink([[maybe_unused]] const char* path) override
     {
         return -1;
     }
-    virtual int rmdir(const char* path) override
+    virtual int rmdir([[maybe_unused]] const char* path) override
     {
         return -1;
     }

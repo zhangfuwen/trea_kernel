@@ -25,6 +25,7 @@ enum SyscallNumber {
     SYS_LOG = 16,
     SYS_CHDIR = 17,
     SYS_PWD = 18,
+    SYS_GETCWD = 19,
 };
 
 // 系统调用处理函数类型
@@ -46,6 +47,8 @@ void sys_log(const char* message, uint32_t len);
 int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t);
 int chdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 int sys_chdir(const char* path);
+int getcwdHandler(uint32_t buf_ptr, uint32_t size, uint32_t, uint32_t);
+int sys_getcwd(char* buf, size_t size);
 
 // 系统调用管理器
 class SyscallManager

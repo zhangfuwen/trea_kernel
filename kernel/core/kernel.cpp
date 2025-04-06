@@ -1,4 +1,5 @@
 #include "kernel/kernel.h"
+#include "lib/string.h"
 
 #include <lib/serial.h>
 

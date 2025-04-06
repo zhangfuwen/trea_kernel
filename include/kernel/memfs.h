@@ -57,10 +57,10 @@ public:
 
     // 实现FileSystem接口
     virtual FileDescriptor* open(const char* path) override;
-    virtual int stat(const char* path, FileAttribute* attr) override;
-    virtual int mkdir(const char* path) override;
-    virtual int unlink(const char* path) override;
-    virtual int rmdir(const char* path) override;
+    virtual int stat([[maybe_unused]] const char* path, FileAttribute* attr) override;
+    virtual int mkdir([[maybe_unused]] const char* path) override;
+    virtual int unlink([[maybe_unused]] const char* path) override;
+    virtual int rmdir([[maybe_unused]] const char* path) override;
 
 private:
     MemFSInode* root; // 根目录节点

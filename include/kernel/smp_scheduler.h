@@ -1,9 +1,11 @@
 #pragma once
 
 #include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <arch/x86/spinlock.h>
 #include <arch/x86/percpu.h>
 #include <arch/x86/smp.h>
+#include <kernel/list.h>
 
 namespace kernel {
 
@@ -15,7 +17,7 @@ struct RunQueue {
 };
 
 // 定义每CPU运行队列
-#define SPINLOCK_INIT 0
+#define SPINLOCK_INIT SpinLock()
 
 // SMP调度器类
 class SMP_Scheduler {
@@ -24,19 +26,19 @@ public:
     static void init();
     
     // 选择下一个要运行的任务
-    static Process* pick_next_task();
+    static ProcessControlBlock* pick_next_task();
     
     // 将任务加入运行队列
-    static void enqueue_task(Process* p);
+    static void enqueue_task(ProcessControlBlock* p);
     
     // 执行负载均衡
-    static Process* load_balance();
+    static ProcessControlBlock* load_balance();
     
     // 查找最繁忙的CPU
     static uint32_t find_busiest_cpu();
     
     // 设置进程的CPU亲和性
-    static void set_affinity(Process* p, uint32_t cpu_mask);
+    static void set_affinity(ProcessControlBlock* p, uint32_t cpu_mask);
     
     // 获取当前CPU的运行队列
     static RunQueue* get_current_runqueue();

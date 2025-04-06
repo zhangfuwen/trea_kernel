@@ -315,4 +315,3 @@ void printPDPTE(VADDR vaddr)
     auto pdVirt = paging.getCurrentPageDirectory();
     __printPDPTE(vaddr, pdVirt);
 }
-

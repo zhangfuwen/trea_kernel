@@ -1,7 +1,7 @@
 #include <kernel/smp_scheduler.h>
 #include <arch/x86/apic.h>
 #include <lib/debug.h>
-#include "kernel/process.h"
+#include <kernel/process.h>
 
 namespace kernel {
 
@@ -16,7 +16,7 @@ void SMP_Scheduler::init() {
     }
 }
 
-Process* SMP_Scheduler::pick_next_task() {
+ProcessControlBlock* SMP_Scheduler::pick_next_task() {
     RunQueue* rq = get_cpu_ptr(scheduler_runqueue);
     spin_lock(&rq->lock);
     
@@ -25,7 +25,7 @@ Process* SMP_Scheduler::pick_next_task() {
         return load_balance(); // 执行负载均衡
     }
     
-    Process* next = list_entry(rq->runnable_list.next, Process, sched_list);
+    ProcessControlBlock* next = list_entry(rq->runnable_list.next, ProcessControlBlock, sched_list);
     list_del_init(&next->sched_list);
     rq->nr_running--;
     
@@ -33,9 +33,9 @@ Process* SMP_Scheduler::pick_next_task() {
     return next;
 }
 
-void SMP_Scheduler::enqueue_task(Process* p) {
-    uint32_t cpu = p->affinity % apic_get_cpu_count();
-    RunQueue* rq = get_cpu_ptr(scheduler_runqueue, cpu);
+void SMP_Scheduler::enqueue_task(ProcessControlBlock* p) {
+    //uint32_t cpu = p->affinity % arch::apic_get_cpu_count();
+    RunQueue* rq = get_cpu_var(scheduler_runqueue);
     
     spin_lock(&rq->lock);
     list_add_tail(&p->sched_list, &rq->runnable_list);
@@ -43,14 +43,14 @@ void SMP_Scheduler::enqueue_task(Process* p) {
     spin_unlock(&rq->lock);
 }
 
-Process* SMP_Scheduler::load_balance() {
+ProcessControlBlock* SMP_Scheduler::load_balance() {
     // 负载均衡算法：从最繁忙的运行队列窃取任务
-    uint32_t busiest_cpu = find_busiest_cpu();
-    RunQueue* busiest_rq = get_cpu_ptr(scheduler_runqueue, busiest_cpu);
+    //uint32_t busiest_cpu = find_busiest_cpu();
+    RunQueue* busiest_rq = get_cpu_var(scheduler_runqueue);
     
     spin_lock(&busiest_rq->lock);
     if (!list_empty(&busiest_rq->runnable_list)) {
-        Process* stolen = list_entry(busiest_rq->runnable_list.next, Process, sched_list);
+        ProcessControlBlock* stolen = list_entry(busiest_rq->runnable_list.next, ProcessControlBlock, sched_list);
         list_del_init(&stolen->sched_list);
         busiest_rq->nr_running--;
         spin_unlock(&busiest_rq->lock);
@@ -66,7 +66,7 @@ uint32_t SMP_Scheduler::find_busiest_cpu() {
     uint32_t busiest_cpu = 0;
     
     for_each_cpu(cpu) {
-        RunQueue* rq = get_cpu_ptr(scheduler_runqueue, cpu);
+        RunQueue* rq = get_cpu_var(scheduler_runqueue);
         if (rq->nr_running > max_tasks) {
             max_tasks = rq->nr_running;
             busiest_cpu = cpu;
@@ -77,7 +77,7 @@ uint32_t SMP_Scheduler::find_busiest_cpu() {
 }
 
 // 设置进程的CPU亲和性
-void SMP_Scheduler::set_affinity(Process* p, uint32_t cpu_mask) {
+void SMP_Scheduler::set_affinity(ProcessControlBlock* p, uint32_t cpu_mask) {
     if (!p) return;
     
     // 确保CPU掩码有效

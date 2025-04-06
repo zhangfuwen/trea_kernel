@@ -3,7 +3,6 @@ add_library(kernel_core_main
     main.cpp
     kernel.cpp
     syscall.cpp
-    ../../arch/x86/gdt.cpp
 )
 
 # 添加包含目录

@@ -1,6 +1,7 @@
 #include "lib/debug.h"
 #include "lib/serial.h"
 #include <cstdint>
+#include "lib/string.h"
 
 LogLevel current_log_level = LOG_DEBUG;
 

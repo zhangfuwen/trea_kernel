@@ -162,6 +162,14 @@ inline int syscall_chdir(const char* path) {
         : "a"(SYS_CHDIR), "b"((uint32_t)path));
     return ret;
 }
+
+inline int syscall_getcwd(char* buf, size_t size) {
+    int ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(SYS_GETCWD), "b"((uint32_t)buf), "c"(size));
+    return ret;
+}
 }
 
 #endif // SYSCALL_USER_H

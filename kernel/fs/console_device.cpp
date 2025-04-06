@@ -1,8 +1,11 @@
 #include "kernel/console_device.h"
 #include "kernel/vfs.h"
 #include "lib/console.h"
+
 #include <arch/x86/interrupt.h>
+#include <cstring>
 #include <drivers/keyboard.h>
+#include <kernel/dirent.h>
 #include <lib/debug.h>
 
 namespace kernel
@@ -13,7 +16,7 @@ ConsoleDevice::ConsoleDevice() {}
 
 ConsoleDevice::~ConsoleDevice() {}
 
-int ConsoleDevice::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
+int ConsoleDevice::iterate([[maybe_unused]] void* buffer, [[maybe_unused]] size_t buffer_size, [[maybe_unused]] uint32_t* pos)
 {
     return -1; // 字符设备不支持目录遍历
 }

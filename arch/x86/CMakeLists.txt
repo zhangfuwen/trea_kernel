@@ -2,6 +2,7 @@
 
 # 创建x86架构库
 add_library(arch_x86
+        apic.cpp
     gdt.cpp
     gdt_load.asm
     paging_asm.asm

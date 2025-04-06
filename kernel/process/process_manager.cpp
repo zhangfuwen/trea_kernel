@@ -1,6 +1,7 @@
 #include <kernel/kernel.h>
 
 #include "kernel/elf_loader.h"
+#include "kernel/process.h"
 #include "kernel/syscall_user.h"
 #include "kernel/vfs.h"
 #include "lib/debug.h"

@@ -37,23 +37,23 @@ extern "C" {
 void cpu_init_percpu();
 
 // 模板类封装每CPU变量访问
-template<typename T>
-class PerCPU {
-public:
-    PerCPU() = default;
-
-    T* operator->() {
-        T* ptr;
-        __asm__ volatile("mov %%gs:%1, %0" : "=r"(ptr) : "m"(data));
-        return ptr;
-    }
-
-    T& operator*() {
-        return *operator->();
-    }
-
-private:
-    DEFINE_PER_CPU(T, data);
+#define PerCPU(T) \
+class PerCPU { \
+public: \
+    PerCPU() = default; \
+\
+    T* operator->() { \
+        T* ptr; \
+        __asm__ volatile("mov %%gs:%1, %0" : "=r"(ptr) : "m"(data)); \
+        return ptr; \
+    } \
+\
+    T& operator*() { \
+        return *operator->(); \
+    } \
+\
+private: \
+    __attribute__((section(".percpu"))) T name \
 };
 
 } // namespace arch

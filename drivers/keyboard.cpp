@@ -1,6 +1,7 @@
 #include <lib/debug.h>
 #include <lib/ioport.h>
 #include <cstdint>
+#include "lib/string.h"
 
 // Linux input event structure
 struct input_event {

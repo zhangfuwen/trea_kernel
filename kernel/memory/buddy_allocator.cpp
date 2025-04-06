@@ -1,5 +1,5 @@
 #include "kernel/buddy_allocator.h"
-
+#include "lib/string.h"
 #include <kernel/kernel.h>
 
 #include "lib/debug.h"

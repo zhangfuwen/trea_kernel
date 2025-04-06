@@ -168,11 +168,11 @@ public:
 
     // 实现VFS接口
     virtual char* get_name() override;
-    virtual FileDescriptor* open(const char* path) override;
-    virtual int stat(const char* path, FileAttribute* attr) override;
-    virtual int mkdir(const char* path) override;
-    virtual int unlink(const char* path) override;
-    virtual int rmdir(const char* path) override;
+    virtual FileDescriptor* open([[maybe_unused]] const char* path) override;
+    virtual int stat([[maybe_unused]] const char* path, FileAttribute* attr) override;
+    virtual int mkdir([[maybe_unused]] const char* path) override;
+    virtual int unlink([[maybe_unused]] const char* path) override;
+    virtual int rmdir([[maybe_unused]] const char* path) override;
 
 private:
     friend class Ext2FileDescriptor;
@@ -198,9 +198,9 @@ public:
 
     ssize_t read(void* buffer, size_t size) override;
     ssize_t write(const void* buffer, size_t size) override;
-    int seek(size_t offset) override;
+    int seek([[maybe_unused]] size_t offset) override;
     int close() override;
-    int iterate(void *buffer, size_t buffer_size, uint32_t *pos) override;
+    int iterate([[maybe_unused]] void* buffer, [[maybe_unused]] size_t buffer_size, [[maybe_unused]] uint32_t* pos) override;
 
 private:
     friend class Ext2FileSystem;

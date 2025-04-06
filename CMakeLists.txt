@@ -79,10 +79,6 @@ add_custom_target(run_cpio_fs_script
         DEPENDS ${CMAKE_BINARY_DIR}/rootfs.cpio
 )
 
-# 确保在构建 kernel.bin 之前执行这个自定义目标
-
-# ... 现有代码 ...
-
 set(ROOTFS_CPIO_PATH "\"${CMAKE_BINARY_DIR}/\"")
 #configure_file(
 #        ${CMAKE_CURRENT_SOURCE_DIR}/rootfs.asm.in
@@ -91,7 +87,6 @@ set(ROOTFS_CPIO_PATH "\"${CMAKE_BINARY_DIR}/\"")
 
 # 主内核目标
 add_executable(kernel.bin
-        kernel/main.cpp
         rootfs.asm
         boot.asm
         linker.ld
@@ -120,15 +115,24 @@ set_source_files_properties(
 
 set(CMAKE_ASM_NASM_FLAGS "-I${ROOTFS_CPIO_PATH}")
 
-add_dependencies(init kernel_core arch_x86 kernel_lib)
+add_dependencies(init kernel_core_main arch_x86 kernel_lib)
 add_dependencies(kernel.bin init)
 
 # 链接所有模块
+# 使用 --whole-archive 选项链接 arch_x86 库
+set_target_properties(kernel.bin PROPERTIES
+    LINK_FLAGS "-Wl,--whole-archive arch/x86/libarch_x86.a -Wl,--no-whole-archive"
+)
+
 target_link_libraries(kernel.bin
         arch_x86
-        kernel_core
+        kernel_core_main
         drivers_core
         kernel_lib
+        kernel_smp
+        kernel_fs
+        kernel_process
+        kernel_memory
 )
 
 # 自定义目标：创建ISO镜像

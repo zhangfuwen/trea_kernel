@@ -1,5 +1,6 @@
 #include "lib/time.h"
 #include "kernel/syscall.h"
+#include "lib/string.h"
 
 #include <kernel/elf_loader.h>
 
@@ -95,6 +96,29 @@ int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint3
 {
     auto ret = sys_execve(path_ptr, argv_ptr, envp_ptr, nullptr);
     return ret;
+}
+
+int getcwdHandler(uint32_t buf_ptr, uint32_t size, uint32_t, uint32_t)
+{
+    char* buf = reinterpret_cast<char*>(buf_ptr);
+    return sys_getcwd(buf, size);
+}
+
+int sys_getcwd(char* buf, size_t size)
+{
+    auto pcb = ProcessManager::get_current_process();
+    if (!buf || size == 0) {
+        return -1;
+    }
+    
+    size_t cwd_len = strlen(pcb->cwd);
+    
+    if (cwd_len + 1 > size) {
+        return -1; // 缓冲区太小
+    }
+    
+    strncpy(buf, pcb->cwd, size);
+    return 0;
 }
 
 int nanosleepHandler(uint32_t req_ptr, uint32_t rem_ptr, uint32_t, uint32_t) {

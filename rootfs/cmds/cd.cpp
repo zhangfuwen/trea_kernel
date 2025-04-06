@@ -17,7 +17,7 @@ void cmd_cd(int argc, char* argv[]) {
 
 void cmd_pwd(int argc, char* argv[]) {
     char cwd[1024];
-    if (syscall_cwd(cwd, sizeof(cwd)) < 0) {
+    if (syscall_pwd(cwd, sizeof(cwd)) < 0) {
         debug_debug("pwd: cannot get current directory\n");
         return;
     }
