@@ -1,17 +1,27 @@
 # x86架构相关的CMake配置
 
+option(USE_APIC "Use APIC instead of PIC8259" ON)
+
 # 创建x86架构库
 add_library(arch_x86
-        apic.cpp
     gdt.cpp
     gdt_load.asm
-    paging_asm.asm
-    interrupt.asm
     idt.cpp
     interrupt.cpp
-        pit.cpp
-        segment_fault.cpp
+    interrupt.asm
+    paging_asm.asm
+    pit.cpp
+    segment_fault.cpp
+    smp.cpp
+    spinlock.cpp
+    user_mode_switch.asm
 )
+
+if(USE_APIC)
+    target_sources(arch_x86 PRIVATE apic.cpp apic_controller.cpp)
+else()
+    target_sources(arch_x86 PRIVATE pic8259.cpp)
+endif()
 
 # 设置汇编器
 set_source_files_properties(

@@ -1,7 +1,7 @@
 #include "arch/x86/apic.h"
-#include "arch/x86/interrupt.h"
+#include "lib/debug.h"
+
 #include <lib/ioport.h>
-#include <lib/debug.h>
 
 namespace arch {
 
@@ -46,8 +46,6 @@ void apic_init() {
     // 配置Spurious Interrupt Vector Register
     apic_write(LAPIC_SIVR, 0x100 | 0xFF);
     
-    // 初始化APIC定时器
-    apic_init_timer(100);
 }
 
 // 获取本地APIC ID
@@ -70,19 +68,19 @@ void apic_send_init(uint32_t target) {
     icr_low icr;
     icr.raw = 0;
     icr.vector = 0;
-    icr.delivery_mode = 5; // INIT
-    icr.dest_mode = 0;     // 物理目标模式
-    icr.level = 1;
-    icr.trigger_mode = 1;  // 电平触发
+    icr.delivery_mode = APIC_ICR_DELIVERY_INIT;
+    icr.dest_mode = APIC_ICR_PHYSICAL_MODE;
+    icr.level = APIC_ICR_LEVEL_ASSERT;
+    icr.trigger_mode = APIC_ICR_TRIGGER_LEVEL;
     
     // 设置目标APIC ID
-    apic_write(LAPIC_ICR1, target << 24);
+    apic_write(LAPIC_ICR1, target << APIC_ICR_DEST_SHIFT);
     
     // 发送IPI
     apic_write(LAPIC_ICR0, icr.raw);
     
     // 等待发送完成
-    while (apic_read(LAPIC_ICR0) & (1 << 12)) {
+    while (apic_read(LAPIC_ICR0) & APIC_ICR_PENDING_MASK) {
         asm volatile("pause");
     }
 }
@@ -92,46 +90,58 @@ void apic_send_sipi(uint8_t vector, uint32_t target) {
     icr_low icr;
     icr.raw = 0;
     icr.vector = vector;
-    icr.delivery_mode = 6; // 启动IPI
-    icr.dest_mode = 0;     // 物理目标模式
-    icr.level = 1;
-    icr.trigger_mode = 1;  // 电平触发
+    icr.delivery_mode = APIC_ICR_DELIVERY_SIPI;
+    icr.dest_mode = APIC_ICR_PHYSICAL_MODE;
+    icr.level = APIC_ICR_LEVEL_ASSERT;
+    icr.trigger_mode = APIC_ICR_TRIGGER_LEVEL;
     
     // 设置目标APIC ID
-    apic_write(LAPIC_ICR1, target << 24);
+    apic_write(LAPIC_ICR1, target << APIC_ICR_DEST_SHIFT);
     
     // 发送IPI
+}
+
+void APICController::init_timer() {
+    // 设置APIC Timer为周期模式
+    apic_write(LAPIC_TIMER_MODE, APIC_TIMER_MODE_PERIODIC | APIC_TIMER_VECTOR);
+    
+    // 设置默认频率
+    set_timer_frequency(DEFAULT_TIMER_FREQUENCY);
+}
+
+void APICController::set_timer_frequency(uint32_t frequency) {
+    // 计算APIC Timer的分频值
+    // 假设CPU频率为100MHz，要实现100Hz的中断频率，分频值应为1000000
+    uint32_t cpu_freq_mhz = 100;  // CPU频率（MHz）
+    uint32_t divisor = (cpu_freq_mhz * 1000000) / frequency;
+    
+    // 设置初始计数值
+    apic_write(LAPIC_TIMER_INITIAL_COUNT, divisor);
+
     apic_write(LAPIC_ICR0, icr.raw);
     
     // 等待发送完成
-    while (apic_read(LAPIC_ICR0) & (1 << 12)) {
+    while (apic_read(LAPIC_ICR0) & APIC_ICR_PENDING_MASK) {
         asm volatile("pause");
     }
 }
 
 // 初始化APIC定时器
-// 定义宏来替代魔数
-#define LVT_TIMER_REGISTER 0x320
-#define INITIAL_COUNT_REGISTER 0x380
-#define DIVIDE_CONFIG_REGISTER 0x3E0
-#define PERIODIC_MODE_FLAG 0x20000
-#define DIVIDE_CONFIG_VALUE 0x3
-
 // 初始化APIC定时器，参数为期望的频率（Hz）
 void apic_init_timer(uint32_t frequency) {
     // 假设APIC定时器的时钟频率为100MHz（可根据实际情况修改）
     const uint32_t apic_clock_frequency = 100000000;
     // 计算初始计数值
-    uint32_t initial_count = apic_clock_frequency / (frequency * (DIVIDE_CONFIG_VALUE + 1));
+    uint32_t initial_count = apic_clock_frequency / (frequency * (APIC_TIMER_DIVIDE_16 + 1));
 
     // 配置APIC定时器为周期模式，向量号为0x40
-    apic_write(LVT_TIMER_REGISTER, APIC_TIMER_VECTOR | PERIODIC_MODE_FLAG);
+    apic_write(LAPIC_LVT_TIMER, APIC_TIMER_VECTOR | APIC_TIMER_PERIODIC);
 
     // 设置初始计数值
-    apic_write(INITIAL_COUNT_REGISTER, initial_count);
+    apic_write(LAPIC_INITIAL_COUNT, initial_count);
 
     // 设置除数为16
-    apic_write(DIVIDE_CONFIG_REGISTER, DIVIDE_CONFIG_VALUE);
+    apic_write(LAPIC_DIVIDE_CONFIG, APIC_TIMER_DIVIDE_16);
 }
 
 // 获取CPU数量
@@ -190,6 +200,53 @@ void ioapic_set_irq(uint8_t irq, uint64_t value) {
     
     // 写高32位
     ioapic_write(ioredtbl + 1, (uint32_t)(value >> 32));
+}
+
+// APICController类实现
+void APICController::init() {
+    apic_init();
+    ioapic_init();
+    init_timer();
+}
+
+void APICController::send_eoi() {
+    apic_send_eoi();
+}
+
+void APICController::enable_irq(uint8_t irq) {
+    // APIC通过IOAPIC启用中断
+    ioapic_enable_irq(irq);
+}
+
+void APICController::disable_irq(uint8_t irq) {
+    // APIC通过IOAPIC禁用中断
+    ioapic_disable_irq(irq);
+}
+
+void APICController::remap_vectors() {
+    // APIC不需要重映射向量
+    // 在IOAPIC初始化时已经设置好了中断向量
+}
+
+uint32_t APICController::get_vector(uint8_t irq) const {
+    // 根据不同IRQ返回对应的中断向量
+    switch(irq) {
+        case 0:  // Timer
+            return APIC_TIMER_VECTOR;  // 0x40
+        case 1:  // Keyboard
+            return IRQ_KEYBOARD;       // 0x21
+        case 2:  // Cascade
+            return IRQ_CASCADE;        // 0x22
+        case 8:  // RTC
+            return IRQ_RTC;           // 0x28
+        case 14: // ATA1
+            return IRQ_ATA1;          // 0x2E
+        case 15: // ATA2
+            return IRQ_ATA2;          // 0x2F
+        default:
+            // 其他IRQ保持与PIC8259相同的映射
+            return 0x20 + irq;
+    }
 }
 
 } // namespace arch

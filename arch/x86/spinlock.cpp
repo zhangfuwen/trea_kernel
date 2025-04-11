@@ -7,6 +7,6 @@
 // 这里保留一些辅助函数
 
 // 调试用锁状态检查
-bool spin_is_locked(const SpinLock& lock) {
-    return __atomic_load_n(&lock.locked, __ATOMIC_RELAXED);
-}
+// bool spin_is_locked(const SpinLock& lock) {
+//     return __atomic_load_n(&lock.locked, __ATOMIC_RELAXED);
+// }

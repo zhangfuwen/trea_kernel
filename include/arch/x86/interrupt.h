@@ -62,25 +62,48 @@ extern "C" {
 void handleInterrupt(uint32_t interrupt);
 }
 
+namespace arch
+{
+    class InterruptController;
+}
+
 class InterruptManager
 {
 public:
-    static void init();
+    enum class ControllerType {
+        PIC8259,
+        APIC
+    };
+
+    InterruptManager();
+    ~InterruptManager();
+
+    void init(ControllerType type = ControllerType::APIC);
 
     // 注册中断处理函数
-    static void registerHandler(uint8_t interrupt, InterruptHandler handler);
-    static InterruptHandler handlers[256];
+    void registerHandler(uint8_t interrupt, InterruptHandler handler);
+    InterruptHandler handlers[256];
 
     static void defaultHandler();
 
     // 系统调用处理程序
-    static void syscallHandler();
-
-    static void remapPIC();
+    void syscallHandler();
 
     // 中断控制函数
-    static void enableInterrupts();
-    static void disableInterrupts();
+    void enableInterrupts();
+    void disableInterrupts();
+    
+    // 发送EOI
+    void sendEOI();
+
+    // 启用/禁用特定IRQ
+    void enableIRQ(uint8_t irq);
+    void disableIRQ(uint8_t irq);
+
+    arch::InterruptController* get_controller() { return controller; }
+
+private:
+    arch::InterruptController* controller;
 };
 
 #endif // ARCH_X86_INTERRUPT_H

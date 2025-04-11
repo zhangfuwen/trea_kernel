@@ -5,6 +5,8 @@
 #include "kernel/slab_allocator.h"
 #include "user_memory.h"
 
+#include <arch/x86/interrupt.h>
+
 extern "C" void page_fault_handler(uint32_t error_code, uint32_t fault_addr);
 void debugPTE(VADDR vaddr);
 #define E_OK 0
@@ -34,6 +36,7 @@ public:
     {
         return memory_manager;
     }
+    InterruptManager& interrupt_manager() { return _interrupt_manager; }
 
     // 初始化内核
     void init();
@@ -60,6 +63,8 @@ private:
 
     // 内核内存管理器
     KernelMemory memory_manager;
+    // 中断管理器
+    InterruptManager _interrupt_manager;
 
     uint32_t timer_ticks;
 };

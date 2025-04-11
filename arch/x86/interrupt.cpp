@@ -1,11 +1,11 @@
+#include "arch/x86/interrupt.h"
+#include "lib/debug.h"
 #include <cstdint>
 
-#include "arch/x86/interrupt.h"
-#include "lib/ioport.h"
-
 #include <arch/x86/apic.h>
-
-#include "lib/debug.h"
+#include <arch/x86/pic8259.h>
+#include <kernel/kernel.h>
+#include <lib/ioport.h>
 extern "C" void remap_pic();
 extern "C" void enable_interrupts();
 extern "C" void disable_interrupts();
@@ -13,22 +13,45 @@ extern "C" void init_idts();
 extern "C" uint32_t timer_interrupt;
 extern "C" uint32_t syscall_interrupt;
 
-// 静态成员变量定义
-InterruptHandler InterruptManager::handlers[256];
+// ====== 构造和析构函数 ======
+InterruptManager::InterruptManager() : controller(nullptr) {
+    // 初始化所有中断处理程序为默认处理程序
+    for(int i = 0; i < 256; i++) {
+        handlers[i] = defaultHandler;
+    }
+}
+
+InterruptManager::~InterruptManager() {
+    if (controller) {
+        delete controller;
+        controller = nullptr;
+    }
+}
 
 // ====== 初始化相关函数 ======
 
-void InterruptManager::init()
+void InterruptManager::init(ControllerType type)
 {
     // 初始化所有中断处理程序为默认处理程序
     for(int i = 0; i < 256; i++) {
         handlers[i] = defaultHandler;
     }
 
+    // 根据类型创建中断控制器
+    if (type == ControllerType::PIC8259) {
+        controller = new arch::PIC8259();
+        debug_debug("Using PIC8259 interrupt controller\n");
+    } else {
+        controller = new arch::APICController();
+        debug_debug("Using APIC interrupt controller\n");
+    }
+
+    // 初始化控制器
+    controller->init();
+
     // 注册各种中断处理程序
     registerHandler(IRQ_TIMER, []() { debug_debug("IRQ 0: Timer interrupt\n"); });
     registerHandler(IRQ_KEYBOARD, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
-    // registerHandler(IRQ_CASCADE, []() { debug_debug("IRQ 2\n"); });
     registerHandler(IRQ_COM2, []() { debug_debug("IRQ 3\n"); });
     registerHandler(IRQ_COM1, []() { debug_debug("IRQ 4\n"); });
     registerHandler(IRQ_LPT2, []() { debug_debug("IRQ 5\n"); });
@@ -49,40 +72,7 @@ void InterruptManager::init()
     registerHandler(IRQ_ETH1, []() { debug_debug("IRQ 14\n"); });
     registerHandler(IRQ_IPI, []() { debug_debug("IRQ 15\n"); });
 
-    // 初始化APIC而不是PIC
-    arch::apic_init();
-    arch::ioapic_init();
-    
-    // 禁用传统PIC控制器
-    outb(0xA1, 0xFF);
-    outb(0x21, 0xFF);
-    
-    // 注册APIC中断处理程序
-    // registerHandler(APIC_TIMER_VECTOR, []() { debug_debug("APIC Timer interrupt\n"); });
-    // registerHandler(0x22, []() { debug_debug("IRQ 2\n"); });
-    // registerHandler(0x23, []() { debug_debug("IRQ 3\n"); });
-    // registerHandler(0x24, []() { debug_debug("IRQ 4\n"); });
-    // registerHandler(0x25, []() { debug_debug("IRQ 5\n"); });
-    // registerHandler(0x26, []() {
-    //     debug_debug("IRQ 6\n");
-    //     uint8_t status = inb(0x3F4);
-    //     if(status & 0x80) {
-    //         debug_debug("IRQ 6: floppy is active\n");
-    //     }
-    // });
-    // registerHandler(0x27, []() { debug_debug("IRQ 7\n"); });
-    // registerHandler(0x28, []() { debug_debug("IRQ 8\n"); });
-    // registerHandler(0x29, []() { debug_debug("IRQ 9\n"); });
-    // registerHandler(0x2A, []() { debug_debug("IRQ 10\n"); });
-    // registerHandler(0x2B, []() { debug_debug("IRQ 11\n"); });
-    // registerHandler(0x2C, []() { debug_debug("IRQ 12\n"); });
-    // registerHandler(0x2D, []() { debug_debug("IRQ 13\n"); });
-    // registerHandler(0x2E, []() { debug_debug("IRQ 14\n"); });
-    // registerHandler(0x2F, []() { debug_debug("IRQ 15\n"); });
-
-    // 初始化APIC而不是PIC
-    // 不再需要重映射PIC
-    debug_debug("APIC initialization will be done in kernel_main\n");
+    debug_debug("Interrupt controller initialization completed\n");
 }
 
 // void InterruptManager::remapPIC() {
@@ -94,24 +84,20 @@ void InterruptManager::init()
 
 extern "C" void handleInterrupt(uint32_t interrupt)
 {
-    // debug_debug("[INT] Handling interrupt %d\n", interrupt);
+    auto& im = Kernel::instance().interrupt_manager();
+    // 设置当前中断号
+    if (im.get_controller()) {
+        im.get_controller()->current_interrupt = interrupt;
+    }
 
-    if(InterruptManager::handlers[interrupt]) {
-        InterruptManager::handlers[interrupt]();
+    if(im.handlers[interrupt]) {
+        im.handlers[interrupt]();
     } else {
         debug_debug("[INT] Unhandled interrupt %d\n", interrupt);
     }
 
-    // 如果是IRQ，需要发送EOI到APIC
-    // if(interrupt >= 0x20 && interrupt <= 0x2F) {
-        // 使用APIC发送EOI
-        arch::apic_send_eoi();
-        
-        // 对于多核系统，可能需要处理处理器间中断
-    //     if (interrupt == 0x20) { // 时钟中断
-    //         // 在这里可以添加多核调度相关代码
-    //     }
-    // }
+    // 发送EOI（由具体的中断控制器决定是否需要发送）
+    im.sendEOI();
 }
 
 // ====== 辅助函数 ======
@@ -137,11 +123,23 @@ void InterruptManager::disableInterrupts()
     disable_interrupts();
 }
 
-// 此函数已弃用，系统现在使用APIC而不是PIC
-// 保留此函数仅用于兼容性目的，新代码应该使用arch::apic_init()和arch::ioapic_init()
-void InterruptManager::remapPIC()
+void InterruptManager::sendEOI()
 {
-    // 此函数保留为空，以保持兼容性
-    // 实际上我们使用APIC而不是PIC
-    debug_debug("警告：remapPIC函数已弃用，系统使用APIC而不是PIC，请使用arch::apic_init()代替\n");
+    if (controller) {
+        controller->send_eoi();
+    }
+}
+
+void InterruptManager::enableIRQ(uint8_t irq)
+{
+    if (controller) {
+        controller->enable_irq(irq);
+    }
+}
+
+void InterruptManager::disableIRQ(uint8_t irq)
+{
+    if (controller) {
+        controller->disable_irq(irq);
+    }
 }

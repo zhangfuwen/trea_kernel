@@ -3,7 +3,6 @@
 #include <arch/x86/idt.h>
 #include <arch/x86/interrupt.h>
 #include <arch/x86/paging.h>
-#include <arch/x86/pit.h>
 #include <drivers/block_device.h>
 #include <drivers/ext2.h>
 #include <drivers/keyboard.h>
@@ -64,13 +63,14 @@ extern "C" void kernel_main()
     serial_puts("Kernel memory manager initialized!\n");
 
     // 初始化中断管理器
-    InterruptManager::init();
-    serial_puts("InterruptManager initialized!\n");
 
     Kernel::init_all();
     Kernel* kernel = &Kernel::instance();
     kernel->init();
     serial_puts("Kernel initialized!\n");
+
+    kernel->interrupt_manager().init();
+    serial_puts("InterruptManager initialized!\n");
 
     // 运行格式化字符串测试
     run_format_string_tests();
@@ -84,14 +84,14 @@ extern "C" void kernel_main()
     set_log_level(LOG_DEBUG);
 
     // 注册时钟中断处理函数
-    InterruptManager::registerHandler(0x20, []() { Scheduler::timer_tick(); });
-    InterruptManager::registerHandler(APIC_TIMER_VECTOR, []() {
+    kernel->interrupt_manager().registerHandler(0x20, []() { Scheduler::timer_tick(); });
+    kernel->interrupt_manager().registerHandler(APIC_TIMER_VECTOR, []() {
         // debug_debug("APIC timer interrupt!\n");
         Scheduler::timer_tick();
     });
     // 注册键盘中断处理函数
     keyboard_init();
-    InterruptManager::registerHandler(0x21, []() {
+    kernel->interrupt_manager().registerHandler(0x21, []() {
         // debug_debug("keyboard interrupt called!\n");
         // auto code = keyboard_get_scancode();
         // auto ascii = scancode_to_ascii(code);
@@ -100,7 +100,6 @@ extern "C" void kernel_main()
     });
 
 
-    PIT::init();
     // 初始化IDT
     IDT::init();
     // 异常
@@ -108,8 +107,7 @@ extern "C" void kernel_main()
     IDT::setGate(INT_GP_FAULT, (uint32_t)general_protection_interrupt, 0x08, 0xEE);
     IDT::setGate(INT_SEGMENT_NP, (uint32_t)segmentation_fault_interrupt, 0x08, 0xEE);
 
-    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x08, 0xEE);
-    IDT::setGate(APIC_TIMER_VECTOR, (uint32_t)apic_timer_interrupt, 0x08, 0xEE);
+    IDT::setGate(kernel->interrupt_manager().get_controller()->get_vector(IRQ_TIMER), (uint32_t)timer_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_KEYBOARD, (uint32_t)keyboard_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_CASCADE, (uint32_t)cascade_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_ATA1, (uint32_t)ide1_interrupt, 0x08, 0xEE);
