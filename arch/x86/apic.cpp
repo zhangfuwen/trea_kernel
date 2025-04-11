@@ -47,7 +47,7 @@ void apic_init() {
     apic_write(LAPIC_SIVR, 0x100 | 0xFF);
     
     // 初始化APIC定时器
-    apic_init_timer();
+    apic_init_timer(100);
 }
 
 // 获取本地APIC ID
@@ -110,15 +110,28 @@ void apic_send_sipi(uint8_t vector, uint32_t target) {
 }
 
 // 初始化APIC定时器
-void apic_init_timer() {
+// 定义宏来替代魔数
+#define LVT_TIMER_REGISTER 0x320
+#define INITIAL_COUNT_REGISTER 0x380
+#define DIVIDE_CONFIG_REGISTER 0x3E0
+#define PERIODIC_MODE_FLAG 0x20000
+#define DIVIDE_CONFIG_VALUE 0x3
+
+// 初始化APIC定时器，参数为期望的频率（Hz）
+void apic_init_timer(uint32_t frequency) {
+    // 假设APIC定时器的时钟频率为100MHz（可根据实际情况修改）
+    const uint32_t apic_clock_frequency = 100000000;
+    // 计算初始计数值
+    uint32_t initial_count = apic_clock_frequency / (frequency * (DIVIDE_CONFIG_VALUE + 1));
+
     // 配置APIC定时器为周期模式，向量号为0x40
-    apic_write(0x320, APIC_TIMER_VECTOR | 0x20000); // LVT Timer Register
-    
+    apic_write(LVT_TIMER_REGISTER, APIC_TIMER_VECTOR | PERIODIC_MODE_FLAG);
+
     // 设置初始计数值
-    apic_write(0x380, 10000000); // Initial Count Register
-    
+    apic_write(INITIAL_COUNT_REGISTER, initial_count);
+
     // 设置除数为16
-    apic_write(0x3E0, 0x3); // Divide Configuration Register
+    apic_write(DIVIDE_CONFIG_REGISTER, DIVIDE_CONFIG_VALUE);
 }
 
 // 获取CPU数量

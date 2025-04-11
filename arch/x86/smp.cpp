@@ -27,8 +27,8 @@ void ap_entry() {
     // 初始化当前CPU的LAPIC
     apic_init();
     
-    // 初始化本地APIC定时器
-    apic_init_timer();
+//    // 初始化本地APIC定时器
+//    apic_init_timer(100);
     
     // 初始化CPU本地存储
     cpu_init_percpu();

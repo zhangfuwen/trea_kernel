@@ -84,12 +84,12 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControl
         debug_err("File descriptor %d not open\n", fd_num);
         return -1;
     }
-    //debug_debug("fd: %x\n", fd);
+    debug_debug("fd: %x\n", fd);
 
     ssize_t bytes_read = 0;
     bytes_read = fd->read(buffer, size);
 
-    // debug_debug("Read %d bytes from fd %d, buffer:0x%x\n", bytes_read, fd_num, buffer);
+    debug_debug("Read %d bytes from fd %d, buffer:0x%x\n", bytes_read, fd_num, buffer);
     return bytes_read;
 }
 

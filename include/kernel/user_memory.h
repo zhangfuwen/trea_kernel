@@ -64,7 +64,7 @@ private:
     uint32_t (*allocate_physical_page)() = nullptr;
     void (*free_physical_page)(uint32_t page) = nullptr;
     void* (*phys_to_virt)(uint32_t phys_addr) = nullptr;
-    uint32_t pgd;                       // 页目录基地址
+    uint32_t pgd;                       // 页目录基地址, 虚拟地址
     uint32_t start_code;                // 代码段起始地址
     uint32_t end_code;                  // 代码段结束地址
     uint32_t start_data;                // 数据段起始地址

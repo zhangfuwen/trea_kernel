@@ -67,6 +67,7 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
         is_write, is_user, is_reserved, is_instruction);
 
     auto pcb = ProcessManager::get_current_process();
+    pcb->print();
     auto pgd = pcb->user_mm.getPageDirectory();
     auto& user_mm = pcb->user_mm;
 
@@ -105,7 +106,7 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
             }
         }
     } else {
-        debug_debug("kernel page fault unexpected");
+        debug_debug("kernel page fault unexpected\n");
         // return;
         // // 内核态缺页中断
         // if(!is_present && !is_reserved) {
@@ -127,7 +128,7 @@ panic:
     debug_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
     debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
-    // printPDPTE((void*)fault_addr);
+    printPDPTE((void*)fault_addr);
     asm volatile("hlt");
 
     // 终止当前进程或触发内核panic

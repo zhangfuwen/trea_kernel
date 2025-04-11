@@ -106,10 +106,10 @@ public:
     /**
      * @brief 复制内存空间，使用写时复制技术
      * @param src 源页目录
-     * @param dst 目标页目录, out pointer
+     * @param dstPgd 目标页目录, out pointer
      * @return 0 成功，-1 失败
      */
-    static int copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dst);
+    static int copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dstPgd);
 
     static void loadPageDirectory(uint32_t dir);
     static void enablePaging();
