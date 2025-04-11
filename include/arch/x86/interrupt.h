@@ -38,11 +38,18 @@
 #define IRQ_LPT2 0x25      // 并口2
 #define IRQ_FLOPPY 0x26    // 软盘控制器
 #define IRQ_LPT1 0x27      // 并口1
-#define IRQ_CMOS 0x28      // CMOS时钟
-#define IRQ_PS2_MOUSE 0x2C // PS/2鼠标
-#define IRQ_FPU 0x2D       // FPU异常
-#define IRQ_ATA1 0x2E      // 主ATA控制器
-#define IRQ_ATA2 0x2F      // 从ATA控制器
+#define IRQ_RTC 0x28      // CMOS时钟
+#define IRQ_RESV1      0x29    // 保留中断1
+#define IRQ_RESV2      0x2A    // 保留中断2
+#define IRQ_PS2_AUX    0x2B    // PS2辅助设备
+#define IRQ_FPU        0x2C    // 浮点处理器
+#define IRQ_PS2        0x2D    // PS2键盘
+#define IRQ_ATA1       0x2E    // 主IDE通道
+#define IRQ_ATA2       0x2F    // 从IDE通道
+#define IRQ_USER_BASE  0x30    // 用户自定义中断基址
+#define IRQ_ETH0       0x30    // 以太网接口0
+#define IRQ_ETH1       0x31    // 以太网接口1
+#define IRQ_IPI        0x3F    // 处理器间中断
 
 // 系统调用中断 (Linux传统值)
 #define INT_SYSCALL 0x80 // 系统调用中断

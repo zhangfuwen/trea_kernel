@@ -8,6 +8,11 @@ namespace arch {
 #define LAPIC_BASE 0xFEE00000
 
 // LAPIC寄存器偏移量
+#define APIC_TIMER_VECTOR 0x30
+
+// 传统PIC中断向量重映射 (IRQ0-15 -> 0x20-0x2F)
+
+
 enum LapicRegisters {
     LAPIC_ID = 0x20,
     LAPIC_VER = 0x30,

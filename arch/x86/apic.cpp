@@ -1,4 +1,5 @@
 #include "arch/x86/apic.h"
+#include "arch/x86/interrupt.h"
 #include <lib/ioport.h>
 #include <lib/debug.h>
 
@@ -26,6 +27,10 @@ static inline uint32_t ioapic_read(uint32_t reg) {
 
 // 初始化本地APIC
 void apic_init() {
+    // 禁用传统8259A PIC
+    outb(0x21, 0xFF);  // 屏蔽主PIC所有中断
+    outb(0xA1, 0xFF);  // 屏蔽从PIC所有中断
+
     // 启用APIC
     uint32_t low, high;
     
@@ -107,7 +112,7 @@ void apic_send_sipi(uint8_t vector, uint32_t target) {
 // 初始化APIC定时器
 void apic_init_timer() {
     // 配置APIC定时器为周期模式，向量号为0x40
-    apic_write(0x320, 0x40 | 0x20000); // LVT Timer Register
+    apic_write(0x320, APIC_TIMER_VECTOR | 0x20000); // LVT Timer Register
     
     // 设置初始计数值
     apic_write(0x380, 10000000); // Initial Count Register
@@ -125,26 +130,42 @@ uint32_t apic_get_cpu_count() {
 
 // 初始化IO APIC
 void ioapic_init() {
-    // 重定向所有中断到BSP
+    // 配置所有24个IRQ重定向
+    const uint8_t vectors[] = {
+        IRQ_TIMER,     // IRQ0
+        IRQ_KEYBOARD,  // IRQ1
+        IRQ_CASCADE,   // IRQ2
+        IRQ_COM2,      // IRQ3
+        IRQ_COM1,      // IRQ4
+        IRQ_LPT2,      // IRQ5
+        IRQ_FLOPPY,    // IRQ6
+        IRQ_LPT1,      // IRQ7
+        IRQ_RTC,       // IRQ8
+        IRQ_PS2,       // IRQ9
+        IRQ_RESV1,     // IRQ10
+        IRQ_RESV2,     // IRQ11
+        IRQ_PS2_AUX,   // IRQ12
+        IRQ_FPU,       // IRQ13
+        IRQ_ATA1,      // IRQ14
+        IRQ_ATA2,      // IRQ15
+        IRQ_ETH0,      // IRQ16
+        IRQ_ETH1,      // IRQ17
+        IRQ_USER_BASE, // IRQ18
+        IRQ_USER_BASE+1, // IRQ19
+        IRQ_USER_BASE+2, // IRQ20
+        IRQ_USER_BASE+3, // IRQ21
+        IRQ_USER_BASE+4, // IRQ22
+        IRQ_IPI        // IRQ23
+    };
+
     for (uint8_t i = 0; i < 24; i++) {
-        ioapic_set_irq(i, 0x10000); // 禁用所有中断
+        uint64_t value = vectors[i] | (0 << 16); // 取消屏蔽
+        value |= (1 << 14); // 电平触发模式
+        value |= (apic_get_id() << 56); // 目标APIC ID
+        ioapic_set_irq(i, value);
     }
-    
-    // 配置键盘中断 (IRQ 1)
-    ioapic_set_irq(1, 0x21 | (apic_get_id() << 56));
-    
-    // 配置时钟中断 (IRQ 0)
-    ioapic_set_irq(0, 0x20 | (apic_get_id() << 56));
-    
-    // 配置ATA控制器中断
-    ioapic_set_irq(14, 0x2E | (apic_get_id() << 56)); // 主ATA控制器 (IRQ 14 -> 向量 0x2E)
-    ioapic_set_irq(15, 0x2F | (apic_get_id() << 56)); // 从ATA控制器 (IRQ 15 -> 向量 0x2F)
-    
-    // 配置中断触发模式和掩码位
-    // 低32位格式: 向量号(0-7) | 传递模式(8-10) | 目标模式(11) | 0(12) | 中断极性(13) | 触发模式(14) | 掩码位(16)
-    // 高32位格式: 目标APIC ID(56-63)
-    
-    debug_debug("IO APIC initialized with %d interrupts configured\n", 4);
+
+    debug_debug("IO APIC initialized with all 24 IRQs configured\n");
 }
 
 // 设置IO APIC中断重定向表

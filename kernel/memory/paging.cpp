@@ -55,6 +55,24 @@ void PageManager::mapKernelSpace()
         dir->entries[j + pteStart] =
             reinterpret_cast<uintptr_t>(table) | 3; // Supervisor, read/write, present
     }
+
+    // 映射APIC区域 (0xFEC00000 - 0xFEEFFFFF)
+    constexpr uint32_t APIC_START = 0xFEC00000;
+    constexpr uint32_t APIC_END = 0xFEEFFFFF;
+    
+    for (uint32_t addr = APIC_START; addr <= APIC_END; addr += 0x1000) {
+        uint32_t pd_index = addr >> 22;
+        uint32_t pt_index = (addr >> 12) & 0x3FF;
+        
+        // 确保页表存在
+        if (!(dir->entries[pd_index] & 0x1)) {
+            auto* new_table = reinterpret_cast<PageTable*>(K_PAGE_TABLE_START + pd_index * sizeof(PageTable));
+            dir->entries[pd_index] = reinterpret_cast<uintptr_t>(new_table) | 3;
+        }
+        
+        auto* table = reinterpret_cast<PageTable*>(dir->entries[pd_index] & 0xFFFFF000);
+        table->entries[pt_index] = addr | 0x13; // Supervisor, read/write, present, cache disabled
+    }
 }
 
 void PageManager::loadPageDirectory(uint32_t dir)
@@ -248,7 +266,7 @@ void PagingValidate(PageDirectory * pd)
                 if (pt->entries[j] & 0x1) {
                     uint32_t phys_addr = pt->entries[j] & 0xFFFFF000;
                     uint32_t virt_addr = (i << 22) | (j << 12);
-                    if (phys_addr > 896 * 1024*1024) {
+                    if (phys_addr > 896 * 1024*1024 && phys_addr != virt_addr) {
                         debug_err("PagingValidte error: virt_addr: 0x%x, phys_addr: 0x%x\n", virt_addr,
                         phys_addr);
                     }

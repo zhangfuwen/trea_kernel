@@ -26,8 +26,39 @@ void InterruptManager::init()
     }
 
     // 注册各种中断处理程序
-    registerHandler(0x20, []() { debug_debug("IRQ 0: Timer interrupt\n"); });
-    registerHandler(0x21, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
+    registerHandler(IRQ_TIMER, []() { debug_debug("IRQ 0: Timer interrupt\n"); });
+    registerHandler(IRQ_KEYBOARD, []() { debug_debug("IRQ 1: Keyboard interrupt\n"); });
+    registerHandler(IRQ_CASCADE, []() { debug_debug("IRQ 2\n"); });
+    registerHandler(IRQ_COM2, []() { debug_debug("IRQ 3\n"); });
+    registerHandler(IRQ_COM1, []() { debug_debug("IRQ 4\n"); });
+    registerHandler(IRQ_LPT2, []() { debug_debug("IRQ 5\n"); });
+    registerHandler(IRQ_FLOPPY, []() {
+        debug_debug("IRQ 6\n");
+        uint8_t status = inb(0x3F4);
+        if(status & 0x80) {
+            debug_debug("IRQ 6: floppy is active\n");
+        }
+    });
+    registerHandler(IRQ_LPT1, []() { debug_debug("IRQ 7\n"); });
+    registerHandler(IRQ_RTC, []() { debug_debug("IRQ 8\n"); });
+    registerHandler(IRQ_PS2, []() { debug_debug("IRQ 9\n"); });
+    registerHandler(IRQ_FPU, []() { debug_debug("IRQ 10\n"); });
+    registerHandler(IRQ_ATA1, []() { debug_debug("IRQ 11\n"); });
+    registerHandler(IRQ_ATA2, []() { debug_debug("IRQ 12\n"); });
+    registerHandler(IRQ_ETH0, []() { debug_debug("IRQ 13\n"); });
+    registerHandler(IRQ_ETH1, []() { debug_debug("IRQ 14\n"); });
+    registerHandler(IRQ_IPI, []() { debug_debug("IRQ 15\n"); });
+
+    // 初始化APIC而不是PIC
+    arch::apic_init();
+    arch::ioapic_init();
+    
+    // 禁用传统PIC控制器
+    outb(0xA1, 0xFF);
+    outb(0x21, 0xFF);
+    
+    // 注册APIC中断处理程序
+    registerHandler(APIC_TIMER_VECTOR, []() { debug_debug("APIC Timer interrupt\n"); });
     registerHandler(0x22, []() { debug_debug("IRQ 2\n"); });
     registerHandler(0x23, []() { debug_debug("IRQ 3\n"); });
     registerHandler(0x24, []() { debug_debug("IRQ 4\n"); });

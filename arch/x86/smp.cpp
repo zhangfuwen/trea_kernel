@@ -1,5 +1,6 @@
 #include <arch/x86/smp.h>
 #include <arch/x86/apic.h>
+#include <arch/x86/interrupt.h>
 #include <lib/debug.h>
 
 namespace arch {
