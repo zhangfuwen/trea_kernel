@@ -22,6 +22,8 @@ void PIC8259::init() {
     // 屏蔽所有中断
     outb(PIC1_DATA, 0xFF);
     outb(PIC2_DATA, 0xFF);
+
+    init_timer();
 }
 
 void PIC8259::send_eoi() {

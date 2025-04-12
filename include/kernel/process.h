@@ -70,6 +70,7 @@ namespace kernel {
 }
 
 // 进程控制块结构
+#define DEBUG_STATUS_HALT 1<<0
 struct ProcessControlBlock {
     ProcessControlBlock* next = nullptr;
     ProcessControlBlock* prev = nullptr;
@@ -93,6 +94,8 @@ struct ProcessControlBlock {
     int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
     char cwd[256] = "/";  // 当前工作目录，默认为根目录
     void print();
+
+    volatile uint32_t debug_status = 0;
 };
 union PCB
 {

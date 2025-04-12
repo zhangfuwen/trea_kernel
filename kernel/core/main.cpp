@@ -26,7 +26,7 @@ using namespace kernel;
 // 声明测试函数
 void run_format_string_tests();
 
-extern "C" void apic_timer_interrupt();
+// extern "C" void apic_timer_interrupt();
 extern "C" void timer_interrupt();
 extern "C" void keyboard_interrupt();
 extern "C" void cascade_interrupt();
@@ -36,10 +36,16 @@ extern "C" void syscall_interrupt();
 extern "C" void page_fault_interrupt();
 extern "C" void general_protection_interrupt();
 extern "C" void segmentation_fault_interrupt();
+extern "C" void stack_fault_interrupt();
 ProcessControlBlock* init_proc = nullptr;
 void init()
 {
+    debug_debug("entering init kernel code!\n");
     auto pcb = ProcessManager::get_current_process();
+    debug_debug("pcb=0x%x\n", pcb);
+    pcb->print();
+
+    debug_debug("loading page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb, pcb->pid);
     Kernel::instance().kernel_mm().paging().loadPageDirectory(pcb->regs.cr3);
     debug_debug("load page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb, pcb->pid);
     while(true) {
@@ -69,7 +75,7 @@ extern "C" void kernel_main()
     kernel->init();
     serial_puts("Kernel initialized!\n");
 
-    kernel->interrupt_manager().init();
+    kernel->interrupt_manager().init(InterruptManager::ControllerType::APIC);
     serial_puts("InterruptManager initialized!\n");
 
     // 运行格式化字符串测试
@@ -84,21 +90,46 @@ extern "C" void kernel_main()
     set_log_level(LOG_DEBUG);
 
     // 注册时钟中断处理函数
-    kernel->interrupt_manager().registerHandler(0x20, []() { Scheduler::timer_tick(); });
-    kernel->interrupt_manager().registerHandler(APIC_TIMER_VECTOR, []() {
-        // debug_debug("APIC timer interrupt!\n");
+    kernel->interrupt_manager().registerHandler(0x20, []() {
+        debug_rate_limited("timer interrupt 0x20!\n");
         Scheduler::timer_tick();
     });
+
+    auto timer_interrupt_vector =
+        kernel->interrupt_manager().get_controller()->get_vector(IRQ_TIMER);
+    kernel->interrupt_manager().registerHandler(timer_interrupt_vector, []() {
+        // debug_rate_limited("timer interrupt!\n");
+            auto pcb = ProcessManager::get_current_process();
+        if(pcb->debug_status & DEBUG_STATUS_HALT) {
+            debug_debug("hlt timer interrupt\n");
+            while(true) {
+                asm volatile("hlt");
+            }
+        }
+        static int count = 0;
+        if(++count % 1000 == 0) {
+            count = 0;
+            //    debug_rate_limited("timer interrupt!\n");
+            debug_debug("timer interrupt !\n");
+            Scheduler::timer_tick();
+        }
+    });
+    debug_debug("timer interrupt vector: %d\n", timer_interrupt_vector);
     // 注册键盘中断处理函数
     keyboard_init();
     kernel->interrupt_manager().registerHandler(0x21, []() {
-        // debug_debug("keyboard interrupt called!\n");
+        debug_rate_limited("keyboard interrupt called!\n");
+        auto pcb = ProcessManager::get_current_process();
+        if(pcb->debug_status & DEBUG_STATUS_HALT) {
+            debug_debug("hlt keyboard interrupt\n");
+            while(true) {
+                asm volatile("hlt");
+            }
+        }
         // auto code = keyboard_get_scancode();
         // auto ascii = scancode_to_ascii(code);
         // debug_debug("ascii 0x%x scancode 0x%x\n", ascii, code);
-
     });
-
 
     // 初始化IDT
     IDT::init();
@@ -106,8 +137,10 @@ extern "C" void kernel_main()
     IDT::setGate(INT_PAGE_FAULT, (uint32_t)page_fault_interrupt, 0x08, 0xEE);
     IDT::setGate(INT_GP_FAULT, (uint32_t)general_protection_interrupt, 0x08, 0xEE);
     IDT::setGate(INT_SEGMENT_NP, (uint32_t)segmentation_fault_interrupt, 0x08, 0xEE);
+    IDT::setGate(INT_STACK_FAULT, (uint32_t)stack_fault_interrupt, 0x08, 0xEE);
+    // IDT::setGate(INT_COPROCESSOR_SEG, (uint32_t)stack_fault_interrupt, 0x08, 0xEE);
 
-    IDT::setGate(kernel->interrupt_manager().get_controller()->get_vector(IRQ_TIMER), (uint32_t)timer_interrupt, 0x08, 0xEE);
+    IDT::setGate(timer_interrupt_vector, (uint32_t)timer_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_KEYBOARD, (uint32_t)keyboard_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_CASCADE, (uint32_t)cascade_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_ATA1, (uint32_t)ide1_interrupt, 0x08, 0xEE);
@@ -167,21 +200,21 @@ extern "C" void kernel_main()
         FileAttribute attr;
         VFSManager::instance().stat("/mnt/", &attr);
         debug_info("mnt directory size: %d bytes\n", attr.size);
-            char buf[4096];
-            ssize_t nread;
-            struct dirent *dirp;
+        char buf[4096];
+        ssize_t nread;
+        struct dirent* dirp;
 
-            // while ((nread = sys_getdents(fd, buf, sizeof(buf))) > 0) {
-            //     for (char *b = buf; b < buf + nread;) {
-            //         dirp = (struct dirent *)b;
-            //         debug_debug("File: %s\n", dirp->d_name);
-            //         b += dirp->d_reclen;
-            //     }
-            // }
-            //
-            // if (nread == -1) {
-            //     perror("getdents");
-            // }
+        // while ((nread = sys_getdents(fd, buf, sizeof(buf))) > 0) {
+        //     for (char *b = buf; b < buf + nread;) {
+        //         dirp = (struct dirent *)b;
+        //         debug_debug("File: %s\n", dirp->d_name);
+        //         b += dirp->d_reclen;
+        //     }
+        // }
+        //
+        // if (nread == -1) {
+        //     perror("getdents");
+        // }
         // ... 已有代码 ...
         delete root;
     } else {

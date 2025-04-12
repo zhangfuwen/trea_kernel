@@ -343,5 +343,9 @@ void UserMemory::print()
     for(uint32_t i = 0; i < num_areas; i++) {
         debug_debug("UserMemory: area[%d]: start: %x, end: %x, flags: %x, type: %d\n", i,
             areas[i].start_addr, areas[i].end_addr, areas[i].flags, areas[i].type);
+        if(i > 20) {
+            debug_debug("too many areas, stop here\n");
+            break;
+        }
     }
 }

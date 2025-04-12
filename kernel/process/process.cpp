@@ -89,7 +89,7 @@ ProcessControlBlock* ProcessManager::create_process(const char* name)
     uint32_t pid = pid_manager.alloc();
     debug_info("creating process with pid: %d\n", pid);
 
-    auto &kernel_mm = Kernel::instance().kernel_mm();
+    auto& kernel_mm = Kernel::instance().kernel_mm();
     auto addr = kernel_mm.alloc_pages(0, 2); // gfp_mask = 0, order = 2 (4 pages)
     auto pcb = new((void*)kernel_mm.phys2Virt(addr)) ProcessControlBlock();
 
@@ -116,7 +116,7 @@ ProcessControlBlock* ProcessManager::kernel_thread(
 {
     auto pPcb = create_process(name);
     auto& pcb = *pPcb;
-    auto &kernel_mm = Kernel::instance().kernel_mm();
+    auto& kernel_mm = Kernel::instance().kernel_mm();
 
     auto pgd = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
     debug_debug("ProcessManager: Current Page Directory: %x\n", pgd);
@@ -187,11 +187,14 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
     child->regs.cr3 = paddr;
     child->user_mm.init((uint32_t)child_pgd,
         []() {
-            auto page = Kernel::instance().kernel_mm().alloc_pages(0, 0); // gfp_mask = 0, order = 0 (1 page)
+            auto page = Kernel::instance().kernel_mm().alloc_pages(
+                0, 0); // gfp_mask = 0, order = 0 (1 page)
             debug_debug("ProcessManager: Allocated Page at %x\n", page);
             return page;
         },
-        [](uint32_t physAddr) { Kernel::instance().kernel_mm().free_pages(physAddr, 0); }, // order=0表示释放单个页面
+        [](uint32_t physAddr) {
+            Kernel::instance().kernel_mm().free_pages(physAddr, 0);
+        }, // order=0表示释放单个页面
         [](uint32_t physAddr) {
             return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
         });
@@ -258,9 +261,8 @@ void Stacks::print()
 
 void ProcessControlBlock::print()
 {
-    debug_info("Process: %s (PID: %d)\n", name, pid);
-    debug_info(
-        "  State: %d, Priority: %d, Time: %d/%d\n", state, priority, total_time, time_slice);
+    debug_info("Process: %s (PID: %d), pcb_addr:0x%x\n", name, pid, this);
+    debug_info("  State: %d, Priority: %d, Time: %d/%d\n", state, priority, total_time, time_slice);
 
     regs.print();
     stacks.print();
@@ -318,9 +320,9 @@ int ProcessManager::fork()
     child->stacks.user_stack = parent->stacks.user_stack;
     child->stacks.user_stack_size = parent->stacks.user_stack_size;
     // 为栈分配新的物理页面
-    uint8_t * start = (uint8_t*)child->stacks.user_stack;
-    uint8_t * end = (uint8_t*)child->stacks.user_stack + child->stacks.user_stack_size;
-    for(uint8_t * p = start; p < end; p+= PAGE_SIZE) {
+    uint8_t* start = (uint8_t*)child->stacks.user_stack;
+    uint8_t* end = (uint8_t*)child->stacks.user_stack + child->stacks.user_stack_size;
+    for(uint8_t* p = start; p < end; p += PAGE_SIZE) {
         copyCOWPage((uint32_t)p, parent->user_mm.getPageDirectory(), child->user_mm);
     }
 
@@ -353,7 +355,7 @@ bool ProcessManager::schedule()
     auto next = current->pcb.next;
     while(next != &current->pcb) {
         // debug_debug("schedule called, current: %d, next:%d, nextstate:%d\n", current->pcb.pid,
-            // next->pid, next->state);
+        // next->pid, next->state);
         if(next->state == PROCESS_READY || next->state == PROCESS_RUNNING) {
             break;
         }
@@ -407,6 +409,13 @@ void ProcessManager::save_context(uint32_t* esp)
     regs.es = esp[9];
     regs.fs = esp[10];
     regs.gs = esp[11];
+    if(regs.cs != 0x08 && regs.cs != 0x1b) {
+        debug_debug("cs error 0x%x\n", regs.cs);
+        current->print();
+        current->debug_status |= DEBUG_STATUS_HALT;
+    }
+    // debug_debug("save context\n");
+    // current->print();
 
     // debug_debug("saved context\n");
     // current->print();
@@ -437,6 +446,17 @@ void ProcessManager::restore_context(uint32_t* esp)
     esp[13] = regs.cs;
     esp[12] = regs.eip;
 
+    if(regs.cs != 0x08 && regs.cs != 0x1b) {
+        debug_debug("cs error 0x%x\n", regs.cs);
+        next->print();
+        if(next->debug_status & DEBUG_STATUS_HALT) {
+            while(true) {
+                asm volatile("hlt");
+            }
+        }
+    }
+    next->debug_status = 0;
+
     // 恢复段寄存器
     esp[8] = regs.ds;
     esp[9] = regs.es;
@@ -445,10 +465,7 @@ void ProcessManager::restore_context(uint32_t* esp)
     GDT::updateTSS(next->stacks.esp0, KERNEL_DS);
     GDT::updateTSSCR3(next->regs.cr3);
 }
-ProcessControlBlock* ProcessManager::get_current_process()
-{
-    return current_pcb;
-}
+ProcessControlBlock* ProcessManager::get_current_process() { return current_pcb; }
 
 void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlock* pcb)
 {

@@ -1,6 +1,8 @@
+#include "lib/string.h"
 #include <kernel/syscall_user.h>
 #include <lib/debug.h>
-#include "lib/string.h"
+
+#include <lib/time.h>
 LogOutputInterface my_log_output_interface {
   .print = [](LogLevel level, const char* message) {
     syscall_log(message, 0);
@@ -101,4 +103,10 @@ void scanf(const char* format, ...)
 
     va_end(args);
 
+}
+
+void my_sleep(unsigned int ms) {
+    struct timespec req = {0, (long)ms * 1000000}; // 将毫秒转换为纳秒
+    struct timespec rem;
+    syscall_nanosleep(&req, &rem);
 }

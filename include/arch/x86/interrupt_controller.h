@@ -35,10 +35,10 @@ public:
 
     // 设置时钟频率
     virtual void set_timer_frequency(uint32_t frequency) = 0;
-
-protected:
     // 存储当前中断号
     uint32_t current_interrupt = 0;
+
+protected:
 
     // 时钟相关常量
     static constexpr uint32_t BASE_TIMER_FREQUENCY = 1193180;  // 基础时钟频率

@@ -3,25 +3,35 @@
 option(USE_APIC "Use APIC instead of PIC8259" ON)
 
 # 创建x86架构库
-add_library(arch_x86
-    gdt.cpp
-    gdt_load.asm
-    idt.cpp
-    interrupt.cpp
-    interrupt.asm
-    paging_asm.asm
-    pit.cpp
-    segment_fault.cpp
-    smp.cpp
-    spinlock.cpp
-    user_mode_switch.asm
+add_library(arch_x86 STATIC
+        apic.cpp
+        cpu.cpp
+        gdt.cpp
+        gdt_load.asm
+        idt.cpp
+        interrupt.asm
+        interrupt.cpp
+        interrupt_names.c
+        paging_asm.asm
+        pic8259.cpp
+        segment_fault.cpp
+        smp.cpp
+        spinlock.cpp
 )
 
-if(USE_APIC)
-    target_sources(arch_x86 PRIVATE apic.cpp apic_controller.cpp)
-else()
-    target_sources(arch_x86 PRIVATE pic8259.cpp)
-endif()
+# 为interrupt_names.c设置C语言编译标准
+set_source_files_properties(
+        interrupt_names.c
+        PROPERTIES
+        LANGUAGE C
+        COMPILE_FLAGS "-std=c99"
+)
+
+#if(USE_APIC)
+    target_sources(arch_x86 PRIVATE apic.cpp pic8259.cpp)
+#else()
+#    target_sources(arch_x86 PRIVATE pic8259.cpp)
+#endif()
 
 # 设置汇编器
 set_source_files_properties(

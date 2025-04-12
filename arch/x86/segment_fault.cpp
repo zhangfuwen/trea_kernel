@@ -37,6 +37,15 @@ extern "C" void general_protection_fault_handler(uint32_t error_code)
         asm("hlt");
     }
 }
+extern "C" void stack_fault_handler(uint32_t error_code)
+{
+    debug_debug("stack fault occurred! Error code: %d\n", error_code);
+    // 根据错误码分析具体原因
+    // 暂时直接停止系统
+    while(1) {
+        asm("hlt");
+    }
+}
 extern "C" void segmentation_fault_handler(uint32_t error_code)
 {
     debug_debug("Segment fault occurred! Error code: %d\n", error_code);

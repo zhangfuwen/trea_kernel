@@ -28,6 +28,7 @@
 #define INT_CONTROL_PROTECTION 0x15 // 控制保护异常
 // 0x16-0x1F 保留
 
+extern const char* interrupt_names[256];
 // 可编程中断控制器 (IRQ0-IRQ15)
 #define IRQ_BASE 0x20      // 重映射后的IRQ基址
 #define IRQ_TIMER 0x20     // 定时器中断
@@ -39,6 +40,7 @@
 #define IRQ_FLOPPY 0x26    // 软盘控制器
 #define IRQ_LPT1 0x27      // 并口1
 #define IRQ_RTC 0x28      // CMOS时钟
+#define IRQ_PS2      0x29    // 保留中断1
 #define IRQ_RESV1      0x29    // 保留中断1
 #define IRQ_RESV2      0x2A    // 保留中断2
 #define IRQ_PS2_AUX    0x2B    // PS2辅助设备
@@ -83,8 +85,6 @@ public:
     // 注册中断处理函数
     void registerHandler(uint8_t interrupt, InterruptHandler handler);
     InterruptHandler handlers[256];
-
-    static void defaultHandler();
 
     // 系统调用处理程序
     void syscallHandler();

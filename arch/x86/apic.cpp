@@ -1,5 +1,6 @@
 #include "arch/x86/apic.h"
 #include "lib/debug.h"
+#include "arch/x86/interrupt.h"
 
 #include <lib/ioport.h>
 
@@ -103,7 +104,7 @@ void apic_send_sipi(uint8_t vector, uint32_t target) {
 
 void APICController::init_timer() {
     // 设置APIC Timer为周期模式
-    apic_write(LAPIC_TIMER_MODE, APIC_TIMER_MODE_PERIODIC | APIC_TIMER_VECTOR);
+    apic_write(LAPIC_LVT_TIMER, APIC_TIMER_PERIODIC | APIC_TIMER_VECTOR);
     
     // 设置默认频率
     set_timer_frequency(DEFAULT_TIMER_FREQUENCY);
@@ -116,14 +117,7 @@ void APICController::set_timer_frequency(uint32_t frequency) {
     uint32_t divisor = (cpu_freq_mhz * 1000000) / frequency;
     
     // 设置初始计数值
-    apic_write(LAPIC_TIMER_INITIAL_COUNT, divisor);
-
-    apic_write(LAPIC_ICR0, icr.raw);
-    
-    // 等待发送完成
-    while (apic_read(LAPIC_ICR0) & APIC_ICR_PENDING_MASK) {
-        asm volatile("pause");
-    }
+    apic_write(LAPIC_INITIAL_COUNT, divisor);
 }
 
 // 初始化APIC定时器
@@ -214,13 +208,31 @@ void APICController::send_eoi() {
 }
 
 void APICController::enable_irq(uint8_t irq) {
-    // APIC通过IOAPIC启用中断
-    ioapic_enable_irq(irq);
+    // 获取当前重定向表项的值
+    uint32_t ioredtbl = 0x10 + 2 * irq;
+    uint32_t low = ioapic_read(ioredtbl);
+    uint32_t high = ioapic_read(ioredtbl + 1);
+    
+    // 清除屏蔽位
+    low &= ~(1 << 16);
+    
+    // 写回重定向表项
+    ioapic_write(ioredtbl, low);
+    ioapic_write(ioredtbl + 1, high);
 }
 
 void APICController::disable_irq(uint8_t irq) {
-    // APIC通过IOAPIC禁用中断
-    ioapic_disable_irq(irq);
+    // 获取当前重定向表项的值
+    uint32_t ioredtbl = 0x10 + 2 * irq;
+    uint32_t low = ioapic_read(ioredtbl);
+    uint32_t high = ioapic_read(ioredtbl + 1);
+    
+    // 设置屏蔽位
+    low |= (1 << 16);
+    
+    // 写回重定向表项
+    ioapic_write(ioredtbl, low);
+    ioapic_write(ioredtbl + 1, high);
 }
 
 void APICController::remap_vectors() {
@@ -231,21 +243,21 @@ void APICController::remap_vectors() {
 uint32_t APICController::get_vector(uint8_t irq) const {
     // 根据不同IRQ返回对应的中断向量
     switch(irq) {
-        case 0:  // Timer
+        case IRQ_TIMER:  // Timer
             return APIC_TIMER_VECTOR;  // 0x40
-        case 1:  // Keyboard
-            return IRQ_KEYBOARD;       // 0x21
-        case 2:  // Cascade
-            return IRQ_CASCADE;        // 0x22
-        case 8:  // RTC
-            return IRQ_RTC;           // 0x28
-        case 14: // ATA1
-            return IRQ_ATA1;          // 0x2E
-        case 15: // ATA2
-            return IRQ_ATA2;          // 0x2F
+        // case 1:  // Keyboard
+        //     return IRQ_KEYBOARD;       // 0x21
+        // case 2:  // Cascade
+        //     return IRQ_CASCADE;        // 0x22
+        // case 8:  // RTC
+        //     return IRQ_RTC;           // 0x28
+        // case 14: // ATA1
+        //     return IRQ_ATA1;          // 0x2E
+        // case 15: // ATA2
+        //     return IRQ_ATA2;          // 0x2F
         default:
             // 其他IRQ保持与PIC8259相同的映射
-            return 0x20 + irq;
+            return irq;
     }
 }
 

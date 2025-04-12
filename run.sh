@@ -39,4 +39,5 @@ qemu-system-i386 \
     -hda $disk_image \
     -m 1G \
     -serial stdio  \
+    -d int \
     -s

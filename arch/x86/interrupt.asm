@@ -11,6 +11,7 @@
 [EXTERN restore_context_wrapper]
 [EXTERN page_fault_handler]
 [EXTERN segmentation_fault_handler]
+[EXTERN stack_fault_handler]
 [EXTERN apic_send_eoi]
 
 [section .data]
@@ -103,7 +104,7 @@ fault_errno: dd 0
     iretd            ; 返回
 %endmacro
 
-;fault_errno 13, general_protection_interrupt, general_fault_errno_handler ; General Protection Fault
+fault_errno 0x0C, stack_fault_interrupt, stack_fault_handler ; General Protection Fault
 
 [global general_protection_interrupt]
 [extern general_protection_fault_handler]
@@ -125,7 +126,7 @@ general_protection_interrupt:
     iretd            ; 返回
 
 ; 定义具体中断
-; idtentry 0x30, apic_timer_interrupt, handleInterrupt
+;idtentry 0x30, apic_timer_interrupt, handleInterrupt
 idtentry 0x20, timer_interrupt, handleInterrupt
 idtentry 0x21, keyboard_interrupt, handleInterrupt
 idtentry 0x22, cascade_interrupt, handleInterrupt
@@ -145,7 +146,6 @@ page_fault_interrupt:
     mov [page_fault_errno], eax
     pop eax
     SAVE_REGS
-    
     mov eax, cr2    ; 获取故障地址
     push eax        ; 将故障地址作为第二个参数
     push dword [page_fault_errno]  ; 将错误码作为第一个参数

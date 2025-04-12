@@ -56,7 +56,7 @@ int readHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 }
 int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
 {
-    // debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
+    debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
 
     if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
@@ -89,7 +89,7 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControl
     ssize_t bytes_read = 0;
     bytes_read = fd->read(buffer, size);
 
-    debug_debug("Read %d bytes from fd %d, buffer:0x%x\n", bytes_read, fd_num, buffer);
+    debug_debug("Read %d bytes from fd %d, buffer:0x%x, exit\n", bytes_read, fd_num, buffer);
     return bytes_read;
 }
 
@@ -101,8 +101,8 @@ int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d
 }
 int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
 {
-    // debug_debug(
-    //     "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
+    debug_debug(
+        "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
 
     if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
@@ -112,7 +112,7 @@ int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessContro
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
     ssize_t bytes_written = pcb->fd_table[fd_num]->write(buffer, size);
 
-//    debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
+    debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
     return bytes_written;
 }
 

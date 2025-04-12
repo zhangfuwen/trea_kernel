@@ -87,13 +87,14 @@ int main() {
                 if (ret == 1 && cmd_buf[n] == '\b') {
                     if (n > 0) {
                         n--;
-                        syscall_write(1, "\b \b", 3);
+                        // syscall_write(1, "\b \b", 3);
                     }
                     continue;
                 }
-                syscall_write(1, cmd_buf + n, ret);
+                // syscall_write(1, cmd_buf + n, ret);
                 n += ret;
             }
+            my_sleep(1000);
 
             if (n > 0 && (cmd_buf[n-1] == '\n' || cmd_buf[n-1] == '\r')) {
                 cmd_buf[n-1] = '\0';

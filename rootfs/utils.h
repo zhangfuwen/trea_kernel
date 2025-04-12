@@ -12,7 +12,7 @@ void printf(const char* format, ...);
 void scanf(const char* format, ...);
 int atoi(char* input);
 
-
-
+// 暂停当前进程指定的时间（毫秒）
+void my_sleep(unsigned int ms);
 
 #endif //UTILS_H

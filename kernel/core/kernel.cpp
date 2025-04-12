@@ -92,14 +92,13 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
                 }
 
                 user_mm.map_pages(fault_addr & ~0xFFF, phys_page, PAGE_SIZE, flags);
-                // Kernel::instance().kernel_mm().paging().mapPage(
-                //     fault_addr & ~0xFFF, phys_page, flags);
-                // debug_debug("fixed page mapping");
+                debug_debug("fixed page mapping");
                 return;
             }
         } else if(is_write) {
             auto ret = copyCOWPage(fault_addr, pgd, user_mm);
             if (ret == E_OK) {
+                debug_debug("copied page\n");
                 return;
             } else if (ret == E_PANIC) {
                 goto panic;
@@ -129,6 +128,7 @@ panic:
     debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
     printPDPTE((void*)fault_addr);
+    debug_debug("will panic\n");
     asm volatile("hlt");
 
     // 终止当前进程或触发内核panic

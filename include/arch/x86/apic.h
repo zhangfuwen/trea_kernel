@@ -21,7 +21,7 @@ namespace arch {
 #define LAPIC_ICR1 0x310
 
 // APIC定时器相关常量
-#define APIC_TIMER_VECTOR 0x40
+#define APIC_TIMER_VECTOR 0x30
 #define APIC_TIMER_PERIODIC 0x20000
 #define APIC_TIMER_DIVIDE_16 0x3
 
@@ -40,24 +40,6 @@ namespace arch {
 #define APIC_ICR_DEST_SHIFT 24
 
 // 中断向量号定义
-#define IRQ_TIMER 0x40
-#define IRQ_KEYBOARD 0x21
-#define IRQ_CASCADE 0x22
-#define IRQ_COM2 0x23
-#define IRQ_COM1 0x24
-#define IRQ_LPT2 0x25
-#define IRQ_FLOPPY 0x26
-#define IRQ_LPT1 0x27
-#define IRQ_RTC 0x28
-#define IRQ_PS2 0x29
-#define IRQ_RESV1 0x2A
-#define IRQ_RESV2 0x2B
-#define IRQ_PS2_AUX 0x2C
-#define IRQ_FPU 0x2D
-#define IRQ_ATA1 0x2E
-#define IRQ_ATA2 0x2F
-#define IRQ_ETH0 0x30
-#define IRQ_ETH1 0x31
 #define IRQ_USER_BASE 0x32
 #define IRQ_IPI 0x37
 

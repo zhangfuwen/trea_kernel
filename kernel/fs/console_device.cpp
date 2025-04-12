@@ -25,6 +25,9 @@ ssize_t ConsoleDevice::read(void* buffer, size_t size)
 {
     // debug_debug("read: %x\n", size);
     auto scancode = keyboard_get_scancode();
+    if (scancode == 0) {
+        return 0;
+    }
     auto ascii = scancode_to_ascii(scancode);
     if(ascii == 0) {
         // debug_debug("keyboard_get_scancode: %x\n", scancode);

@@ -4,8 +4,6 @@
 #include <cstdint>
 
 // PIT相关定义
-#define PIT_CHANNEL0 0x40     // 计数器0端口
-#define PIT_MODE 0x43         // 模式/命令端口
 #define PIT_FREQUENCY 1193180 // PIT基准频率
 #define PIT_DESIRED_FREQUENCY 1 // 期望的时钟中断频率(Hz)
 
@@ -34,7 +32,7 @@ public:
     void disable_irq(uint8_t irq) override;
     void remap_vectors() override;
     uint32_t get_current_interrupt() const override { return current_interrupt; }
-    uint32_t get_vector(uint8_t irq) const override { return 0x20 + irq; } // IRQ0-15映射到0x20-0x2F
+    uint32_t get_vector(uint8_t irq) const override { return irq; } // IRQ0-15映射到0x20-0x2F
 
     // 实现时钟接口
     void init_timer() override;
