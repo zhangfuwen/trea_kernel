@@ -99,7 +99,7 @@ void apic_init_timer(uint32_t frequency);
 void apic_send_eoi();
 void apic_enable();
 void apic_send_init(uint32_t target);
-void apic_send_sipi(uint8_t vector, uint32_t target);
+void apic_send_sipi(uint32_t physical_address, uint32_t target);
 uint32_t apic_get_id();
 uint32_t apic_get_cpu_count();
 

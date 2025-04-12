@@ -88,6 +88,7 @@ set(ROOTFS_CPIO_PATH "\"${CMAKE_BINARY_DIR}/\"")
 # 主内核目标
 add_executable(kernel.bin
         rootfs.asm
+        ap_boot.asm
         boot.asm
         linker.ld
         ${CMAKE_BINARY_DIR}/rootfs.cpio
@@ -102,6 +103,7 @@ target_link_options(kernel.bin PRIVATE "-T${CMAKE_CURRENT_SOURCE_DIR}/linker.ld"
 # 设置汇编器
 set_source_files_properties(
         rootfs.asm
+        ap_boot.asm
         boot.asm
         PROPERTIES
         LANGUAGE ASM_NASM

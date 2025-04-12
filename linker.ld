@@ -3,7 +3,7 @@ ENTRY(_start)
 SECTIONS {
     . = 1M;
 
-    .text1 BLOCK(4K) : ALIGN(4K) {
+    .multiboot BLOCK(4K) : ALIGN(4K) {
         *(.multiboot)
         *(.text1)
     }
@@ -11,6 +11,9 @@ SECTIONS {
     . = 3M;
     .text BLOCK(4K) : ALIGN(4K) {
         *(.text)
+    }
+    .text BLOCK(4K) : ALIGN(4K) {
+        *(.ap_boot16)
     }
 
     .rodata BLOCK(4K) : ALIGN(4K) {

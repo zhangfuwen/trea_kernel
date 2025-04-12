@@ -40,4 +40,5 @@ qemu-system-i386 \
     -m 1G \
     -serial stdio  \
     -d int \
+    -smp cores=4 \
     -s

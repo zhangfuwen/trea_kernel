@@ -87,7 +87,11 @@ void apic_send_init(uint32_t target) {
 }
 
 // 发送启动IPI (SIPI)
-void apic_send_sipi(uint8_t vector, uint32_t target) {
+// 接受物理地址参数，内部将其转换为向量值
+void apic_send_sipi(uint32_t physical_address, uint32_t target) {
+    // 将物理地址转换为向量值（右移12位，因为AP会将向量值左移12位作为物理地址）
+    uint8_t vector = (physical_address >> 12) & 0xFF;
+    
     icr_low icr;
     icr.raw = 0;
     icr.vector = vector;
@@ -95,11 +99,19 @@ void apic_send_sipi(uint8_t vector, uint32_t target) {
     icr.dest_mode = APIC_ICR_PHYSICAL_MODE;
     icr.level = APIC_ICR_LEVEL_ASSERT;
     icr.trigger_mode = APIC_ICR_TRIGGER_LEVEL;
-    
+
+    debug_debug("Sending SIPI to APIC ID %d, vector 0x%x, physical address 0x%x, raw:0x%x\n", 
+                target, vector, physical_address, icr.raw);
     // 设置目标APIC ID
     apic_write(LAPIC_ICR1, target << APIC_ICR_DEST_SHIFT);
     
     // 发送IPI
+    apic_write(LAPIC_ICR0, icr.raw);
+    
+    // 等待发送完成
+    while (apic_read(LAPIC_ICR0) & APIC_ICR_PENDING_MASK) {
+        asm volatile("pause");
+    }
 }
 
 void APICController::init_timer() {
@@ -139,9 +151,29 @@ void apic_init_timer(uint32_t frequency) {
 }
 
 // 获取CPU数量
+#include <cstdint>
+
+// 辅助函数，执行 CPUID 指令
+void cpuid(uint32_t function, uint32_t& eax, uint32_t& ebx, uint32_t& ecx, uint32_t& edx) {
+    asm volatile (
+        "cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (function)
+    );
+}
+
+// 修改 apic_get_cpu_count 函数
 uint32_t apic_get_cpu_count() {
-    // 在实际系统中，应该通过解析ACPI表获取CPU数量
-    // 这里简单返回一个固定值用于测试
+    // uint32_t eax, ebx, ecx, edx;
+    // // 调用 CPUID 功能号 0x0B 来获取线程和核心信息
+    // cpuid(0x0B, eax, ebx, ecx, edx);
+    //
+    // if (ecx == 0) {
+    //     // 级别类型为 0 表示逻辑处理器级别
+    //     return ebx & 0xFF;
+    // }
+    // // 如果未获取到有效信息，返回默认值
+    // return 1;
     return 4;
 }
 

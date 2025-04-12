@@ -3,6 +3,7 @@
 #include <arch/x86/idt.h>
 #include <arch/x86/interrupt.h>
 #include <arch/x86/paging.h>
+#include <arch/x86/smp.h>
 #include <drivers/block_device.h>
 #include <drivers/ext2.h>
 #include <drivers/keyboard.h>
@@ -11,6 +12,7 @@
 #include <kernel/memfs.h>
 #include <kernel/process.h>
 #include <kernel/scheduler.h>
+#include <kernel/smp_scheduler.h>
 #include <kernel/syscall_user.h>
 #include <kernel/vfs.h>
 #include <lib/console.h>
@@ -111,7 +113,7 @@ extern "C" void kernel_main()
             count = 0;
             //    debug_rate_limited("timer interrupt!\n");
             debug_debug("timer interrupt !\n");
-            Scheduler::timer_tick();
+            // Scheduler::timer_tick();
         }
     });
     debug_debug("timer interrupt vector: %d\n", timer_interrupt_vector);
@@ -286,6 +288,12 @@ extern "C" void kernel_main()
     debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
     init_proc->print();
     debug_debug("init_proc initialized\n");
+    
+    // 初始化SMP，启动AP处理器
+    arch::smp_init();
+    debug_debug("SMP initialized\n");
+    kernel->scheduler().init();
+    kernel->scheduler().enqueue_task(init_proc);
 
     asm volatile("sti");
     while(1) {

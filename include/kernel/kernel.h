@@ -1,4 +1,6 @@
 #pragma once
+#include "smp_scheduler.h"
+
 #include <cstdint>
 
 #include "kernel/kernel_memory.h"
@@ -36,6 +38,7 @@ public:
     {
         return memory_manager;
     }
+    kernel::SMP_Scheduler& scheduler() { return smp_scheduler; }
     InterruptManager& interrupt_manager() { return _interrupt_manager; }
 
     // 初始化内核
@@ -65,6 +68,8 @@ private:
     KernelMemory memory_manager;
     // 中断管理器
     InterruptManager _interrupt_manager;
+
+    kernel::SMP_Scheduler smp_scheduler;
 
     uint32_t timer_ticks;
 };

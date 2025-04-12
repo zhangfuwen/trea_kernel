@@ -6,6 +6,7 @@
 #include <cstdarg>
 #include <lib/console.h>
 #include <cstdint>
+#include "arch/x86/apic.h"
 
 // 定义日志级别
 enum LogLevel {
@@ -71,15 +72,16 @@ inline void _debug_print(
     char msg_buffer[512];
     int len = 0;
 #ifndef NO_PID
-    // 获取当前进程PID
+    // 获取当前进程PID和CPU ID
     int pid = 0;
     ProcessControlBlock* current = ProcessManager::get_current_process();
     if(current) {
         pid = current->pid;
     }
-    // 打印PID、文件名、行号和函数名
+    uint32_t cpu_id = arch::apic_get_id();
+    // 打印CPU ID、PID、文件名、行号和函数名
     len = format_string(msg_buffer, sizeof(msg_buffer),
-        "%s[PID:%d] (%s:%d %s): ", log_level_prefix[current_log_level], pid,
+        "%s[CPU:%d PID:%d] (%s:%d %s): ", log_level_prefix[current_log_level], cpu_id, pid,
         get_filename_from_path(file), line, func);
 #else
     len = format_string(msg_buffer, sizeof(msg_buffer),

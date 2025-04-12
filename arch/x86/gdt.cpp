@@ -6,6 +6,7 @@ TSSEntry GDT::tss;
 GDTEntry GDT::entries[7]; // 增加一个表项用于调用门
 GDTPointer GDT::gdtPointer;
 
+uint32_t gdt_entries = (uint32_t)GDT::entries;
 // 用户态切换函数声明
 
 extern "C" void loadGDT_ASM(GDTPointer*);
