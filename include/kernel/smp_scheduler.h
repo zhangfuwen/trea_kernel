@@ -26,19 +26,19 @@ public:
     void init();
     
     // 选择下一个要运行的任务
-    ProcessControlBlock* pick_next_task();
+    Task* pick_next_task();
     
     // 将任务加入运行队列
-    void enqueue_task(ProcessControlBlock* p);
+    void enqueue_task(Task* p);
     
     // 执行负载均衡
-    ProcessControlBlock* load_balance();
+    Task* load_balance();
     
     // 查找最繁忙的CPU
     uint32_t find_busiest_cpu();
     
     // 设置进程的CPU亲和性
-    void set_affinity(ProcessControlBlock* p, uint32_t cpu_mask);
+    void set_affinity(Task* p, uint32_t cpu_mask);
     
     // 获取当前CPU的运行队列
     RunQueue* get_current_runqueue();

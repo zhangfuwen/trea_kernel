@@ -24,12 +24,12 @@ static MountPoint mount_points[MAX_MOUNT_POINTS];
 // 打开文件系统调用处理函数
 int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d)
 {
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     return sys_open(path_ptr, pcb);
 }
-int sys_open(uint32_t path_ptr, ProcessControlBlock* pcb)
+int sys_open(uint32_t path_ptr, Task* task)
 {
-    debug_debug("openHandler called with path: 0x%x, pcb:0x%x(pid:%d)\n", path_ptr, pcb, pcb->pid);
+    debug_debug("openHandler called with path: 0x%x, pcb:0x%x(pid:%d)\n", path_ptr, task, task->task_id);
 
     const char* path = reinterpret_cast<const char*>(path_ptr);
     debug_debug("Opening file: %s\n", path);
@@ -41,24 +41,24 @@ int sys_open(uint32_t path_ptr, ProcessControlBlock* pcb)
     }
 
     // 分配文件描述符
-    int fd_num = pcb->allocate_fd();
-    pcb->fd_table[fd_num] = fd;
+    int fd_num = task->context->allocate_fd();
+    task->context->fd_table[fd_num] = fd;
 
-    debug_debug("File opened successfully, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
+    debug_debug("File opened successfully, pcb:0x%x, pid:%d, fd: %d\n", task, task->task_id, fd_num);
     return fd_num;
 }
 
 // 读取文件系统调用处理函数
 int readHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 {
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     return sys_read(fd_num, buffer_ptr, size, pcb);
 }
-int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
+int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* pcb)
 {
     debug_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
 
-    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
+    if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
@@ -72,7 +72,7 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControl
     }
  //   debug_debug("process: %x\n", process);
 
-    auto fd_table = process->fd_table;
+    auto fd_table = process->context->fd_table;
     if(!fd_table[fd_num]) {
         debug_debug("File descriptor %d not open\n", fd_num);
         return -1;
@@ -96,21 +96,22 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControl
 // 写入文件系统调用处理函数
 int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 {
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     return sys_write(fd_num, buffer_ptr, size, pcb);
 }
-int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb)
+int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* task)
 {
     debug_debug(
         "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
 
-    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
-        debug_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", pcb, pcb->pid, fd_num);
+    auto context = task->context;
+    if(fd_num >= 256 || !context->fd_table[fd_num]) {
+        debug_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", task, task->task_id, fd_num);
         return -1;
     }
 
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
-    ssize_t bytes_written = pcb->fd_table[fd_num]->write(buffer, size);
+    ssize_t bytes_written = context->fd_table[fd_num]->write(buffer, size);
 
     debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
     return bytes_written;
@@ -119,20 +120,20 @@ int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessContro
 // 关闭文件系统调用处理函数
 int closeHandler(uint32_t fd_num, uint32_t b, uint32_t c, uint32_t d)
 {
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     return sys_close(fd_num, pcb);
 }
-int sys_close(uint32_t fd_num, ProcessControlBlock* pcb)
+int sys_close(uint32_t fd_num, Task* pcb)
 {
     debug_debug("closeHandler called with fd: %d\n", fd_num);
 
-    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
+    if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
 
-    int result = pcb->fd_table[fd_num]->close();
-    pcb->fd_table[fd_num] = nullptr;
+    int result = pcb->context->fd_table[fd_num]->close();
+    pcb->context->fd_table[fd_num] = nullptr;
 
     debug_debug("File descriptor %d closed\n", fd_num);
     return result;
@@ -141,20 +142,20 @@ int sys_close(uint32_t fd_num, ProcessControlBlock* pcb)
 // 文件指针定位系统调用处理函数
 int seekHandler(uint32_t fd_num, uint32_t offset, uint32_t c, uint32_t d)
 {
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     auto ret = sys_seek(fd_num, offset, pcb);
     return ret;
 }
-int sys_seek(uint32_t fd_num, uint32_t offset, ProcessControlBlock* pcb)
+int sys_seek(uint32_t fd_num, uint32_t offset, Task* pcb)
 {
     debug_debug("seekHandler called with fd: %d, offset: %d\n", fd_num, offset);
 
-    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
+    if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor: %d\n", fd_num);
         return -1;
     }
 
-    int result = pcb->fd_table[fd_num]->seek(offset);
+    int result = pcb->context->fd_table[fd_num]->seek(offset);
 
     debug_debug("Seek result: %d\n", result);
     return result;
@@ -310,9 +311,10 @@ int VFSManager::chdir(const char* path)
     }
 
     // 更新当前进程的工作目录
-    auto pcb = ProcessManager::get_current_process();
-    strncpy(pcb->cwd, path, sizeof(pcb->cwd) - 1);
-    pcb->cwd[sizeof(pcb->cwd) - 1] = '\0';
+    auto pcb = ProcessManager::get_current_task();
+    auto context = pcb->context;
+    strncpy(pcb->context->cwd, path, sizeof(context->cwd) - 1);
+    context->cwd[sizeof(context->cwd) - 1] = '\0';
 
     debug_debug("VFSManager::chdir: changed to %s\n", path);
     strcpy(current_working_directory, path);

@@ -346,8 +346,8 @@ void printPDPTE(VADDR vaddr)
 {
 
     auto& paging = Kernel::instance().kernel_mm().paging();
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     // auto pdVirt = paging.getCurrentPageDirectory();
-    auto pdVirt = pcb->user_mm.getPageDirectory();
+    auto pdVirt = pcb->context->user_mm.getPageDirectory();
     __printPDPTE(vaddr, (PageDirectory*)pdVirt);
 }

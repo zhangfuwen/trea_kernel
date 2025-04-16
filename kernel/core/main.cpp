@@ -40,17 +40,19 @@ extern "C" void page_fault_interrupt();
 extern "C" void general_protection_interrupt();
 extern "C" void segmentation_fault_interrupt();
 extern "C" void stack_fault_interrupt();
-ProcessControlBlock* init_proc = nullptr;
+Task* init_proc = nullptr;
 void init()
 {
     debug_debug("entering init kernel code!\n");
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     debug_debug("pcb=0x%x\n", pcb);
     pcb->print();
 
-    debug_debug("loading page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb, pcb->pid);
+    debug_debug(
+        "loading page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb, pcb->task_id);
     Kernel::instance().kernel_mm().paging().loadPageDirectory(pcb->regs.cr3);
-    debug_debug("load page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb, pcb->pid);
+    debug_debug(
+        "load page directory 0x%x for pcb 0x%x(pid %d)\n", pcb->regs.cr3, pcb, pcb->task_id);
     while(true) {
         debug_rate_limited("init process!\n");
         sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_proc);
@@ -98,21 +100,19 @@ extern "C" void kernel_main()
         Scheduler::timer_tick();
     });
 
-    kernel->interrupt_manager().registerHandler(
-        IRQ_TIMER, []() {
-            Kernel* kernel = &Kernel::instance();
-            kernel->scheduler().pick_next_task();
-        });
-    kernel->interrupt_manager().registerHandler(
-        APIC_TIMER_VECTOR, []() {
-            Kernel* kernel = &Kernel::instance();
-            kernel->scheduler().pick_next_task();
-        });
+    kernel->interrupt_manager().registerHandler(IRQ_TIMER, []() {
+        Kernel* kernel = &Kernel::instance();
+        kernel->scheduler().pick_next_task();
+    });
+    kernel->interrupt_manager().registerHandler(APIC_TIMER_VECTOR, []() {
+        Kernel* kernel = &Kernel::instance();
+        kernel->scheduler().pick_next_task();
+    });
     // 注册键盘中断处理函数
     keyboard_init();
     kernel->interrupt_manager().registerHandler(0x21, []() {
         debug_rate_limited("keyboard interrupt called!\n");
-        auto pcb = ProcessManager::get_current_process();
+        auto pcb = ProcessManager::get_current_task();
         if(pcb->debug_status & DEBUG_STATUS_HALT) {
             debug_debug("hlt keyboard interrupt\n");
             while(true) {
@@ -266,18 +266,21 @@ extern "C" void kernel_main()
 
     // 尝试加载并执行init程序
     auto cr3 = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
-    ProcessManager::get_current_process()->regs.cr3 = Kernel::instance().kernel_mm().virt2Phys(cr3);
+    ProcessManager::get_current_task()->regs.cr3 = Kernel::instance().kernel_mm().virt2Phys(cr3);
     debug_info("Trying to execute /init...\n");
     ProcessManager::initIdle();
     debug_debug("Trying to execute /init...\n");
-    init_proc = ProcessManager::kernel_thread("init", (uint32_t)init, 0, nullptr);
-    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
-    ProcessManager::cloneMemorySpace(init_proc, (ProcessControlBlock*)ProcessManager::idle_pcb);
-    ProcessManager::allocUserStack(init_proc);
-    init_proc->state = PROCESS_RUNNING;
-    ProcessManager::appendPCB((PCB*)init_proc);
+    auto ctxt = ProcessManager::get_current_task()->context;
+    init_proc = ProcessManager::kernel_task(ctxt, "init", (uint32_t)init, 0, nullptr);
+    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->task_id);
 
-    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
+    init_proc->context = new Context();
+    ProcessManager::cloneMemorySpace(init_proc->context, (Context*)ProcessManager::kernel_context);
+    ProcessManager::allocUserStack(init_proc->context);
+    init_proc->state = PROCESS_RUNNING;
+    ProcessManager::appendPCB((Kontext*)init_proc);
+
+    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->task_id);
     init_proc->print();
     debug_debug("init_proc initialized\n");
 

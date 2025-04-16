@@ -54,29 +54,29 @@ void ProcessManager::init()
 
 void ProcessManager::initIdle()
 {
-    idle_pcb = CURRENT();
-    auto& pcb = idle_pcb->pcb;
-    strcpy(pcb.name, "idle");
-    pcb.pid = 0;
-    pcb.state = PROCESS_RUNNING;
-    pcb.priority = 0;
-    pcb.time_slice = 100;
-    pcb.total_time = 0;
+    kernel_context = CURRENT();
+    auto& pcb = kernel_context->context;
+    strcpy(pcb.def_task.name, "idle");
+    pcb.def_task.task_id = 0;
+    pcb.def_task.state = PROCESS_RUNNING;
+    pcb.def_task.priority = 0;
+    pcb.def_task.time_slice = 100;
+    pcb.def_task.total_time = 0;
 
-    pcb.stacks.esp0 = (uint32_t)CURRENT() + KERNEL_STACK_SIZE;
-    pcb.stacks.ss0 = KERNEL_DS;
-    pcb.stacks.ebp0 = pcb.stacks.esp0;
+    pcb.def_task.stacks.esp0 = (uint32_t)CURRENT() + KERNEL_STACK_SIZE;
+    pcb.def_task.stacks.ss0 = KERNEL_DS;
+    pcb.def_task.stacks.ebp0 = pcb.def_task.stacks.esp0;
 
-    pcb.regs.cr3 = 0x400000;
-    pcb.regs.ss = 0x10;
+    pcb.def_task.regs.cr3 = 0x400000;
+    pcb.def_task.regs.ss = 0x10;
 
-    pcb.next = &pcb;
-    pcb.prev = &pcb;
+    pcb.def_task.next = &pcb.def_task;
+    pcb.def_task.prev = &pcb.def_task;
 
-    current_pcb = &pcb;
+    current_task = &pcb.def_task;
 
-    debug_debug("idle pcb: %x\n", idle_pcb);
-    idle_pcb->pcb.print();
+    debug_debug("idle pcb: %x\n", kernel_context);
+    kernel_context->context.print();
 }
 
 kernel::ConsoleFS console_fs;
@@ -84,80 +84,76 @@ kernel::ConsoleFS console_fs;
 void* operator new(size_t size, void* ptr) noexcept;
 void* operator new[](size_t size, void* ptr) noexcept;
 // 创建新进程框架
-ProcessControlBlock* ProcessManager::create_process(const char* name)
+Context* ProcessManager::create_context(const char* name)
 {
     uint32_t pid = pid_manager.alloc();
     debug_info("creating process with pid: %d\n", pid);
 
     auto& kernel_mm = Kernel::instance().kernel_mm();
     auto addr = kernel_mm.alloc_pages(0, 2); // gfp_mask = 0, order = 2 (4 pages)
-    auto pcb = new((void*)kernel_mm.phys2Virt(addr)) ProcessControlBlock();
+    auto context = new((void*)kernel_mm.phys2Virt(addr)) Context();
+    auto task = context->def_task;
+    task.context = context;
 
     // auto pcbAddr = &((PCB*)kernel_mm.alloc_pages(4))->pcb;
     // auto& pcb = *pcbAddr;
-    strcpy(pcb->name, name);
-    pcb->pid = pid;
-    pcb->state = PROCESS_NEW;
-    pcb->priority = 1;
-    pcb->time_slice = 100;
-    pcb->total_time = 0;
+    strcpy(context->def_task.name, name);
+    context->def_task.task_id = pid;
+    context->def_task.state = PROCESS_NEW;
+    context->def_task.priority = 1;
+    context->def_task.time_slice = 100;
+    context->def_task.total_time = 0;
     // 分配内核态栈
-    pcb->stacks.ss0 = KERNEL_DS;
-    auto kernel_stack = (uint8_t*)(pcb);
-    pcb->stacks.esp0 = (uint32_t)kernel_stack + KERNEL_STACK_SIZE - 16;
-    pcb->stacks.ebp0 = pcb->stacks.esp0;
+    context->def_task.stacks.ss0 = KERNEL_DS;
+    auto kernel_stack = (uint8_t*)(context);
+    context->def_task.stacks.esp0 = (uint32_t)kernel_stack + KERNEL_STACK_SIZE - 16;
+    context->def_task.stacks.ebp0 = context->def_task.stacks.esp0;
 
-    return pcb;
+    return context;
 }
 
 // 初始化进程详细信息
-ProcessControlBlock* ProcessManager::kernel_thread(
+Task* ProcessManager::kernel_task(Context *context,
     const char* name, uint32_t entry, uint32_t argc, char* argv[])
 {
-    auto pPcb = create_process(name);
-    auto& pcb = *pPcb;
     auto& kernel_mm = Kernel::instance().kernel_mm();
 
     auto pgd = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
     debug_debug("ProcessManager: Current Page Directory: %x\n", pgd);
+    auto &task = *new Task();
 
     // 清理用户栈
-    pcb.stacks.user_stack = 0;
-    pcb.stacks.user_stack_size = 0;
+    task.stacks.user_stack = 0;
+    task.stacks.user_stack_size = 0;
 
     // 初始化寄存器
-    pcb.regs.eip = entry;
-    pcb.regs.eflags = 0x200;
+    task.regs.eip = entry;
+    task.regs.eflags = 0x200;
 
-    pcb.regs.cs = KERNEL_CS;
-    pcb.regs.ds = KERNEL_DS;
-    pcb.regs.es = KERNEL_DS;
-    pcb.regs.gs = KERNEL_DS;
-    pcb.regs.fs = KERNEL_DS;
-    pcb.regs.ss = KERNEL_DS;
+    task.regs.cs = KERNEL_CS;
+    task.regs.ds = KERNEL_DS;
+    task.regs.es = KERNEL_DS;
+    task.regs.gs = KERNEL_DS;
+    task.regs.fs = KERNEL_DS;
+    task.regs.ss = KERNEL_DS;
 
-    pcb.regs.esp = pcb.stacks.esp0;
-    pcb.regs.ebp = pcb.stacks.ebp0;
+    task.regs.esp = task.stacks.esp0;
+    task.regs.ebp = task.stacks.ebp0;
 
-    pcb.regs.cr3 = 0x400000;
+    task.regs.cr3 = 0x400000;
 
     // 复制进程名称
     for(int i = 0; i < PROCNAME_LEN && name[i]; i++) {
-        pcb.name[i] = name[i];
+        task.name[i] = name[i];
     }
-    pcb.name[PROCNAME_LEN] = '\0';
+    task.name[PROCNAME_LEN] = '\0';
 
-    // 初始化标准输入输出流
-    pcb.fd_table[0] = console_fs.open("/dev/console");
-    pcb.fd_table[1] = console_fs.open("/dev/console");
-    pcb.fd_table[2] = console_fs.open("/dev/console");
-
-    debug_debug("initialized process 0x%x, pid: %d\n", pPcb, pcb.pid);
-    pcb.print();
+    debug_debug("initialized task 0x%x, tid: %d\n", task, task.task_id);
+    task.print();
     // appendPCB((PCB*)pPcb);
-    return pPcb;
+    return &task;
 }
-int ProcessControlBlock::allocate_fd()
+int Context::allocate_fd()
 {
     auto ret = next_fd;
     debug_debug("allocate_fd: %x\n", ret);
@@ -165,7 +161,7 @@ int ProcessControlBlock::allocate_fd()
     return ret;
 }
 
-void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControlBlock* parent)
+void ProcessManager::cloneMemorySpace(Context* child, Context* parent)
 {
     if(!child) {
         debug_err("ProcessManager: Invalid PCB pointer\n");
@@ -175,7 +171,7 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
     auto& kernel_mm = kernel.kernel_mm();
     debug_debug("Copying memory space\n");
     // 使用COW方式复制内存空间
-    PageDirectory* parent_pgd = (PageDirectory*)kernel_mm.phys2Virt(parent->regs.cr3);
+    PageDirectory* parent_pgd = (PageDirectory*)kernel_mm.phys2Virt(parent->def_task.regs.cr3);
     auto paddr = kernel_mm.alloc_pages(0, 0); // gfp_mask = 0, order = 0 (1 page)
     debug_debug("alloc page at 0x%x\n", paddr);
     auto child_pgd = kernel_mm.phys2Virt(paddr);
@@ -184,7 +180,7 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
     debug_info("Copying memory space\n");
     kernel_mm.paging().copyMemorySpaceCOW(parent_pgd, (PageDirectory*)child_pgd);
     debug_debug("Copying page at 0x%x\n", paddr);
-    child->regs.cr3 = paddr;
+    child->def_task.regs.cr3 = paddr;
     child->user_mm.init((uint32_t)child_pgd,
         []() {
             auto page = Kernel::instance().kernel_mm().alloc_pages(
@@ -200,33 +196,33 @@ void ProcessManager::cloneMemorySpace(ProcessControlBlock* child, ProcessControl
         });
 }
 
-int ProcessManager::allocUserStack(ProcessControlBlock* pcb)
+int ProcessManager::allocUserStack(Context* pcb)
 {
     auto& mm = pcb->user_mm;
-    pcb->stacks.user_stack_size = USER_STACK_SIZE;
-    pcb->stacks.user_stack =
-        (uint32_t)mm.allocate_area(pcb->stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
-    debug_debug("user stack:0x%x\n", pcb->stacks.user_stack);
-    printPDPTE((void*)pcb->stacks.user_stack);
-    if(!pcb->stacks.user_stack) {
+    pcb->def_task.stacks.user_stack_size = USER_STACK_SIZE;
+    pcb->def_task.stacks.user_stack = (uint32_t)mm.allocate_area(
+        pcb->def_task.stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
+    debug_debug("user stack:0x%x\n", pcb->def_task.stacks.user_stack);
+    printPDPTE((void*)pcb->def_task.stacks.user_stack);
+    if(!pcb->def_task.stacks.user_stack) {
         debug_debug("ProcessManager: Failed to allocate user stack\n");
         return -1;
     }
     return 0;
 }
 
-void ProcessManager::appendPCB(PCB* pcb)
+void ProcessManager::appendPCB(Kontext* kontext)
 {
-    if(!pcb) {
+    if(!kontext) {
         debug_err("ProcessManager: Invalid PCB pointer\n");
         return;
     }
-    auto root = &idle_pcb->pcb;
-    auto tail = root->prev;
-    tail->next = &pcb->pcb;
-    pcb->pcb.prev = tail;
-    pcb->pcb.next = root;
-    root->prev = &pcb->pcb;
+    auto root = &kernel_context->context;
+    auto tail = root->def_task.prev;
+    tail->next = &kontext->context.def_task;
+    kontext->context.def_task.prev = tail;
+    kontext->context.def_task.next = &root->def_task;
+    root->def_task.prev = &kontext->context.def_task;
 }
 
 kernel::ConsoleFS ProcessManager::console_fs;
@@ -259,14 +255,19 @@ void Stacks::print()
     debug_info("    Esp0:0x%x, Ebp0:0x%x, Ss0:0x%x\n", esp0, ebp0, ss0);
 }
 
-void ProcessControlBlock::print()
+void Context::print()
 {
-    debug_info("Process: %s (PID: %d), pcb_addr:0x%x\n", name, pid, this);
+    def_task.print();
+    user_mm.print();
+}
+
+void Task::print()
+{
+    debug_info("Process: %s (PID: %d), pcb_addr:0x%x\n", name, task_id, this);
     debug_info("  State: %d, Priority: %d, Time: %d/%d\n", state, priority, total_time, time_slice);
 
     regs.print();
     stacks.print();
-    user_mm.print();
 }
 
 /**
@@ -296,64 +297,67 @@ int ProcessManager::fork()
     Kernel& kernel = Kernel::instance();
     auto& kernel_mm = kernel.kernel_mm();
 
-    ProcessControlBlock* parent = ProcessManager::get_current_process();
+    Task* parent_task = ProcessManager::get_current_task();
     debug_info("before fork parent pcb:\n");
-    parent->print();
+    parent_task->print();
 
     // 创建子进程
     debug_info("Creating child process\n");
-    auto child = create_process(parent->name);
-    if(child->pid == 0) {
+    auto child = create_context(parent_task->name);
+    if(child->def_task.task_id == 0) {
         debug_err("Create process failed\n");
         return -1;
     }
 
     debug_info("Copying parent process memory space\n");
-    cloneMemorySpace(child, parent);
-    child->user_mm.clone(parent->user_mm);
+    cloneMemorySpace(child, parent_task->context);
+    child->user_mm.clone(parent_task->context->user_mm);
 
     debug_info("Copying parent process registers\n");
-    memcpy(&child->regs, &parent->regs, sizeof(Registers));
-    child->regs.eax = 0; // 子进程返回0
+    auto& child_task = child->def_task;
+    memcpy(&child_task.regs, &parent_task->regs, sizeof(Registers));
+    child_task.regs.eax = 0; // 子进程返回0
 
     // 拷贝堆栈数据
-    child->stacks.user_stack = parent->stacks.user_stack;
-    child->stacks.user_stack_size = parent->stacks.user_stack_size;
+    child_task.stacks.user_stack = parent_task->stacks.user_stack;
+    child_task.stacks.user_stack_size = parent_task->stacks.user_stack_size;
     // 为栈分配新的物理页面
-    uint8_t* start = (uint8_t*)child->stacks.user_stack;
-    uint8_t* end = (uint8_t*)child->stacks.user_stack + child->stacks.user_stack_size;
+    uint8_t* start = (uint8_t*)child_task.stacks.user_stack;
+    uint8_t* end = (uint8_t*)child_task.stacks.user_stack + child_task.stacks.user_stack_size;
     for(uint8_t* p = start; p < end; p += PAGE_SIZE) {
-        copyCOWPage((uint32_t)p, parent->user_mm.getPageDirectory(), child->user_mm);
+        copyCOWPage((uint32_t)p, parent_task->context->user_mm.getPageDirectory(),
+            child_task.context->user_mm);
     }
 
     // 复制文件描述符表
-    memcpy(&child->fd_table, &parent->fd_table, sizeof(child->fd_table));
+    memcpy(&child_task.context->fd_table, &parent_task->context->fd_table,
+        sizeof(child_task.context->fd_table));
 
     // 复制进程状态和属性
-    child->state = PROCESS_READY;
-    child->priority = parent->priority;
-    child->time_slice = parent->time_slice;
-    child->total_time = 0; // 新进程从0开始计时
-    child->exit_status = 0;
+    child_task.state = PROCESS_READY;
+    child_task.priority = parent_task->priority;
+    child_task.time_slice = parent_task->time_slice;
+    child_task.total_time = 0; // 新进程从0开始计时
+    child_task.exit_status = 0;
 
     // 设置子进程状态为就绪
-    child->state = PROCESS_READY;
-    debug_info("fork child->pcb:\n");
-    child->print();
+    child_task.state = PROCESS_READY;
+    debug_info("fork child_task.pcb:\n");
+    child_task.print();
 
-    appendPCB((PCB*)child);
+    appendPCB((Kontext*)child);
 
-    debug_info("fork return, parent: %d, child:%d\n", parent->pid, child->pid);
-    return child->pid;
+    debug_info("fork return, parent: %d, child:%d\n", parent_task->task_id, child_task.task_id);
+    return child_task.task_id;
 }
 
 // 切换到下一个进程
 bool ProcessManager::schedule()
 {
-    auto current = (PCB*)current_pcb;
+    auto current = (Kontext*)current_task;
     // debug_debug("schedule enter, current pcb 0x%x!\n", current);
-    auto next = current->pcb.next;
-    while(next != &current->pcb) {
+    auto next = current->context.def_task.next;
+    while(next != &current->context.def_task) {
         // debug_debug("schedule called, current: %d, next:%d, nextstate:%d\n", current->pcb.pid,
         // next->pid, next->state);
         if(next->state == PROCESS_READY || next->state == PROCESS_RUNNING) {
@@ -368,14 +372,14 @@ bool ProcessManager::schedule()
         }
         next = next->next;
     }
-    if(next == &current->pcb) {
-        debug_debug("equal process: 0x%x, pid:%d\n", next, next->pid);
-        current_pcb = next;
+    if(next == &current->context.def_task) {
+        debug_debug("equal process: 0x%x, pid:%d\n", next, next->task_id);
+        current_task = next;
         return false; // 所有进程都处于就绪状态，无需切换
     } else {
         next->state = PROCESS_RUNNING;
         // debug_debug("switch to next process: %d\n", next->pid);
-        current_pcb = next;
+        current_task = next;
         // debug_debug("will schedule to new process: pcb:\n");
         // next->print();
     }
@@ -387,7 +391,7 @@ void ProcessManager::save_context(uint32_t* esp)
 {
     // if (current_pid == 0) return;
 
-    ProcessControlBlock* current = current_pcb;
+    Task* current = current_task;
     auto& regs = current->regs;
     // 从中断栈中获取寄存器状态
     regs.eax = esp[7]; // pushad的顺序：eax,ecx,edx,ebx,esp,ebp,esi,edi
@@ -424,7 +428,7 @@ void ProcessManager::save_context(uint32_t* esp)
 // 恢复新进程的寄存器状态（由中断处理程序调用）
 void ProcessManager::restore_context(uint32_t* esp)
 {
-    ProcessControlBlock* next = current_pcb;
+    Task* next = current_task;
     auto& regs = next->regs;
     // if(next != &CURRENT()->pcb) {
     //     debug_debug("restore context called, current:0x%x, next_pcb: 0x%x, pid: %d\n", CURRENT(),
@@ -465,27 +469,28 @@ void ProcessManager::restore_context(uint32_t* esp)
     GDT::updateTSS(next->stacks.esp0, KERNEL_DS);
     GDT::updateTSSCR3(next->regs.cr3);
 }
-ProcessControlBlock* ProcessManager::get_current_process() { return current_pcb; }
+Task* ProcessManager::get_current_task() { return current_task; }
 
-void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlock* pcb)
+void ProcessManager::switch_to_user_mode(uint32_t entry_point, Context* context)
 {
     // auto pcb = get_current_process();
-    auto user_stack = pcb->stacks.user_stack + pcb->stacks.user_stack_size - 16;
+    auto task = &context->def_task;
+    auto user_stack = task->stacks.user_stack + task->stacks.user_stack_size - 16;
     debug_debug(
         "switch_to_user_mode called, user stack: %x, entry point %x\n", user_stack, entry_point);
 
     debug_debug("will switch to user: kernel pcb:");
-    get_current_process()->print();
+    get_current_task()->print();
 
-    pcb->regs.eip = entry_point;
-    pcb->regs.esp = user_stack;
-    pcb->regs.ss = pcb->regs.ds = USER_DS;
-    pcb->regs.eflags == 0x200;
+    task->regs.eip = entry_point;
+    task->regs.esp = user_stack;
+    task->regs.ss = task->regs.ds = USER_DS;
+    task->regs.eflags == 0x200;
 
-    __printPDPTE((void*)entry_point, (PageDirectory*)pcb->user_mm.getPageDirectory());
-    __printPDPTE((void*)user_stack, (PageDirectory*)pcb->user_mm.getPageDirectory());
-    GDT::updateTSS(pcb->stacks.esp0, KERNEL_DS);
-    GDT::updateTSSCR3(pcb->regs.cr3);
+    __printPDPTE((void*)entry_point, (PageDirectory*)context->user_mm.getPageDirectory());
+    __printPDPTE((void*)user_stack, (PageDirectory*)context->user_mm.getPageDirectory());
+    GDT::updateTSS(task->stacks.esp0, KERNEL_DS);
+    GDT::updateTSSCR3(task->regs.cr3);
 
     asm volatile("mov %%eax, %%esp\n\t"    // 设置用户栈指针
                  "pushl $0x23\n\t"         // 用户数据段选择子
@@ -502,17 +507,17 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, ProcessControlBlo
 }
 
 // 静态成员初始化
-PCB* ProcessManager::idle_pcb;
-ProcessControlBlock* ProcessManager::current_pcb = nullptr;
+Kontext* ProcessManager::kernel_context;
+Task* ProcessManager::current_task = nullptr;
 
 void ProcessManager::sleep_current_process(uint32_t ticks)
 {
-    ProcessControlBlock* pcb = get_current_process();
-    if(!pcb)
+    Task* task = get_current_task();
+    if(!task)
         return;
 
-    pcb->state = PROCESS_SLEEPING; // 需要确保枚举值已定义
-    pcb->sleep_ticks = ticks;      // 需要在PCB结构中添加该字段
+    task->state = PROCESS_SLEEPING; // 需要确保枚举值已定义
+    task->sleep_ticks = ticks;      // 需要在PCB结构中添加该字段
 
     // 触发调度让出CPU
     schedule();

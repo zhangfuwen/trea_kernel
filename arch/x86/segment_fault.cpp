@@ -4,7 +4,7 @@
 extern "C" void general_fault_errno_handler(uint32_t isr_no, uint32_t error_code)
 {
     debug_debug("fault occurred! NO. %d, Error code: %d\n", isr_no, error_code);
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     pcb->print();
 }
 
@@ -28,7 +28,7 @@ extern "C" void general_protection_fault_handler(uint32_t error_code)
     if((error_code & 0xFFFF0000) != 0) {
         debug_debug("Accessed segment: 0x%04X\n", (error_code >> 16) & 0xFFFF);
     }
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     pcb->print();
 
     // 停止系统

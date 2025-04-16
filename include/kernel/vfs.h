@@ -5,7 +5,7 @@
 #include <unistd.h>
 //#include <sys/types.h>
 
-struct ProcessControlBlock;
+struct Task;
 namespace kernel
 {
 
@@ -35,11 +35,11 @@ struct FileAttribute {
     uint32_t blocks;  // 块数量
 };
 
-int sys_open(uint32_t path_ptr, ProcessControlBlock* pcb);
-int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb);
-int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, ProcessControlBlock* pcb);
-int sys_close(uint32_t fd_num, ProcessControlBlock* pcb);
-int sys_seek(uint32_t fd_num, uint32_t offset, ProcessControlBlock* pcb);
+int sys_open(uint32_t path_ptr, Task* task);
+int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* pcb);
+int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* task);
+int sys_close(uint32_t fd_num, Task* pcb);
+int sys_seek(uint32_t fd_num, uint32_t offset, Task* pcb);
 
 void init_vfs();
 // 文件描述符

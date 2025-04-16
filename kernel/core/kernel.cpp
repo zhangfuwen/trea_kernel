@@ -66,10 +66,10 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
     debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
 
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     pcb->print();
-    auto pgd = pcb->user_mm.getPageDirectory();
-    auto& user_mm = pcb->user_mm;
+    auto pgd = pcb->context->user_mm.getPageDirectory();
+    auto& user_mm = pcb->context->user_mm;
 
     // __printPDPTE((void*)fault_addr, (PageDirectory*)pgd);
 

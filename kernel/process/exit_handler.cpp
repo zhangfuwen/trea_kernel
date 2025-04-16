@@ -9,7 +9,7 @@ int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t)
     debug_debug("Process exiting with status %d\n", status);
 
     // 获取当前进程
-    ProcessControlBlock* current = ProcessManager::get_current_process();
+    Task* current = ProcessManager::get_current_task();
     if(!current) {
         return -1;
     }

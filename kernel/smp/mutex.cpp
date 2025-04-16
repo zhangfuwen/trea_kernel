@@ -11,13 +11,13 @@ Mutex::Mutex(uint8_t type) : state(MUTEX_UNLOCKED), owner(0), recursion(0), type
 
 bool Mutex::lock(uint32_t timeout) {
     // 获取当前进程
-    auto current = ProcessManager::get_current_process();
+    auto current = ProcessManager::get_current_task();
     if (!current) {
         debug_err("Mutex::lock: No current process\n");
         return false;
     }
 
-    uint32_t pid = current->pid;
+    uint32_t pid = current->task_id;
     uint32_t elapsed = 0;
 
     // 禁用中断并获取自旋锁，保护互斥锁状态
@@ -79,13 +79,13 @@ bool Mutex::tryLock() {
 
 bool Mutex::unlock() {
     // 获取当前进程
-    auto current = ProcessManager::get_current_process();
+    auto current = ProcessManager::get_current_task();
     if (!current) {
         debug_err("Mutex::unlock: No current process\n");
         return false;
     }
 
-    uint32_t pid = current->pid;
+    uint32_t pid = current->task_id;
 
     // 禁用中断并获取自旋锁
     uint32_t flags;
@@ -138,7 +138,7 @@ void Mutex::wakeNextWaiter() {
 
     // 唤醒该进程
     // 遍历进程链表查找指定PID的进程
-    auto current = ProcessManager::get_current_process();
+    auto current = ProcessManager::get_current_task();
     if (!current) {
         delete waiter;
         return;
@@ -149,7 +149,7 @@ void Mutex::wakeNextWaiter() {
     auto start = pcb;
     
     do {
-        if (pcb->pid == waiter->pid) {
+        if (pcb->task_id == waiter->pid) {
             // 找到了指定PID的进程，将其状态设置为就绪
             pcb->state = PROCESS_READY;
             pcb->sleep_ticks = 0;
@@ -164,14 +164,14 @@ void Mutex::wakeNextWaiter() {
 
 void Mutex::addWaiter() {
     // 获取当前进程
-    auto current = ProcessManager::get_current_process();
+    auto current = ProcessManager::get_current_task();
     if (!current) {
         return;
     }
 
     // 创建新的等待节点
     WaitNode* node = new WaitNode();
-    node->pid = current->pid;
+    node->pid = current->task_id;
     node->next = nullptr;
 
     // 将节点添加到等待队列尾部
@@ -216,12 +216,12 @@ void Mutex::removeWaiter(uint32_t pid) {
 
 bool Mutex::wouldDeadlock() const {
     // 简单的死锁检测：如果当前进程已经在等待队列中，则可能会导致死锁
-    auto current = ProcessManager::get_current_process();
+    auto current = ProcessManager::get_current_task();
     if (!current) {
         return false;
     }
 
-    uint32_t pid = current->pid;
+    uint32_t pid = current->task_id;
     WaitNode* node = wait_list;
     while (node) {
         if (node->pid == pid) {

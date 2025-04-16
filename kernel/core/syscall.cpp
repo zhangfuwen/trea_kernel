@@ -35,13 +35,13 @@ int getdentsHandler(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos
 }
 int sys_getdents(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr)
 {
-    auto pcb = ProcessManager::get_current_process();
-    if(fd_num >= 256 || !pcb->fd_table[fd_num]) {
+    auto pcb = ProcessManager::get_current_task();
+    if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         return -1; // 无效的文件描述符
     }
     
     // 获取文件描述符
-    auto fd = pcb->fd_table[fd_num];
+    auto fd = pcb->context->fd_table[fd_num];
     
     // 获取位置指针
     uint32_t* pos = reinterpret_cast<uint32_t*>(pos_ptr);
@@ -85,7 +85,7 @@ int sys_stat(const char* path, kernel::FileAttribute* attr)
 
 int statHandler(uint32_t path_ptr, uint32_t attr_ptr, uint32_t, uint32_t)
 {
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     const char* path = reinterpret_cast<const char*>(path_ptr);
     kernel::FileAttribute* attr = reinterpret_cast<kernel::FileAttribute*>(attr_ptr);
     
@@ -106,18 +106,18 @@ int getcwdHandler(uint32_t buf_ptr, uint32_t size, uint32_t, uint32_t)
 
 int sys_getcwd(char* buf, size_t size)
 {
-    auto pcb = ProcessManager::get_current_process();
+    auto pcb = ProcessManager::get_current_task();
     if (!buf || size == 0) {
         return -1;
     }
     
-    size_t cwd_len = strlen(pcb->cwd);
+    size_t cwd_len = strlen(pcb->context->cwd);
     
     if (cwd_len + 1 > size) {
         return -1; // 缓冲区太小
     }
     
-    strncpy(buf, pcb->cwd, size);
+    strncpy(buf, pcb->context->cwd, size);
     return 0;
 }
 
@@ -171,9 +171,9 @@ int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 }
 
 int sys_getpid() {
-    auto pcb =  ProcessManager::get_current_process();
-    debug_info("pcb is %x, pid is %d\n", pcb, pcb->pid);
-    return pcb->pid;
+    auto pcb =  ProcessManager::get_current_task();
+    debug_info("pcb is %x, pid is %d\n", pcb, pcb->task_id);
+    return pcb->task_id;
 }
 
 int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t) {
@@ -229,7 +229,7 @@ void SyscallManager::defaultHandler()
 }
 
 // execve系统调用处理函数
-int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessControlBlock* pcb)
+int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* pcb)
 {
     debug_debug("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
 
@@ -250,18 +250,18 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
     debug_debug("File stat ret %d, size %d!\n", ret, attr->size);
 
     // 读取文件内容
-    auto filep = pcb->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
+    auto filep = pcb->context->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
     debug_debug("File allocated at %x\n", filep);
     uint32_t num_pages = (attr->size + PAGE_SIZE - 1) / PAGE_SIZE;
     for(uint32_t i = 0; i < num_pages; i++) {
         auto phys_addr = Kernel::instance().kernel_mm().alloc_pages(0, 0); // 每次分配一页
-        pcb->user_mm.map_pages((uint32_t)filep + i * PAGE_SIZE, phys_addr, PAGE_SIZE,
+        pcb->context->user_mm.map_pages((uint32_t)filep + i * PAGE_SIZE, phys_addr, PAGE_SIZE,
             PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
     }
     debug_debug("File allocated at %x\n", filep);
     int size = kernel::sys_read(fd, (uint32_t)filep, attr->size, pcb);
     if(size <= 0) {
-        pcb->user_mm.free_area((uint32_t)filep);
+        pcb->context->user_mm.free_area((uint32_t)filep);
         debug_err("Failed to read executable file\n");
         return -1;
     }
@@ -272,7 +272,7 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
     // pcb->mm.unmap_pages(0x40000000, 0x80000000 - 0x40000000);
 
     // 加载ELF文件
-    pcb->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_WRITE | PAGE_USER);
+    pcb->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_WRITE | PAGE_USER);
 
     // auto loadAddr = pcb->user_mm.allocate_area(0x4000, PAGE_WRITE, 0);
     // auto paddr = Kernel::instance().kernel_mm().allocPage();
@@ -280,17 +280,17 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, ProcessC
     // PAGE_USER|PAGE_PRESENT);
     auto loadAddr = 0;
     if(!ElfLoader::load_elf(filep, size, (uint32_t)loadAddr)) {
-        pcb->user_mm.free_area((uint32_t)filep);
+        pcb->context->user_mm.free_area((uint32_t)filep);
         debug_err("Failed to load ELF file\n");
         return -1;
     }
-    pcb->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
+    pcb->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
 
     const ElfHeader* header = static_cast<const ElfHeader*>(filep);
     uint32_t entry_point = header->entry;
     debug_debug("entry_point: %x\n", entry_point);
 
-    ProcessManager::switch_to_user_mode(entry_point + (uint32_t)loadAddr, pcb);
+    ProcessManager::switch_to_user_mode(entry_point + (uint32_t)loadAddr, pcb->context);
     // pcb->mm.free_area((uint32_t)filep);
 
     return 0;

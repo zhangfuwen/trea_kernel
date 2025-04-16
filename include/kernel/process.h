@@ -25,16 +25,15 @@ enum ProcessState {
 #define PROCNAME_LEN 31
 #define MAX_PROCESS_FDS 256
 
-struct Stacks
-{
+struct Stacks {
     uint32_t user_stack;      // 用户态栈基址
     uint32_t user_stack_size; // 用户态栈大小
 
-    uint32_t esp0;              // 内核态栈指针
-    uint32_t ss0 = 0x08;        // 内核态栈段选择子
-    uint32_t ebp0;              // 内核态基址指针
+    uint32_t esp0;       // 内核态栈指针
+    uint32_t ss0 = 0x08; // 内核态栈段选择子
+    uint32_t ebp0;       // 内核态基址指针
     void print();
-    int allocSpace(UserMemory &mm);
+    int allocSpace(UserMemory& mm);
 };
 struct Registers {
     // 8个通用寄存器
@@ -65,54 +64,59 @@ struct Registers {
     void print();
 };
 
-namespace kernel {
-    class FileDescriptor;
+namespace kernel
+{
+class FileDescriptor;
 }
 
 // 进程控制块结构
-#define DEBUG_STATUS_HALT 1<<0
-struct ProcessControlBlock {
-    ProcessControlBlock* next = nullptr;
-    ProcessControlBlock* prev = nullptr;
-    uint32_t pid;       // 进程ID
-    ProcessState state; // 进程状态
-    char name[PROCNAME_LEN + 1];              // 进程名称
-    uint32_t priority;                        // 进程优先级
-    uint32_t time_slice;                      // 时间片
-    uint32_t total_time;                      // 总执行时间
-    uint32_t exit_status; // 退出状态码
+#define DEBUG_STATUS_HALT 1 << 0
+struct Context;
+struct Task {
+    uint32_t task_id;            // 进程ID
+    ProcessState state;          // 进程状态
+    char name[PROCNAME_LEN + 1]; // 进程名称
+    uint32_t priority;           // 进程优先级
+    uint32_t time_slice;         // 时间片
+    uint32_t total_time;         // 总执行时间
+    uint32_t exit_status;        // 退出状态码
     uint32_t sleep_ticks;
-    struct kernel::list_head sched_list;  // 调度链表节点
-    uint32_t affinity = 0;        // CPU亲和性掩码
-
-    UserMemory user_mm;        // 用户空间内存管理器
+    struct kernel::list_head sched_list; // 调度链表节点
+    uint32_t affinity = 0;               // CPU亲和性掩码
     Registers regs;
     Stacks stacks;
+    Task* next = nullptr;
+    Task* prev = nullptr;
+    Context* context = nullptr;
+    volatile uint32_t debug_status = 0;
+    void print();
+};
+struct Context {
+    Task def_task;
 
+    uint32_t context_id;
+    UserMemory user_mm; // 用户空间内存管理器
     kernel::FileDescriptor* fd_table[MAX_PROCESS_FDS] = {nullptr};
     int allocate_fd();
-    int next_fd = 3;      // 0, 1, 2 保留给标准输入、输出和错误
-    char cwd[256] = "/";  // 当前工作目录，默认为根目录
+    int next_fd = 3;     // 0, 1, 2 保留给标准输入、输出和错误
+    char cwd[256] = "/"; // 当前工作目录，默认为根目录
     void print();
-
-    volatile uint32_t debug_status = 0;
 };
-union PCB
-{
-    struct ProcessControlBlock pcb;
+union Kontext {
+    struct Context context;
     uint8_t stack[KERNEL_STACK_SIZE];
 };
 
 // 修改后的当前进程获取宏
-#define CURRENT() ({ \
-    uint32_t esp; \
-    asm volatile("mov %%esp, %0" : "=r"(esp)); \
-    (PCB*)(esp & ~0x3FFF); \
-})
+#define CURRENT()                                                                                  \
+    ({                                                                                             \
+        uint32_t esp;                                                                              \
+        asm volatile("mov %%esp, %0" : "=r"(esp));                                                 \
+        (Kontext*)(esp & ~0x3FFF);                                                                 \
+    })
 
-
-
-class PidManager {
+class PidManager
+{
 public:
     static int32_t alloc();
     static void free(uint32_t pid);
@@ -123,30 +127,30 @@ private:
     static uint32_t pid_bitmap[(MAX_PID + 31) / 32];
 };
 
-
-
-class ProcessManager {
+class ProcessManager
+{
 public:
     static void init();
-    static ProcessControlBlock* create_process(const char* name); // 修改内部实现使用PidManager
-    static ProcessControlBlock* kernel_thread(const char* name, uint32_t entry, uint32_t argc, char* argv[]);
+    static Context* create_context(const char* name); // 修改内部实现使用PidManager
+    static Task* kernel_task(
+        Context* ctx, const char* name, uint32_t entry, uint32_t argc, char* argv[]);
     static int fork();
-    static ProcessControlBlock* get_current_process();
+    static Task* get_current_task();
     // static int32_t execute_process(const char* path);
     static bool schedule(); // false for no more processes
     // static int switch_process(uint32_t pid);
     static PidManager pid_manager;
-    static void switch_to_user_mode(uint32_t entry_point, ProcessControlBlock*pcb);
+    static void switch_to_user_mode(uint32_t entry_point, Context* context);
     static void save_context(uint32_t* esp);
     static void restore_context(uint32_t* esp);
     static void initIdle();
-    static void appendPCB(PCB* pcb);
-    static void cloneMemorySpace(ProcessControlBlock* child, ProcessControlBlock* parent);
+    static void appendPCB(Kontext* kontext);
+    static void cloneMemorySpace(Context* child, Context* parent);
     // static void cloneMemory(ProcessControlBlock* pcb);
-    static int allocUserStack(ProcessControlBlock* pcb);
+    static int allocUserStack(Context* pcb);
     static void sleep_current_process(uint32_t ticks);
-    static ProcessControlBlock * current_pcb;
-    static PCB * idle_pcb;
+    static Task* current_task;
+    static Kontext* kernel_context;
 
 private:
     static kernel::ConsoleFS console_fs;

@@ -74,9 +74,9 @@ inline void _debug_print(
 #ifndef NO_PID
     // 获取当前进程PID和CPU ID
     int pid = 0;
-    ProcessControlBlock* current = ProcessManager::get_current_process();
+    Task* current = ProcessManager::get_current_task();
     if(current) {
-        pid = current->pid;
+        pid = current->task_id;
     }
     uint32_t cpu_id = arch::apic_get_id();
     // 打印CPU ID、PID、文件名、行号和函数名
