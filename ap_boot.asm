@@ -64,8 +64,10 @@ protected_mode:
     mov byte [ebx], 'P'     ; 显示 'P' 表示保护模式
     mov byte [ebx+1], 0x0F  ; 白色文字
 
-    ; TODO: 跳转到 AP 初始化代码
-    jmp $
+    ; 从预先定义的内存位置读取 ap_entry 地址
+    ; 假设主处理器将 ap_entry 地址存储在 0x7E00 位置
+    mov eax, [0x7E00]
+    jmp eax
 
 ; 填充数据，确保在固定偏移位置
 times 0x100 - ($ - ap_entry_asm) db 0
