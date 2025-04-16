@@ -292,10 +292,10 @@ extern "C" void kernel_main()
     // 初始化SMP，启动AP处理器
     arch::smp_init();
     debug_debug("SMP initialized\n");
-    kernel->scheduler().init();
-    kernel->scheduler().enqueue_task(init_proc);
+//    kernel->scheduler().init();
+//    kernel->scheduler().enqueue_task(init_proc);
 
-    asm volatile("sti");
+ ////////////////   asm volatile("sti");
     while(1) {
         debug_rate_limited("idle process!\n");
         asm volatile("hlt");

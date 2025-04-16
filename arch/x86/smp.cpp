@@ -5,6 +5,7 @@
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
 #include <lib/debug.h>
+#include <lib/serial.h>
 
 namespace arch
 {
@@ -29,17 +30,26 @@ void smp_init()
         uint32_t target_id = i;
         if(target_id != bsp_lapic_id) {
             apic_send_init(target_id);       // 发送INIT重置AP
-            for(int j = 0; j < 100000; j++) { // 等待AP重置完成
+            for(int j = 0; j < 10000000; j++) { // 等待AP重置完成
                 __asm__ volatile("pause");
             }
             apic_send_sipi(0x8000, target_id); // 第一次SIPI，AP从物理地址0x8000开始执行
-            for(int j = 0; j < 100000; j++) { // 等待AP重置完成
+            for(int j = 0; j < 10000000; j++) { // 等待AP重置完成
                 __asm__ volatile("pause");
             }
-            apic_send_sipi(0x8000, target_id); // 第二次SIPI，确保AP能收到启动信号
-            for(int j = 0; j < 100000; j++) { // 等待AP重置完成
-                __asm__ volatile("pause");
-            }
+            // apic_send_sipi(0x8000, target_id); // 第二次SIPI，确保AP能收到启动信号
+            // for(int j = 0; j < 100000; j++) { // 等待AP重置完成
+            //     __asm__ volatile("pause");
+            // }
+            // for(int j = 0; j < 100000; j++) { // 等待AP重置完成
+            //     __asm__ volatile("pause");
+            // }
+            // for(int j = 0; j < 10000000; j++) { // 等待AP重置完成
+            //     __asm__ volatile("pause");
+            // }
+            // for(int j = 0; j < 100000; j++) { // 等待AP重置完成
+            //     __asm__ volatile("pause");
+            // }
         }
     }
 
@@ -51,6 +61,10 @@ void smp_init()
 
 void ap_entry()
 {
+    while(true) {
+        serial_putc('0');
+    }
+    serial_putc('0' + apic_get_id());
     // AP从0x8000的启动代码跳转到这里继续执行
     // 初始化当前AP的LAPIC，使其能够接收中断
     debug_debug("ap_entry\n");

@@ -39,6 +39,6 @@ qemu-system-i386 \
     -hda $disk_image \
     -m 1G \
     -serial stdio  \
-    -d int \
     -smp cores=4 \
+    -d int \
     -s

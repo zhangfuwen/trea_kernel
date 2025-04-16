@@ -91,6 +91,7 @@ void apic_send_init(uint32_t target) {
 void apic_send_sipi(uint32_t physical_address, uint32_t target) {
     // 将物理地址转换为向量值（右移12位，因为AP会将向量值左移12位作为物理地址）
     uint8_t vector = (physical_address >> 12) & 0xFF;
+    // uint8_t vector = 0x80;
     
     icr_low icr;
     icr.raw = 0;
@@ -174,7 +175,7 @@ uint32_t apic_get_cpu_count() {
     // }
     // // 如果未获取到有效信息，返回默认值
     // return 1;
-    return 4;
+    return 2;
 }
 
 // 初始化IO APIC

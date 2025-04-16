@@ -10,12 +10,14 @@ section .text
     global _start
     extern kernel_main
 extern copy_ap_boot_to_8k
+extern copy_ap_boot_to_0k
 _start:
     cli                         ; 禁用中断
     mov esp, stack_top          ; 设置栈指针
     mov ebp, stack_top          ; 设置栈指针
 
     call copy_ap_boot_to_8k
+;    call copy_ap_boot_to_0k
 
     ; 调用C++内核主函数
     call kernel_main
@@ -25,15 +27,23 @@ _start:
     hlt
     jmp .hang
 
-extern ap_boot_entry
-extern ap_boot_entry_end
+extern ap_entry_asm
+extern ap_entry_asm_end
 copy_ap_boot_to_8k:
-    mov esi, ap_boot_entry
-
-    mov eax, ap_boot_entry_end
+    mov esi, ap_entry_asm
+    mov eax, ap_entry_asm_end
     sub eax, esi
     mov ecx, eax
     mov edi, 0x8000
+rep movsb
+ret
+
+copy_ap_boot_to_0k:
+    mov esi, ap_entry_asm
+    mov eax, ap_entry_asm_end
+    sub eax, esi
+    mov ecx, eax
+    mov edi, 0x0000
 rep movsb
 ret
 

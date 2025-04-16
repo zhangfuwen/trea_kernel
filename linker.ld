@@ -12,7 +12,7 @@ SECTIONS {
     .text BLOCK(4K) : ALIGN(4K) {
         *(.text)
     }
-    .text BLOCK(4K) : ALIGN(4K) {
+    .text.ap_boot BLOCK(4K) : ALIGN(4K) {
         *(.ap_boot16)
     }
 
