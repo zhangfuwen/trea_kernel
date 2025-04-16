@@ -97,7 +97,7 @@ extern "C" void handleInterrupt(uint32_t interrupt)
     if(im.handlers[interrupt]) {
         im.handlers[interrupt]();
     } else {
-        debug_debug("[INT] Unhandled interrupt %d(0x%x), name:%s\n", interrupt, interrupt,
+        debug_rate_limited("[INT] Unhandled interrupt %d(0x%x), name:%s\n", interrupt, interrupt,
             interrupt_names[interrupt]);
     }
 

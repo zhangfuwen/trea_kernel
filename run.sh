@@ -34,11 +34,14 @@ fi
 
 # 运行内核
 echo "启动CustomKernel..."
+# 运行 QEMU 并启用详细调试日志，输出到文件以便后续分析
+# 启用多个日志类别以记录尽可能多的信息
+# 注意：QEMU 默认日志不包含时间戳，可以通过外部工具（如 ts 或 logger）添加时间戳
+# 来源信息（如 CPU ID）可能在某些日志类别中包含
 qemu-system-i386 \
     -cdrom $iso_file \
     -hda $disk_image \
     -m 1G \
     -serial stdio  \
     -smp cores=4 \
-    -d int \
-    -s
+    -s 2>&1 | tee qemu.log

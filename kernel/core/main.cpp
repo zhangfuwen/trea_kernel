@@ -30,6 +30,7 @@ void run_format_string_tests();
 
 // extern "C" void apic_timer_interrupt();
 extern "C" void timer_interrupt();
+extern "C" void apic_timer_interrupt();
 extern "C" void keyboard_interrupt();
 extern "C" void cascade_interrupt();
 extern "C" void ide1_interrupt();
@@ -97,26 +98,16 @@ extern "C" void kernel_main()
         Scheduler::timer_tick();
     });
 
-    auto timer_interrupt_vector =
-        kernel->interrupt_manager().get_controller()->get_vector(IRQ_TIMER);
-    kernel->interrupt_manager().registerHandler(timer_interrupt_vector, []() {
-        // debug_rate_limited("timer interrupt!\n");
-            auto pcb = ProcessManager::get_current_process();
-        if(pcb->debug_status & DEBUG_STATUS_HALT) {
-            debug_debug("hlt timer interrupt\n");
-            while(true) {
-                asm volatile("hlt");
-            }
-        }
-        static int count = 0;
-        if(++count % 1000 == 0) {
-            count = 0;
-            //    debug_rate_limited("timer interrupt!\n");
-            debug_debug("timer interrupt !\n");
-            // Scheduler::timer_tick();
-        }
-    });
-    debug_debug("timer interrupt vector: %d\n", timer_interrupt_vector);
+    kernel->interrupt_manager().registerHandler(
+        IRQ_TIMER, []() {
+            Kernel* kernel = &Kernel::instance();
+            kernel->scheduler().pick_next_task();
+        });
+    kernel->interrupt_manager().registerHandler(
+        APIC_TIMER_VECTOR, []() {
+            Kernel* kernel = &Kernel::instance();
+            kernel->scheduler().pick_next_task();
+        });
     // 注册键盘中断处理函数
     keyboard_init();
     kernel->interrupt_manager().registerHandler(0x21, []() {
@@ -142,7 +133,8 @@ extern "C" void kernel_main()
     IDT::setGate(INT_STACK_FAULT, (uint32_t)stack_fault_interrupt, 0x08, 0xEE);
     // IDT::setGate(INT_COPROCESSOR_SEG, (uint32_t)stack_fault_interrupt, 0x08, 0xEE);
 
-    IDT::setGate(timer_interrupt_vector, (uint32_t)timer_interrupt, 0x08, 0xEE);
+    IDT::setGate(APIC_TIMER_VECTOR, (uint32_t)apic_timer_interrupt, 0x08, 0xEE);
+    IDT::setGate(IRQ_TIMER, (uint32_t)timer_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_KEYBOARD, (uint32_t)keyboard_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_CASCADE, (uint32_t)cascade_interrupt, 0x08, 0xEE);
     IDT::setGate(IRQ_ATA1, (uint32_t)ide1_interrupt, 0x08, 0xEE);
@@ -288,14 +280,17 @@ extern "C" void kernel_main()
     debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->pid);
     init_proc->print();
     debug_debug("init_proc initialized\n");
-    
+
     // 初始化SMP，启动AP处理器
     arch::smp_init();
     debug_debug("SMP initialized\n");
-//    kernel->scheduler().init();
-//    kernel->scheduler().enqueue_task(init_proc);
+    kernel->scheduler().init();
+    debug_debug("Scheduler initialized\n");
+    kernel->scheduler().enqueue_task(init_proc);
+    debug_debug("init_proc enqueued\n");
 
- ////////////////   asm volatile("sti");
+    debug_debug("Enabling interrupt...\n");
+    asm volatile("sti");
     while(1) {
         debug_rate_limited("idle process!\n");
         asm volatile("hlt");

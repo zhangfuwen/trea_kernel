@@ -13,10 +13,10 @@ void cpu_init_percpu() {
     debug_debug("Initializing CPU %d...\n", apic_get_id());
     
     // 初始化GDT
-    GDT::init();
+    GDT::loadGDT();
     
     // 初始化IDT
-    IDT::init();
+    IDT::loadIDT();
 
     // 启用本地APIC
     apic_enable();

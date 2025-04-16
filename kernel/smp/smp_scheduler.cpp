@@ -10,6 +10,7 @@ DEFINE_PER_CPU(RunQueue, scheduler_runqueue);
 void SMP_Scheduler::init() {
     for_each_cpu(cpu) {
         RunQueue* rq = get_cpu_ptr(scheduler_runqueue);
+        debug_debug("Initializing SMP scheduler for CPU %d, rq: 0x%x\n", cpu, rq);
         rq->lock = SPINLOCK_INIT;
         rq->nr_running = 0;
         INIT_LIST_HEAD(&rq->runnable_list);
@@ -18,6 +19,7 @@ void SMP_Scheduler::init() {
 
 ProcessControlBlock* SMP_Scheduler::pick_next_task() {
     RunQueue* rq = get_cpu_ptr(scheduler_runqueue);
+    debug_debug("Picking next task on CPU %d, rq: 0x%x\n", arch::apic_get_id(), rq);
     spin_lock(&rq->lock);
     
     if (list_empty(&rq->runnable_list)) {
@@ -36,6 +38,8 @@ ProcessControlBlock* SMP_Scheduler::pick_next_task() {
 void SMP_Scheduler::enqueue_task(ProcessControlBlock* p) {
     //uint32_t cpu = p->affinity % arch::apic_get_cpu_count();
     RunQueue* rq = get_cpu_var(scheduler_runqueue);
+
+    debug_debug("Enqueueing task %d on CPU %d, rq: 0x%x\n", p->pid, arch::apic_get_id(), rq);
     
     spin_lock(&rq->lock);
     list_add_tail(&p->sched_list, &rq->runnable_list);

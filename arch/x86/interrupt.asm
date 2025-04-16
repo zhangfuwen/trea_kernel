@@ -126,7 +126,7 @@ general_protection_interrupt:
     iretd            ; 返回
 
 ; 定义具体中断
-;idtentry 0x30, apic_timer_interrupt, handleInterrupt
+idtentry 0x30, apic_timer_interrupt, handleInterrupt
 idtentry 0x20, timer_interrupt, handleInterrupt
 idtentry 0x21, keyboard_interrupt, handleInterrupt
 idtentry 0x22, cascade_interrupt, handleInterrupt
@@ -237,4 +237,3 @@ segmentation_fault_interrupt:
     add esp, 4
     sti
     iretd
-

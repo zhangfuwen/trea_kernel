@@ -141,7 +141,7 @@ void apic_init_timer(uint32_t frequency) {
     // 计算初始计数值
     uint32_t initial_count = apic_clock_frequency / (frequency * (APIC_TIMER_DIVIDE_16 + 1));
 
-    // 配置APIC定时器为周期模式，向量号为0x40
+    // 配置APIC定时器为周期模式，向量号为0x30
     apic_write(LAPIC_LVT_TIMER, APIC_TIMER_VECTOR | APIC_TIMER_PERIODIC);
 
     // 设置初始计数值
@@ -176,6 +176,11 @@ uint32_t apic_get_cpu_count() {
     // // 如果未获取到有效信息，返回默认值
     // return 1;
     return 2;
+}
+
+uint32_t apic_get_cpu_id()
+{
+    return apic_get_id();
 }
 
 // 初始化IO APIC
