@@ -23,6 +23,12 @@ SECTIONS {
     .data BLOCK(4K) : ALIGN(4K) {
         *(.data)
     }
+    .percpu : ALIGN(4096) {
+        __percpu_start = .;
+        *(.percpu)
+        *(.percpu.extended)
+        __percpu_end = .;
+    }
 
     .bss BLOCK(4K) : ALIGN(4K) {
         *(COMMON)

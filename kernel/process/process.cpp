@@ -121,6 +121,7 @@ Task* ProcessManager::kernel_task(Context *context,
     auto pgd = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
     debug_debug("ProcessManager: Current Page Directory: %x\n", pgd);
     auto &task = *new Task();
+    task.task_id = tid_manager.alloc();
 
     // 清理用户栈
     task.stacks.user_stack = 0;
@@ -142,6 +143,10 @@ Task* ProcessManager::kernel_task(Context *context,
 
     task.regs.cr3 = 0x400000;
 
+    auto kernel_stack =  kernel_mm.kmalloc(KERNEL_STACK_SIZE);
+    task.stacks.esp0 = (uint32_t)kernel_stack + KERNEL_STACK_SIZE - 16;
+    task.stacks.ebp0 = task.stacks.esp0;
+
     // 复制进程名称
     for(int i = 0; i < PROCNAME_LEN && name[i]; i++) {
         task.name[i] = name[i];
@@ -159,6 +164,10 @@ int Context::allocate_fd()
     debug_debug("allocate_fd: %x\n", ret);
     next_fd++;
     return ret;
+}
+void ProcessManager::cloneFiles(Context* child, Context* parent)
+{
+    memcpy(child->fd_table, parent->fd_table, sizeof(child->fd_table));
 }
 
 void ProcessManager::cloneMemorySpace(Context* child, Context* parent)
@@ -181,7 +190,7 @@ void ProcessManager::cloneMemorySpace(Context* child, Context* parent)
     kernel_mm.paging().copyMemorySpaceCOW(parent_pgd, (PageDirectory*)child_pgd);
     debug_debug("Copying page at 0x%x\n", paddr);
     child->def_task.regs.cr3 = paddr;
-    child->user_mm.init((uint32_t)child_pgd,
+    child->user_mm.init(paddr, child_pgd,
         []() {
             auto page = Kernel::instance().kernel_mm().alloc_pages(
                 0, 0); // gfp_mask = 0, order = 0 (1 page)
@@ -196,15 +205,15 @@ void ProcessManager::cloneMemorySpace(Context* child, Context* parent)
         });
 }
 
-int ProcessManager::allocUserStack(Context* pcb)
+int ProcessManager::allocUserStack(Context* context, Task *task)
 {
-    auto& mm = pcb->user_mm;
-    pcb->def_task.stacks.user_stack_size = USER_STACK_SIZE;
-    pcb->def_task.stacks.user_stack = (uint32_t)mm.allocate_area(
-        pcb->def_task.stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
-    debug_debug("user stack:0x%x\n", pcb->def_task.stacks.user_stack);
-    printPDPTE((void*)pcb->def_task.stacks.user_stack);
-    if(!pcb->def_task.stacks.user_stack) {
+    auto& mm = context->user_mm;
+    task->stacks.user_stack_size = USER_STACK_SIZE;
+    task->stacks.user_stack = (uint32_t)mm.allocate_area(
+        task->stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
+    debug_debug("user stack:0x%x\n", task->stacks.user_stack);
+    printPDPTE((void*)task->stacks.user_stack);
+    if(!task->stacks.user_stack) {
         debug_debug("ProcessManager: Failed to allocate user stack\n");
         return -1;
     }
@@ -466,20 +475,21 @@ void ProcessManager::restore_context(uint32_t* esp)
     esp[9] = regs.es;
     esp[10] = regs.fs;
     esp[11] = regs.gs;
-    GDT::updateTSS(next->stacks.esp0, KERNEL_DS);
-    GDT::updateTSSCR3(next->regs.cr3);
+    auto cpu = arch::apic_get_id();
+    GDT::updateTSS(cpu, next->stacks.esp0, KERNEL_DS);
+    GDT::updateTSSCR3(cpu, next->regs.cr3);
 }
 Task* ProcessManager::get_current_task() { return current_task; }
 
-void ProcessManager::switch_to_user_mode(uint32_t entry_point, Context* context)
+void ProcessManager::switch_to_user_mode(uint32_t entry_point, Task* task)
 {
     // auto pcb = get_current_process();
-    auto task = &context->def_task;
     auto user_stack = task->stacks.user_stack + task->stacks.user_stack_size - 16;
+    auto context = task->context;
     debug_debug(
         "switch_to_user_mode called, user stack: %x, entry point %x\n", user_stack, entry_point);
 
-    debug_debug("will switch to user: kernel pcb:");
+    debug_debug("will switch to user: kernel pcb:\n");
     get_current_task()->print();
 
     task->regs.eip = entry_point;
@@ -488,9 +498,11 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, Context* context)
     task->regs.eflags == 0x200;
 
     __printPDPTE((void*)entry_point, (PageDirectory*)context->user_mm.getPageDirectory());
+    debug_debug("user stack: 0x%x\n", user_stack);
     __printPDPTE((void*)user_stack, (PageDirectory*)context->user_mm.getPageDirectory());
-    GDT::updateTSS(task->stacks.esp0, KERNEL_DS);
-    GDT::updateTSSCR3(task->regs.cr3);
+    auto cpu = arch::apic_get_id();
+    GDT::updateTSS(cpu, task->stacks.esp0, KERNEL_DS);
+    GDT::updateTSSCR3(cpu, task->regs.cr3);
 
     asm volatile("mov %%eax, %%esp\n\t"    // 设置用户栈指针
                  "pushl $0x23\n\t"         // 用户数据段选择子

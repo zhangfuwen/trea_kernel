@@ -140,14 +140,16 @@ public:
     static bool schedule(); // false for no more processes
     // static int switch_process(uint32_t pid);
     static PidManager pid_manager;
-    static void switch_to_user_mode(uint32_t entry_point, Context* context);
+    static PidManager tid_manager;
+    static void switch_to_user_mode(uint32_t entry_point, Task* task);
     static void save_context(uint32_t* esp);
     static void restore_context(uint32_t* esp);
     static void initIdle();
     static void appendPCB(Kontext* kontext);
     static void cloneMemorySpace(Context* child, Context* parent);
+    static void cloneFiles(Context* child, Context* parent);
     // static void cloneMemory(ProcessControlBlock* pcb);
-    static int allocUserStack(Context* pcb);
+    static int allocUserStack(Context* context, Task *task);
     static void sleep_current_process(uint32_t ticks);
     static Task* current_task;
     static Kontext* kernel_context;

@@ -229,13 +229,13 @@ void SyscallManager::defaultHandler()
 }
 
 // execve系统调用处理函数
-int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* pcb)
+int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* task)
 {
     debug_debug("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
 
     // 打开可执行文件
     const char* path = reinterpret_cast<const char*>(path_ptr);
-    int fd = kernel::sys_open((uint32_t)path, pcb);
+    int fd = kernel::sys_open((uint32_t)path, task);
     if(fd < 0) {
         debug_err("Failed to open executable file: %s\n", path);
         return -1;
@@ -250,29 +250,29 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* pc
     debug_debug("File stat ret %d, size %d!\n", ret, attr->size);
 
     // 读取文件内容
-    auto filep = pcb->context->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
+    auto filep = task->context->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
     debug_debug("File allocated at %x\n", filep);
     uint32_t num_pages = (attr->size + PAGE_SIZE - 1) / PAGE_SIZE;
     for(uint32_t i = 0; i < num_pages; i++) {
         auto phys_addr = Kernel::instance().kernel_mm().alloc_pages(0, 0); // 每次分配一页
-        pcb->context->user_mm.map_pages((uint32_t)filep + i * PAGE_SIZE, phys_addr, PAGE_SIZE,
+        task->context->user_mm.map_pages((uint32_t)filep + i * PAGE_SIZE, phys_addr, PAGE_SIZE,
             PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
     }
     debug_debug("File allocated at %x\n", filep);
-    int size = kernel::sys_read(fd, (uint32_t)filep, attr->size, pcb);
+    int size = kernel::sys_read(fd, (uint32_t)filep, attr->size, task);
     if(size <= 0) {
-        pcb->context->user_mm.free_area((uint32_t)filep);
+        task->context->user_mm.free_area((uint32_t)filep);
         debug_err("Failed to read executable file\n");
         return -1;
     }
     debug_debug("File read size %d\n", size);
-    kernel::sys_close(fd, pcb);
+    kernel::sys_close(fd, task);
 
     // // 清理当前进程的地址空间
     // pcb->mm.unmap_pages(0x40000000, 0x80000000 - 0x40000000);
 
     // 加载ELF文件
-    pcb->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_WRITE | PAGE_USER);
+    task->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_WRITE | PAGE_USER);
 
     // auto loadAddr = pcb->user_mm.allocate_area(0x4000, PAGE_WRITE, 0);
     // auto paddr = Kernel::instance().kernel_mm().allocPage();
@@ -280,17 +280,17 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* pc
     // PAGE_USER|PAGE_PRESENT);
     auto loadAddr = 0;
     if(!ElfLoader::load_elf(filep, size, (uint32_t)loadAddr)) {
-        pcb->context->user_mm.free_area((uint32_t)filep);
+        task->context->user_mm.free_area((uint32_t)filep);
         debug_err("Failed to load ELF file\n");
         return -1;
     }
-    pcb->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
+    task->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
 
     const ElfHeader* header = static_cast<const ElfHeader*>(filep);
     uint32_t entry_point = header->entry;
     debug_debug("entry_point: %x\n", entry_point);
 
-    ProcessManager::switch_to_user_mode(entry_point + (uint32_t)loadAddr, pcb->context);
+    ProcessManager::switch_to_user_mode(entry_point + (uint32_t)loadAddr, task);
     // pcb->mm.free_area((uint32_t)filep);
 
     return 0;

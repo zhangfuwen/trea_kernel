@@ -34,7 +34,7 @@ typedef int (*SyscallHandler)(uint32_t, uint32_t, uint32_t, uint32_t);
 // 系统调用处理函数声明
 int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t);
 int execveHandler(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, uint32_t);
-int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task *pcb);
+int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task *task);
 int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 int sys_getpid();
 int statHandler(uint32_t path_ptr, uint32_t attr_ptr, uint32_t, uint32_t);

@@ -1,6 +1,8 @@
 #ifndef ARCH_X86_GDT_H
 #define ARCH_X86_GDT_H
 
+#include "smp.h"
+
 #include <cstdint>
 
 struct TSSEntry {
@@ -72,14 +74,14 @@ class GDT
 public:
     static void init();
 
-    static void updateTSS(uint32_t esp0, uint32_t ss0);
-    static void updateTSSCR3(uint32_t cr3);
+    static void updateTSS(uint32_t cpu, uint32_t esp0, uint32_t ss0);
+    static void updateTSSCR3(uint32_t cpu, uint32_t cr3);
     static void setEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran);
     static void setCallGate(
         int index, uint16_t selector, uint32_t offset, uint8_t dpl, uint8_t param_count);
     static void loadGDT();
-    static GDTEntry entries[7]; // 增加一个表项用于调用门
-    static TSSEntry tss;
+    static GDTEntry entries[6 + MAX_CPUS];
+    static TSSEntry tss[MAX_CPUS];
     static GDTPointer gdtPointer;
 };
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "arch/x86/paging.h"
 
 // 内存区域描述符
 struct MemoryArea {
@@ -28,7 +29,7 @@ class UserMemory
 {
 public:
     // 初始化内存管理器
-    void init(uint32_t page_dir, uint32_t (*alloc_page)(), void (*free_page)(uint32_t),
+    void init(PADDR pgd_phys, VADDR page_dir, uint32_t (*alloc_page)(), void (*free_page)(uint32_t),
         void* (*phys_to_virt)(uint32_t));
 
     // 分配一个新的内存区域
@@ -48,7 +49,8 @@ public:
     bool copyFrom(const UserMemory& src);
 
     void print();
-    uint32_t getPageDirectory() { return pgd;};
+    VADDR getPageDirectory() { return pgd;};
+    PADDR getPageDirectoryPhysical() { return pgd_phys;};
     void clone(UserMemory& src);
 
 private:
@@ -64,7 +66,8 @@ private:
     uint32_t (*allocate_physical_page)() = nullptr;
     void (*free_physical_page)(uint32_t page) = nullptr;
     void* (*phys_to_virt)(uint32_t phys_addr) = nullptr;
-    uint32_t pgd;                       // 页目录基地址, 虚拟地址
+    PADDR pgd_phys;
+    VADDR pgd;                       // 页目录基地址, 虚拟地址
     uint32_t start_code;                // 代码段起始地址
     uint32_t end_code;                  // 代码段结束地址
     uint32_t start_data;                // 数据段起始地址

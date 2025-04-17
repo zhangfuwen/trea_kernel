@@ -3,57 +3,70 @@
 #include <arch/x86/gdt.h>
 #include <arch/x86/atomic.h>
 
-#define DEFINE_PER_CPU(type, name) \
-    __attribute__((section(".percpu"))) type name
+// 声明per_cpu_offset数组
+// extern unsigned long __per_cpu_offset[MAX_CPUS];
 
-#define get_cpu_var(name) \
-    ({ \
-        typeof(name)* __ptr; \
-        __asm__("mov %%gs:%1, %0" : "=r"(__ptr) : "m"(name)); \
-        __ptr; \
-    })
+unsigned long get_cpu_id();
 
-#define get_cpu_ptr(name) \
-    ({ \
-        typeof(&(name)) __ptr; \
-        __asm__("mov %%gs:%1, %0" : "=r"(__ptr) : "m"(name)); \
-        __ptr; \
-    })
+// // 定义per-cpu变量宏
+// #define DEFINE_PER_CPU(type, name) \
+//     type name
+//
+// // 获取当前CPU的per-cpu变量指针
+// #define get_cpu_var(name) \
+//     ({ \
+//         typeof(name)* __ptr = (typeof(name)*)(__per_cpu_offset[get_cpu_id()] + (unsigned long)(&name)); \
+//         __ptr; \
+//     })
+//
+// // 获取当前CPU的per-cpu变量引用
+// #define get_cpu_ptr(name) \
+//     ({ \
+//         typeof(&(name)) __ptr = (typeof(&(name)))(__per_cpu_offset[get_cpu_id()] + (unsigned long)(&name)); \
+//         __ptr; \
+//     })
+//
+// // 获取其他CPU的per-cpu变量指针
+// #define get_cpu_var_smp(cpu, name) \
+//     ({ \
+//         typeof(name)* __ptr = (typeof(name)*)(__per_cpu_offset[cpu] + (unsigned long)(&name)); \
+//         __ptr; \
+//     })
 
+void print_pointer(void *ptr);
 namespace arch {
 
-struct percpu_area {
-    uint32_t cpu_id;
-    void* kernel_stack;
-    // 扩展区用于动态分配的每CPU变量
-    uint8_t extended_area[4096 - sizeof(uint32_t) - sizeof(void*)];
-} __attribute__((aligned(4096)));
 
-extern "C" {
-    extern percpu_area __percpu_start[];
-    extern percpu_area __percpu_end[];
-}
-
+// 初始化每CPU数据区
 void cpu_init_percpu();
 
-// 模板类封装每CPU变量访问
-#define PerCPU(T) \
-class PerCPU { \
-public: \
-    PerCPU() = default; \
-\
-    T* operator->() { \
-        T* ptr; \
-        __asm__ volatile("mov %%gs:%1, %0" : "=r"(ptr) : "m"(data)); \
-        return ptr; \
-    } \
-\
-    T& operator*() { \
-        return *operator->(); \
-    } \
-\
-private: \
-    __attribute__((section(".percpu"))) T name \
+// 获取当前CPU ID
+unsigned int get_cpu_id();
+
+template<typename T>
+class PerCPU {
+public:
+    void init(T* data) { data_[get_cpu_id()] = data; }
+    void init_all()
+    {
+        for (unsigned int i = 0; i < MAX_CPUS; i++) {
+            data_[i] = new T();
+            print_pointer(data_[i]);
+        }
+    }
+
+    T* operator->() {
+        return data_[get_cpu_id()];
+    }
+    T& operator*() {
+        return *data_[get_cpu_id()];
+    }
+    T* get_for_cpu(unsigned int cpu) {
+        return data_[cpu];
+    }
+
+private:
+    T* data_[MAX_CPUS];
 };
 
 } // namespace arch

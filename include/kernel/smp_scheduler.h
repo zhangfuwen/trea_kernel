@@ -14,6 +14,7 @@ struct RunQueue {
     SpinLock lock;           // 运行队列锁
     uint32_t nr_running;     // 可运行进程数量
     struct list_head runnable_list;  // 可运行进程链表
+    void print_list();
 };
 
 // 定义每CPU运行队列

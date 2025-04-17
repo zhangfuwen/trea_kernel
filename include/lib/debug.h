@@ -81,7 +81,7 @@ inline void _debug_print(
     uint32_t cpu_id = arch::apic_get_id();
     // 打印CPU ID、PID、文件名、行号和函数名
     len = format_string(msg_buffer, sizeof(msg_buffer),
-        "%s[CPU:%d PID:%d] (%s:%d %s): ", log_level_prefix[current_log_level], cpu_id, pid,
+        "%s[CPU:%d TID:%d] (%s:%d %s): ", log_level_prefix[current_log_level], cpu_id, pid,
         get_filename_from_path(file), line, func);
 #else
     len = format_string(msg_buffer, sizeof(msg_buffer),

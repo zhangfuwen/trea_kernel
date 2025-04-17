@@ -5,10 +5,11 @@
 #include <lib/string.h>
 
 // 初始化内存管理器
-void UserMemory::init(uint32_t page_dir, uint32_t (*alloc_page)(), void (*free_page)(uint32_t),
+void UserMemory::init(PADDR page_dir_phys, VADDR page_dir, uint32_t (*alloc_page)(), void (*free_page)(uint32_t),
     void* (*phys_to_virt)(uint32_t))
 {
     pgd = page_dir;
+    pgd_phys = page_dir_phys;
     debug_debug("pgd:0x%x\n", pgd);
     num_areas = 0;
     total_vm = 0;

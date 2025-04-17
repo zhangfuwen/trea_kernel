@@ -59,4 +59,12 @@ inline bool list_empty(const struct list_head *head) {
 #define list_entry(ptr, type, member) \
     container_of(ptr, type, member)
 
+// 遍历链表的宏
+#define list_for_each(pos, head) \
+    for (struct list_head *pos = (head)->next; pos != (head); pos = pos->next)
+
+// 如果需要安全遍历（遍历过程中允许删除节点），可加：
+#define list_for_each_safe(pos, n, head) \
+    for (struct list_head *pos = (head)->next, *n = pos->next; pos != (head); pos = n, n = pos->next)
+
 } // namespace kernel

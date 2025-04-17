@@ -92,7 +92,7 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
                 }
 
                 user_mm.map_pages(fault_addr & ~0xFFF, phys_page, PAGE_SIZE, flags);
-                debug_debug("fixed page mapping");
+                debug_debug("fixed page mapping\n");
                 return;
             }
         } else if(is_write) {

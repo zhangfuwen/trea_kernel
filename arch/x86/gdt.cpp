@@ -2,8 +2,8 @@
 #include <cstdint>
 
 // 定义TSS
-TSSEntry GDT::tss;
-GDTEntry GDT::entries[7]; // 增加一个表项用于调用门
+TSSEntry GDT::tss[MAX_CPUS];
+GDTEntry GDT::entries[6+MAX_CPUS]; // 增加一个表项用于调用门
 GDTPointer GDT::gdtPointer;
 
 uint32_t gdt_entries = (uint32_t)GDT::entries;
@@ -22,15 +22,20 @@ void GDT::init()
         0xCF); // 用户代码段
     setEntry(4, 0, 0xFFFFFFFF, GDT_PRESENT | GDT_DPL_3 | GDT_TYPE_DATA,
         0xCF); // 用户数据段
+    setEntry(5, 0, 0, 0, 0); // Null段
 
-    // 初始化TSS
-    tss.ss0 = 0x10; // 内核数据段选择子
-    tss.esp0 = 0;   // 将在进程创建时设置
-    tss.iomap_base = sizeof(TSSEntry);
+    for(int i = 0 ; i < MAX_CPUS; i++) {
+        // 初始化TSS
+        tss[i].ss0 = 0x10; // 内核数据段选择子
+        tss[i].esp0 = 0;   // 将在进程创建时设置
+        tss[i].iomap_base = sizeof(TSSEntry);
 
-    // 设置TSS描述符
-    uint32_t tss_base = reinterpret_cast<uint32_t>(&tss);
-    setEntry(5, tss_base, sizeof(TSSEntry), GDT_PRESENT | GDT_TYPE_TSS, 0x00);
+        // 设置TSS描述符
+        uint32_t tss_base = reinterpret_cast<uint32_t>(&tss[i]);
+        setEntry(5 + i, tss_base, sizeof(TSSEntry), GDT_PRESENT | GDT_TYPE_TSS, 0x00);
+
+    }
+
 
     // 设置调用门描述符
     // 参数：索引、目标段选择子、目标偏移、特权级、参数数量
@@ -92,16 +97,16 @@ void GDT::loadGDT()
 }
 
 // 更新TSS的内核栈指针
-void GDT::updateTSS(uint32_t esp0, uint32_t ss0)
+void GDT::updateTSS(uint32_t cpu, uint32_t esp0, uint32_t ss0)
 {
-    tss.esp0 = esp0;
-    tss.ss0 = ss0;
+    tss[cpu].esp0 = esp0;
+    tss[cpu].ss0 = ss0;
 }
 
 // 更新TSS的页目录基址
-void GDT::updateTSSCR3(uint32_t cr3)
+void GDT::updateTSSCR3(uint32_t cpu, uint32_t cr3)
 {
-    tss.cr3 = cr3;
+    tss[cpu].cr3 = cr3;
 }
 
 // 保存当前进程状态到TSS

@@ -2,14 +2,32 @@
 #include <arch/x86/apic.h>
 #include <lib/debug.h>
 #include <kernel/process.h>
+#include <arch/x86/percpu.h>
 
+void print_pointer(void *ptr) {
+    debug_debug("Pointer value: 0x%x\n", ptr);
+}
 namespace kernel {
+// 用PerCPU模板定义每CPU运行队列
+arch::PerCPU<RunQueue> scheduler_runqueue;
 
-DEFINE_PER_CPU(RunQueue, scheduler_runqueue);
+void RunQueue::print_list()
+{
+    debug_debug("RunQueue 0x%x, task_count:%d\n", this, nr_running);
+    int i = 0;
+    list_for_each(entry, &runnable_list) {
+        Task* task = list_entry(entry, Task, sched_list);
+        debug_debug("Task(nr:%d) ID: %d\n", i, task->task_id);
+        i++;
+    }
+}
+
+
 
 void SMP_Scheduler::init() {
-    for_each_cpu(cpu) {
-        RunQueue* rq = get_cpu_ptr(scheduler_runqueue);
+    scheduler_runqueue.init_all();
+    for (unsigned int cpu = 0; cpu < MAX_CPUS; cpu++) {
+        RunQueue* rq = scheduler_runqueue.get_for_cpu(cpu);
         debug_debug("Initializing SMP scheduler for CPU %d, rq: 0x%x\n", cpu, rq);
         rq->lock = SPINLOCK_INIT;
         rq->nr_running = 0;
@@ -18,29 +36,26 @@ void SMP_Scheduler::init() {
 }
 
 Task* SMP_Scheduler::pick_next_task() {
-    RunQueue* rq = get_cpu_ptr(scheduler_runqueue);
-    debug_debug("Picking next task on CPU %d, rq: 0x%x\n", arch::apic_get_id(), rq);
+    RunQueue* rq = scheduler_runqueue.operator->();
+    if (rq->nr_running != 0) {
+        debug_debug("Picking next task on CPU %d, rq: 0x%x, task_count:%d\n", arch::apic_get_id(), rq, rq->nr_running);
+    }
+    // rq->print_list();
     spin_lock(&rq->lock);
-    
     if (list_empty(&rq->runnable_list)) {
         spin_unlock(&rq->lock);
-        return load_balance(); // 执行负载均衡
+        return load_balance();
     }
-    
     Task* next = list_entry(rq->runnable_list.next, Task, sched_list);
     list_del_init(&next->sched_list);
     rq->nr_running--;
-    
     spin_unlock(&rq->lock);
     return next;
 }
 
 void SMP_Scheduler::enqueue_task(Task* p) {
-    //uint32_t cpu = p->affinity % arch::apic_get_cpu_count();
-    RunQueue* rq = get_cpu_var(scheduler_runqueue);
-
+    RunQueue* rq = scheduler_runqueue.operator->();
     debug_debug("Enqueueing task %d on CPU %d, rq: 0x%x\n", p->task_id, arch::apic_get_id(), rq);
-    
     spin_lock(&rq->lock);
     list_add_tail(&p->sched_list, &rq->runnable_list);
     rq->nr_running++;
@@ -48,61 +63,46 @@ void SMP_Scheduler::enqueue_task(Task* p) {
 }
 
 Task* SMP_Scheduler::load_balance() {
-    // 负载均衡算法：从最繁忙的运行队列窃取任务
-    //uint32_t busiest_cpu = find_busiest_cpu();
-    RunQueue* busiest_rq = get_cpu_var(scheduler_runqueue);
-    
-    spin_lock(&busiest_rq->lock);
-    if (!list_empty(&busiest_rq->runnable_list)) {
-        auto* stolen = list_entry(busiest_rq->runnable_list.next, Task, sched_list);
+    RunQueue* rq = scheduler_runqueue.operator->();
+    spin_lock(&rq->lock);
+    if (!list_empty(&rq->runnable_list)) {
+        auto* stolen = list_entry(rq->runnable_list.next, Task, sched_list);
         list_del_init(&stolen->sched_list);
-        busiest_rq->nr_running--;
-        spin_unlock(&busiest_rq->lock);
+        rq->nr_running--;
+        spin_unlock(&rq->lock);
         return stolen;
     }
-    spin_unlock(&busiest_rq->lock);
+    spin_unlock(&rq->lock);
     return nullptr;
 }
 
-// 查找最繁忙的CPU
 uint32_t SMP_Scheduler::find_busiest_cpu() {
     uint32_t max_tasks = 0;
     uint32_t busiest_cpu = 0;
-    
-    for_each_cpu(cpu) {
-        RunQueue* rq = get_cpu_var(scheduler_runqueue);
+    for (unsigned int cpu = 0; cpu < MAX_CPUS; ++cpu) {
+        RunQueue* rq = scheduler_runqueue.get_for_cpu(cpu);
         if (rq->nr_running > max_tasks) {
             max_tasks = rq->nr_running;
             busiest_cpu = cpu;
         }
     }
-    
     return busiest_cpu;
 }
 
-// 设置进程的CPU亲和性
 void SMP_Scheduler::set_affinity(Task* p, uint32_t cpu_mask) {
     if (!p) return;
-    
-    // 确保CPU掩码有效
-    uint32_t max_cpus = arch::smp_get_cpu_count();
+    uint32_t max_cpus = MAX_CPUS;
     uint32_t valid_mask = (1 << max_cpus) - 1;
     cpu_mask &= valid_mask;
-    
-    // 如果掩码为0，设置为所有CPU
     if (cpu_mask == 0) {
         cpu_mask = valid_mask;
     }
-    
-    // 更新进程的CPU亲和性
     p->affinity = cpu_mask;
-    
     debug_debug("Set process %d affinity to 0x%x\n", p->task_id, cpu_mask);
 }
 
-// 获取当前CPU的运行队列
 RunQueue* SMP_Scheduler::get_current_runqueue() {
-    return get_cpu_var(scheduler_runqueue);
+    return scheduler_runqueue.operator->();
 }
 
 } // namespace kernel
