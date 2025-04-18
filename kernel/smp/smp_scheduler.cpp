@@ -1,15 +1,15 @@
-#include <kernel/smp_scheduler.h>
 #include <arch/x86/apic.h>
-#include <lib/debug.h>
-#include <kernel/process.h>
 #include <arch/x86/percpu.h>
+#include <kernel/kernel.h>
+#include <kernel/process.h>
+#include <kernel/smp_scheduler.h>
+#include <lib/debug.h>
 
 void print_pointer(void *ptr) {
     debug_debug("Pointer value: 0x%x\n", ptr);
 }
 namespace kernel {
 // 用PerCPU模板定义每CPU运行队列
-arch::PerCPU<RunQueue> scheduler_runqueue;
 
 void RunQueue::print_list()
 {
@@ -26,6 +26,10 @@ void RunQueue::print_list()
 
 void SMP_Scheduler::init() {
     scheduler_runqueue.init_all();
+
+
+
+
     for (unsigned int cpu = 0; cpu < MAX_CPUS; cpu++) {
         RunQueue* rq = scheduler_runqueue.get_for_cpu(cpu);
         debug_debug("Initializing SMP scheduler for CPU %d, rq: 0x%x\n", cpu, rq);
@@ -52,6 +56,15 @@ Task* SMP_Scheduler::pick_next_task() {
     spin_unlock(&rq->lock);
     return next;
 }
+void SMP_Scheduler::enqueue_task(Task* p, int cpu_id)
+{
+    RunQueue* rq = scheduler_runqueue.get_for_cpu(cpu_id);
+    debug_debug("Enqueueing task %d on CPU %d, rq: 0x%x\n", p->task_id, cpu_id, rq);
+    spin_lock(&rq->lock);
+    list_add_tail(&p->sched_list, &rq->runnable_list);
+    rq->nr_running++;
+    spin_unlock(&rq->lock);
+}
 
 void SMP_Scheduler::enqueue_task(Task* p) {
     RunQueue* rq = scheduler_runqueue.operator->();
@@ -73,7 +86,9 @@ Task* SMP_Scheduler::load_balance() {
         return stolen;
     }
     spin_unlock(&rq->lock);
-    return nullptr;
+    auto idle = get_idle_task();
+    debug_debug("No tasks to run, returning idle task %d\n", idle->task_id);
+    return idle;
 }
 
 uint32_t SMP_Scheduler::find_busiest_cpu() {
@@ -103,6 +118,23 @@ void SMP_Scheduler::set_affinity(Task* p, uint32_t cpu_mask) {
 
 RunQueue* SMP_Scheduler::get_current_runqueue() {
     return scheduler_runqueue.operator->();
+}
+Task *SMP_Scheduler::get_idle_task()
+{
+    return idle_task.operator->();
+}
+void SMP_Scheduler::set_idle_task(Task *task)
+{
+    idle_task.set(task);
+}
+
+Task *SMP_Scheduler::get_current_task()
+{
+    return current_task.operator->();
+}
+void SMP_Scheduler::set_current_task(Task *task)
+{
+    current_task.set(task);
 }
 
 } // namespace kernel

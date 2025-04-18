@@ -102,15 +102,18 @@ int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d
 int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* task)
 {
     debug_debug(
-        "writeHandler called with fd: %d, buffer: %d, size: %d\n", fd_num, buffer_ptr, size);
+        "writeHandler called with fd: %d, buffer: 0x%x, size: %d\n", fd_num, buffer_ptr, size);
 
     auto context = task->context;
+    debug_debug("context: 0x%x\n", context);
     if(fd_num >= 256 || !context->fd_table[fd_num]) {
         debug_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", task, task->task_id, fd_num);
         return -1;
     }
 
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
+    debug_debug("Writing %d bytes to fd %d, buffer: 0x%x\n", size, fd_num, buffer);
+    debug_debug("fd 0x%x\n", context->fd_table[fd_num]);
     ssize_t bytes_written = context->fd_table[fd_num]->write(buffer, size);
 
     debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);

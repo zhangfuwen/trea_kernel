@@ -4,8 +4,18 @@
 #include <kernel/slab_allocator.h>
 #include <lib/debug.h>
 #include <lib/string.h>
+#include <arch/x86/spinlock.h>
 
 namespace kernel {
+
+static SpinLock slab_global_lock;
+
+class Locker
+{
+    public:
+    Locker() { slab_global_lock.acquire(); }
+    ~Locker() { slab_global_lock.release(); }
+};
 
 void SlabObject::print() const {
     debug_info("SlabObject at %p, next=%p\n", this, next);
@@ -17,10 +27,10 @@ void Slab::print() const {
     debug_info("  freelist=%p, objects=%p, next=%p\n", freelist, objects, next);
     
     // 打印空闲对象链表
-    debug_info("  Free objects: ");
+    debug_info("  Free objects: \n");
     SlabObject* obj = freelist;
     while (obj) {
-        debug_info("%p -> ", obj);
+        debug_info("%p -> 0x%x", obj);
         obj = obj->next;
     }
     debug_info("null\n");
@@ -85,6 +95,7 @@ SlabCache::SlabCache(const char* name, size_t size, size_t align)
     // 计算每个slab中可以容纳的对象数量
     size_t page_size = PAGE_SIZE;
     size_t available = page_size - sizeof(Slab);
+    debug_info("SlabCache('%s') PAGE_SIZE=%d sizeof(Slab)=%d available=%d object_size=%d\n", name, page_size, sizeof(Slab), available, object_size);
     objects_per_slab = available / object_size;
     debug_info("Created slab cache '%s' with object size %d, align %d, objects per slab %d\n",
               name, size, align, objects_per_slab);
@@ -123,7 +134,7 @@ void* SlabCache::alloc()
         // 没有可用的slab，创建新的
         slab = create_slab();
         if (!slab) {
-            debug_err("Failed to create new slab in cache '%s'\n", name);
+            debug_debug("Failed to create new slab in cache '%s'\n", name);
             return nullptr;
         }
         slabs_free = slab;
@@ -131,10 +142,12 @@ void* SlabCache::alloc()
     }
 
     // 从空闲链表中获取一个对象
+    slab->print();
     SlabObject* obj = slab->freelist;
     slab->freelist = obj->next;
     slab->inuse++;
     slab->free--;
+    slab->print();
 
     // 更新slab状态
     if (slab->free == 0) {
@@ -152,6 +165,11 @@ void* SlabCache::alloc()
         slab->next = slabs_partial;
         slabs_partial = slab;
         debug_debug("Slab in cache '%s' became partial\n", name);
+    }
+    if (obj == nullptr) {
+        debug_err("Failed to allocate object from slab in cache '%s'\n", name);
+        slab->print();
+        return nullptr;
     }
 
     debug_debug("Allocated object %p from cache '%s'\n", obj, name);
@@ -223,13 +241,26 @@ Slab* SlabCache::create_slab()
     Slab* slab = (Slab*)page;
     slab->inuse = 0;
     slab->free = objects_per_slab;
-    slab->objects = (void*)((uintptr_t)page + sizeof(Slab));
+    auto tmp = page + sizeof(Slab);
     slab->next = nullptr;
     slab->cache = this;  // 设置指向所属的SlabCache的指针
+    slab->objects = tmp;
+    debug_debug("debug ----0x%x\n", slab);
+    slab->objects = tmp;
+    debug_debug("debug objects ---- 0x%x, 0x%x\n", tmp,slab->objects);
+    debug_debug("debug page ----0x%x\n", page);
+    debug_debug("debug sizeof(Slab) ----%d\n", sizeof(Slab));
 
     // 初始化空闲对象链表
     char* obj = (char*)slab->objects;
+    if(obj == nullptr) {
+        debug_debug("page: %p, slab: %p, slab->objects: %p\n", page, slab, slab->objects);
+    }
     slab->freelist = (SlabObject*)obj;
+    if(slab->freelist == nullptr) {
+        debug_debug("Failed to allocate page for new slab in cache '%s'\n", name);
+        return nullptr;
+    }
     for (size_t i = 0; i < objects_per_slab - 1; i++) {
         ((SlabObject*)obj)->next = (SlabObject*)(obj + object_size);
         obj += object_size;
@@ -237,6 +268,7 @@ Slab* SlabCache::create_slab()
     ((SlabObject*)obj)->next = nullptr;
 
     debug_debug("Created new slab at %p in cache '%s'\n", slab, name);
+    slab->print();
     return slab;
 }
 
@@ -298,6 +330,7 @@ void SlabAllocator::init()
  */
 void* SlabAllocator::kmalloc(size_t size)
 {
+    Locker lock;
     if (size == 0) {
         debug_warn("Attempted to allocate 0 bytes\n");
         return nullptr;
@@ -338,6 +371,7 @@ void* SlabAllocator::kmalloc(size_t size)
  */
 void SlabAllocator::kfree(void* ptr)
 {
+    Locker lock;
     if (!ptr) {
         debug_warn("Attempted to free null pointer\n");
         return;

@@ -31,7 +31,8 @@ public:
     
     // 将任务加入运行队列
     void enqueue_task(Task* p);
-    
+    void enqueue_task(Task* p, int cpu_id);
+
     // 执行负载均衡
     Task* load_balance();
     
@@ -43,6 +44,15 @@ public:
     
     // 获取当前CPU的运行队列
     RunQueue* get_current_runqueue();
+
+    Task * get_current_task();
+    void set_current_task(Task* p);
+    Task * get_idle_task();
+    void set_idle_task(Task* p);
+private:
+    arch::PerCPU<RunQueue> scheduler_runqueue;
+    arch::PerCPU<Task> current_task;
+    arch::PerCPU<Task> idle_task;
 };
 
 // 遍历所有CPU的宏

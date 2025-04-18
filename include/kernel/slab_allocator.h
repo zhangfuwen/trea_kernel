@@ -14,10 +14,10 @@ struct SlabObject {
 // Slab页描述符
 struct SlabCache;
 struct Slab {
+    void* objects;     // 对象数组的起始地址
     size_t inuse;      // 已使用的对象数量
     size_t free;       // 空闲对象数量
     SlabObject* freelist;  // 空闲对象链表
-    void* objects;     // 对象数组的起始地址
     Slab* next;        // 链表中的下一个slab
     SlabCache* cache;  // 指向所属的SlabCache
     void print() const;

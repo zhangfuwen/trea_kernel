@@ -40,7 +40,16 @@ extern "C" void page_fault_interrupt();
 extern "C" void general_protection_interrupt();
 extern "C" void segmentation_fault_interrupt();
 extern "C" void stack_fault_interrupt();
-Task* init_proc = nullptr;
+Task* init_task = nullptr;
+
+void idle_task_entry() {
+    while(true) {
+        debug_rate_limited("idle task!\n");
+        asm volatile("hlt");
+    }
+}
+
+
 void init()
 {
     debug_debug("entering init kernel code!\n");
@@ -55,10 +64,29 @@ void init()
         "load page directory 0x%x for pcb 0x%x(pid %d)\n", task->regs.cr3, task, task->task_id);
     while(true) {
         debug_rate_limited("init process!\n");
-        sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_proc);
+        sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_task);
         //    asm volatile("hlt");
     }
 };
+extern "C" void init_idle_task()
+{
+    auto& kernel = Kernel::instance();
+    // idle task
+    debug_debug("creating idle context\n");
+    auto idle_context = new Context();
+    debug_debug("new context at 0x%x\n", idle_context);
+    idle_context->cloneMemorySpace(ProcessManager::kernel_context);
+    idle_context->cloneFiles(ProcessManager::kernel_context);
+
+    auto idle_task = ProcessManager::kernel_task(idle_context, "idle", (uint32_t)idle_task_entry, 0, nullptr);
+    idle_task->alloc_stack(kernel.kernel_mm());
+    idle_task->state = PROCESS_READY;
+    idle_task->regs.cr3 = idle_task->context->user_mm.getPageDirectoryPhysical();
+
+    kernel.scheduler().set_current_task(idle_task);
+    kernel.scheduler().set_idle_task(idle_task);
+    idle_task->print();
+}
 
 extern "C" void kernel_main()
 {
@@ -101,18 +129,18 @@ extern "C" void kernel_main()
     });
 
     kernel->interrupt_manager().registerHandler(IRQ_TIMER, []() {
-        Kernel* kernel = &Kernel::instance();
-        auto task = kernel->scheduler().pick_next_task();
-        if(task) {
-            ProcessManager::current_task = task;
+        auto cpu_id = arch::apic_get_id();
+        if(cpu_id != 0) {
+            debug_rate_limited("timer interrupt on cpu %d\n", cpu_id);
         }
+        ProcessManager::schedule();
     });
     kernel->interrupt_manager().registerHandler(APIC_TIMER_VECTOR, []() {
-        Kernel* kernel = &Kernel::instance();
-        auto task = kernel->scheduler().pick_next_task();
-        if(task) {
-            ProcessManager::current_task = task;
+        auto cpu_id = arch::apic_get_id();
+        if(cpu_id != 0) {
+            debug_rate_limited("timer interrupt on cpu %d\n", cpu_id);
         }
+        ProcessManager::schedule();
     });
     // 注册键盘中断处理函数
     keyboard_init();
@@ -270,35 +298,64 @@ extern "C" void kernel_main()
     }
     Console::print("MemFS initialized and initramfs loaded!\n");
 
-    // 尝试加载并执行init程序
-    auto cr3 = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
-    ProcessManager::get_current_task()->regs.cr3 = Kernel::instance().kernel_mm().virt2Phys(cr3);
-    debug_info("Trying to execute /init...\n");
-    ProcessManager::initIdle();
-    debug_debug("Trying to execute /init...\n");
-    auto ctxt = ProcessManager::get_current_task()->context;
-    init_proc = ProcessManager::kernel_task(ctxt, "init", (uint32_t)init, 0, nullptr);
-    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->task_id);
-
-    init_proc->context = new Context();
-    ProcessManager::cloneMemorySpace(init_proc->context, (Context*)ProcessManager::kernel_context);
-    ProcessManager::cloneFiles(init_proc->context, (Context*)ProcessManager::kernel_context);
-    ProcessManager::allocUserStack(init_proc->context, init_proc);
-    init_proc->state = PROCESS_RUNNING;
-    init_proc->regs.cr3 = init_proc->context->user_mm.getPageDirectoryPhysical();
-    ProcessManager::appendPCB((Kontext*)init_proc);
-
-    debug_debug("init_proc: %x, pid:%d\n", init_proc, init_proc->task_id);
-    init_proc->print();
-    debug_debug("init_proc initialized\n");
-
     // 初始化SMP，启动AP处理器
+    kernel->scheduler().init();
+
+    ProcessManager::kernel_context = new Context();
+    auto ctx = ProcessManager::kernel_context;
+    ctx->user_mm.init(
+    0x400000, (PageDirectory*)0xC0400000,
+    []() {
+        auto page = Kernel::instance().kernel_mm().alloc_pages(
+            0, 0); // gfp_mask = 0, order = 0 (1 page)
+        debug_debug("ProcessManager: Allocated Page at %x\n", page);
+        return page;
+    },
+    [](uint32_t physAddr) {
+        Kernel::instance().kernel_mm().free_pages(physAddr, 0);
+    }, // order=0表示释放单个页面
+    [](uint32_t physAddr) {
+        return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
+    });
+
+    debug_debug("consolefs is %x\n", consolefs);
+    debug_debug("consolefs is %x\n", consolefs);
+    debug_debug("consolefs is %x\n", consolefs);
+    debug_debug("consolefs is %x\n", consolefs);
+    debug_debug("consolefs is %x\n", consolefs);
+
+    // TODO: this hangs
+    // auto p = new uint8_t[1036];
+
+    // auto fd = VFSManager::instance().open("/dev/console");
+    ConsoleDevice dev;
+    ctx->fd_table[0] = &dev;
+    ctx->fd_table[1] = &dev;
+    ctx->fd_table[2] = &dev;
+    // ctx->fd_table[10] = fd;
+
+
+
+    debug_debug("init_idle_task!\n");
+    init_idle_task();
+
+    // init task
+    debug_debug("init_proc!\n");
+    auto init_context = new Context();
+    init_context->cloneMemorySpace(ProcessManager::kernel_context);
+    init_context->cloneFiles(ProcessManager::kernel_context);
+    init_task = ProcessManager::kernel_task(init_context, "init", (uint32_t)init, 0, nullptr);
+    init_task->alloc_stack(kernel->kernel_mm());
+    init_task->allocUserStack();
+    init_task->state = PROCESS_READY;
+    init_task->regs.cr3 = init_task->context->user_mm.getPageDirectoryPhysical();
+
+    debug_debug("init_proc enqueueing\n");
+    kernel->scheduler().enqueue_task(init_task, 1);
+    debug_debug("init_proc enqueued\n");
+
     arch::smp_init();
     debug_debug("SMP initialized\n");
-    kernel->scheduler().init();
-    debug_debug("Scheduler initialized\n");
-    kernel->scheduler().enqueue_task(init_proc);
-    debug_debug("init_proc enqueued\n");
 
     debug_debug("Enabling interrupt...\n");
     asm volatile("sti");

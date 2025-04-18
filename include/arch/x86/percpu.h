@@ -58,6 +58,10 @@ public:
     T* operator->() {
         return data_[get_cpu_id()];
     }
+    void set(T *t)
+    {
+        data_[get_cpu_id()] = t;
+    }
     T& operator*() {
         return *data_[get_cpu_id()];
     }
@@ -66,7 +70,7 @@ public:
     }
 
 private:
-    T* data_[MAX_CPUS];
+    T* data_[MAX_CPUS] = {nullptr};
 };
 
 } // namespace arch

@@ -1,4 +1,6 @@
 #pragma once
+#include "kernel_memory.h"
+
 #include <cstdint>
 
 #include "kernel/console_device.h"
@@ -29,6 +31,7 @@ struct Stacks {
     uint32_t user_stack;      // 用户态栈基址
     uint32_t user_stack_size; // 用户态栈大小
 
+    VADDR kernel_stack;
     uint32_t esp0;       // 内核态栈指针
     uint32_t ss0 = 0x08; // 内核态栈段选择子
     uint32_t ebp0;       // 内核态基址指针
@@ -71,18 +74,21 @@ class FileDescriptor;
 
 // 进程控制块结构
 #define DEBUG_STATUS_HALT 1 << 0
+#define DEFAULT_TIME_SLICE 100
 struct Context;
 struct Task {
     uint32_t task_id;            // 进程ID
-    ProcessState state;          // 进程状态
     char name[PROCNAME_LEN + 1]; // 进程名称
+
+    ProcessState state;          // 进程状态
     uint32_t priority;           // 进程优先级
-    uint32_t time_slice;         // 时间片
+    uint32_t time_slice = DEFAULT_TIME_SLICE;         // 时间片
     uint32_t total_time;         // 总执行时间
     uint32_t exit_status;        // 退出状态码
     uint32_t sleep_ticks;
     struct kernel::list_head sched_list; // 调度链表节点
     uint32_t affinity = 0;               // CPU亲和性掩码
+
     Registers regs;
     Stacks stacks;
     Task* next = nullptr;
@@ -90,30 +96,25 @@ struct Task {
     Context* context = nullptr;
     volatile uint32_t debug_status = 0;
     void print();
+    void alloc_stack(KernelMemory& mm);
+    int allocUserStack();
 };
 struct Context {
-    Task def_task;
-
     uint32_t context_id;
+
     UserMemory user_mm; // 用户空间内存管理器
+
     kernel::FileDescriptor* fd_table[MAX_PROCESS_FDS] = {nullptr};
-    int allocate_fd();
     int next_fd = 3;     // 0, 1, 2 保留给标准输入、输出和错误
+
     char cwd[256] = "/"; // 当前工作目录，默认为根目录
+
+    int allocate_fd();
     void print();
-};
-union Kontext {
-    struct Context context;
-    uint8_t stack[KERNEL_STACK_SIZE];
+    void cloneMemorySpace(Context *source);
+    void cloneFiles(Context *source);
 };
 
-// 修改后的当前进程获取宏
-#define CURRENT()                                                                                  \
-    ({                                                                                             \
-        uint32_t esp;                                                                              \
-        asm volatile("mov %%esp, %0" : "=r"(esp));                                                 \
-        (Kontext*)(esp & ~0x3FFF);                                                                 \
-    })
 
 class PidManager
 {
@@ -144,15 +145,10 @@ public:
     static void switch_to_user_mode(uint32_t entry_point, Task* task);
     static void save_context(uint32_t* esp);
     static void restore_context(uint32_t* esp);
-    static void initIdle();
-    static void appendPCB(Kontext* kontext);
-    static void cloneMemorySpace(Context* child, Context* parent);
-    static void cloneFiles(Context* child, Context* parent);
+
     // static void cloneMemory(ProcessControlBlock* pcb);
-    static int allocUserStack(Context* context, Task *task);
     static void sleep_current_process(uint32_t ticks);
-    static Task* current_task;
-    static Kontext* kernel_context;
+    static Context* kernel_context;
 
 private:
     static kernel::ConsoleFS console_fs;

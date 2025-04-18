@@ -56,6 +56,8 @@ void smp_init()
     debug_debug("所有(%d) CPU 已就绪！\n", apic_get_cpu_count());
 }
 
+
+extern "C" void init_idle_task();
 void ap_entry()
 {
     // AP 从 0x8000 的启动代码跳转到这里继续执行
@@ -87,6 +89,11 @@ void ap_entry()
     __atomic_add_fetch(&cpu_ready_count, 1, __ATOMIC_SEQ_CST);
     debug_debug("CPU %d 已就绪\n", current_cpu_id);
 
+    for(int j = 0; j < 1000000; j++) { // 短暂等待 AP 启动
+        __asm__ volatile("pause");
+    }
+
+    init_idle_task();
     // 启用中断
     debug_debug("启用中断\n");
     asm volatile("sti");
