@@ -10,7 +10,7 @@
 
 namespace kernel
 {
-ConsoleDevice ConsoleFS::g_console_device;
+ConsoleDevice *ConsoleFS::g_console_device = nullptr;
 
 ConsoleDevice::ConsoleDevice() {}
 

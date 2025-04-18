@@ -113,8 +113,9 @@ int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* task)
 
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
     debug_debug("Writing %d bytes to fd %d, buffer: 0x%x\n", size, fd_num, buffer);
-    debug_debug("fd 0x%x\n", context->fd_table[fd_num]);
-    ssize_t bytes_written = context->fd_table[fd_num]->write(buffer, size);
+    auto fd = context->fd_table[fd_num];
+    debug_debug("fd 0x%x\n", fd);
+    ssize_t bytes_written = fd->write(buffer, size);
 
     debug_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
     return bytes_written;

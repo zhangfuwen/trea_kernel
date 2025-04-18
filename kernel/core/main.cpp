@@ -42,13 +42,13 @@ extern "C" void segmentation_fault_interrupt();
 extern "C" void stack_fault_interrupt();
 Task* init_task = nullptr;
 
-void idle_task_entry() {
+void idle_task_entry()
+{
     while(true) {
-        debug_rate_limited("idle task!\n");
+        debug_debug("idle task!\n");
         asm volatile("hlt");
     }
 }
-
 
 void init()
 {
@@ -68,24 +68,67 @@ void init()
         //    asm volatile("hlt");
     }
 };
-extern "C" void init_idle_task()
+
+extern "C" Task* create_init_task(Context* context, KernelMemory& mm)
+{
+    auto init_context = new Context();
+    init_context->cloneMemorySpace(context);
+    init_context->cloneFiles(context);
+    init_task = ProcessManager::kernel_task(init_context, "init", (uint32_t)init, 0, nullptr);
+    init_task->alloc_stack(mm);
+    init_task->allocUserStack();
+    init_task->state = PROCESS_READY;
+    init_task->regs.cr3 = init_task->context->user_mm.getPageDirectoryPhysical();
+
+    debug_debug("init_task: %d(0x%x)\n", init_task->task_id, init_task);
+    return init_task;
+}
+extern "C" Task* create_idle_task(Context* context, int apic_id)
 {
     auto& kernel = Kernel::instance();
     // idle task
-    debug_debug("creating idle context\n");
-    auto idle_context = new Context();
-    debug_debug("new context at 0x%x\n", idle_context);
-    idle_context->cloneMemorySpace(ProcessManager::kernel_context);
-    idle_context->cloneFiles(ProcessManager::kernel_context);
-
-    auto idle_task = ProcessManager::kernel_task(idle_context, "idle", (uint32_t)idle_task_entry, 0, nullptr);
+    char name[32];
+    format_string(name, sizeof(name), "idle-%d", apic_id);
+    auto idle_task =
+        ProcessManager::kernel_task(context, name, (uint32_t)idle_task_entry, 0, nullptr);
     idle_task->alloc_stack(kernel.kernel_mm());
     idle_task->state = PROCESS_READY;
     idle_task->regs.cr3 = idle_task->context->user_mm.getPageDirectoryPhysical();
 
     kernel.scheduler().set_current_task(idle_task);
     kernel.scheduler().set_idle_task(idle_task);
+    debug_debug("idle_task: %d(0x%x)\n", idle_task->task_id, idle_task);
     idle_task->print();
+    return idle_task;
+}
+
+int initialize_kernel_context()
+{
+    ProcessManager::kernel_context = new Context();
+    auto ctx = ProcessManager::kernel_context;
+    ctx->user_mm.init(
+        0x400000, (PageDirectory*)0xC0400000,
+        []() {
+            auto page = Kernel::instance().kernel_mm().alloc_pages(
+                0, 0); // gfp_mask = 0, order = 0 (1 page)
+            debug_debug("ProcessManager: Allocated Page at %x\n", page);
+            return page;
+        },
+        [](uint32_t physAddr) {
+            Kernel::instance().kernel_mm().free_pages(physAddr, 0);
+        }, // order=0表示释放单个页面
+        [](uint32_t physAddr) {
+            return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
+        });
+
+    auto fd = VFSManager::instance().open("/dev/console");
+    fd->write("hello-world\n", 12);
+    ctx->fd_table[0] = fd;
+    ctx->fd_table[1] = fd;
+    ctx->fd_table[2] = fd;
+    debug_debug("kernel fd_table[0]: %x\n", ctx->fd_table[0]);
+
+    return 0;
 }
 
 extern "C" void kernel_main()
@@ -130,16 +173,18 @@ extern "C" void kernel_main()
 
     kernel->interrupt_manager().registerHandler(IRQ_TIMER, []() {
         auto cpu_id = arch::apic_get_id();
-        if(cpu_id != 0) {
-            debug_rate_limited("timer interrupt on cpu %d\n", cpu_id);
-        }
+        // if(cpu_id != 0) {
+        //     debug_rate_limited("timer interrupt on cpu %d\n", cpu_id);
+        // }
+        Kernel::instance().tick();
         ProcessManager::schedule();
     });
     kernel->interrupt_manager().registerHandler(APIC_TIMER_VECTOR, []() {
         auto cpu_id = arch::apic_get_id();
-        if(cpu_id != 0) {
-            debug_rate_limited("timer interrupt on cpu %d\n", cpu_id);
-        }
+        // if(cpu_id != 0) {
+        //     debug_rate_limited("timer interrupt on cpu %d\n", cpu_id);
+        // }
+        Kernel::instance().tick();
         ProcessManager::schedule();
     });
     // 注册键盘中断处理函数
@@ -157,6 +202,7 @@ extern "C" void kernel_main()
         // auto ascii = scancode_to_ascii(code);
         // debug_debug("ascii 0x%x scancode 0x%x\n", ascii, code);
     });
+    kernel->interrupt_manager().registerHandler(0x22, []() { });
 
     // 初始化IDT
     IDT::init();
@@ -278,90 +324,40 @@ extern "C" void kernel_main()
     char ll[] = "123456";
     // char * data = (char*)__initramfs_start;
     char* data = (char*)ll;
-    debug_info("initramfs data: %x\n", data[0]);
-    debug_info("initramfs data: %x\n", data[1]);
-    debug_info("initramfs data: %d\n", data[2]);
-    debug_info("initramfs data: %d\n", data[3]);
-    debug_info("initramfs data: %d\n", data[4]);
-    debug_info("initramfs data: %d\n", data[5]);
-    if(data[0] == '1') {
-        debug_info("initramfs data0 is 1 \n");
-    }
     data = (char*)__initramfs_start;
-    if(data[0] == 0x30) {
-        debug_info("initramfs data0 is 0x30 \n");
-    }
-    //    debug_info(data);
     int ret = memfs->load_initramfs(__initramfs_start, initramfs_size);
     if(ret < 0) {
         debug_alert("Failed to load initramfs!\n");
     }
     Console::print("MemFS initialized and initramfs loaded!\n");
 
-    // 初始化SMP，启动AP处理器
+    initialize_kernel_context();
+
+    debug_debug("Initializing idle task!\n");
+    auto idle_task = create_idle_task(ProcessManager::kernel_context, 0);
+
+    debug_debug("Initializing init task!\n");
+    auto init_task = create_init_task(ProcessManager::kernel_context, kernel->kernel_mm());
+    debug_debug("init task created %d(0x%x)!\n", init_task->task_id, init_task);
+
+    debug_debug("scheduler init\n");
     kernel->scheduler().init();
-
-    ProcessManager::kernel_context = new Context();
-    auto ctx = ProcessManager::kernel_context;
-    ctx->user_mm.init(
-    0x400000, (PageDirectory*)0xC0400000,
-    []() {
-        auto page = Kernel::instance().kernel_mm().alloc_pages(
-            0, 0); // gfp_mask = 0, order = 0 (1 page)
-        debug_debug("ProcessManager: Allocated Page at %x\n", page);
-        return page;
-    },
-    [](uint32_t physAddr) {
-        Kernel::instance().kernel_mm().free_pages(physAddr, 0);
-    }, // order=0表示释放单个页面
-    [](uint32_t physAddr) {
-        return (void*)Kernel::instance().kernel_mm().phys2Virt(physAddr);
-    });
-
-    debug_debug("consolefs is %x\n", consolefs);
-    debug_debug("consolefs is %x\n", consolefs);
-    debug_debug("consolefs is %x\n", consolefs);
-    debug_debug("consolefs is %x\n", consolefs);
-    debug_debug("consolefs is %x\n", consolefs);
-
-    // TODO: this hangs
-    // auto p = new uint8_t[1036];
-
-    // auto fd = VFSManager::instance().open("/dev/console");
-    ConsoleDevice dev;
-    ctx->fd_table[0] = &dev;
-    ctx->fd_table[1] = &dev;
-    ctx->fd_table[2] = &dev;
-    // ctx->fd_table[10] = fd;
-
-
-
-    debug_debug("init_idle_task!\n");
-    init_idle_task();
-
-    // init task
-    debug_debug("init_proc!\n");
-    auto init_context = new Context();
-    init_context->cloneMemorySpace(ProcessManager::kernel_context);
-    init_context->cloneFiles(ProcessManager::kernel_context);
-    init_task = ProcessManager::kernel_task(init_context, "init", (uint32_t)init, 0, nullptr);
-    init_task->alloc_stack(kernel->kernel_mm());
-    init_task->allocUserStack();
-    init_task->state = PROCESS_READY;
-    init_task->regs.cr3 = init_task->context->user_mm.getPageDirectoryPhysical();
-
-    debug_debug("init_proc enqueueing\n");
+    kernel->scheduler().set_idle_task(idle_task);
+    kernel->scheduler().set_current_task(idle_task);
     kernel->scheduler().enqueue_task(init_task, 1);
-    debug_debug("init_proc enqueued\n");
 
+    debug_debug("Initializing SMP...\n");
     arch::smp_init();
     debug_debug("SMP initialized\n");
 
     debug_debug("Enabling interrupt...\n");
     asm volatile("sti");
+
+    // jump to idle task eip
+    // asm volatile("jmp %0" ::"m"(idle_task->regs.eip));
+
     while(1) {
-        debug_rate_limited("idle process!\n");
+        // debug_rate_limited("idle process!\n");
         asm volatile("hlt");
-        // debug_debug("x\n");
     }
 }

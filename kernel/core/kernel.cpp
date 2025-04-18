@@ -152,7 +152,7 @@ void Kernel::init()
 {
     serial_puts("kernel init\n");
     memory_manager.init();
-    timer_ticks = 0;
+    timer_ticks.init_all(new uint32_t(0));
 }
 
 bool Kernel::is_kernel_mode()

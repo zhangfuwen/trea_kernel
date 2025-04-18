@@ -82,7 +82,7 @@ struct Task {
 
     ProcessState state;          // 进程状态
     uint32_t priority;           // 进程优先级
-    uint32_t time_slice = DEFAULT_TIME_SLICE;         // 时间片
+    int32_t time_slice = DEFAULT_TIME_SLICE;         // 时间片
     uint32_t total_time;         // 总执行时间
     uint32_t exit_status;        // 退出状态码
     uint32_t sleep_ticks;

@@ -80,6 +80,7 @@ public:
     static void setCallGate(
         int index, uint16_t selector, uint32_t offset, uint8_t dpl, uint8_t param_count);
     static void loadGDT();
+    static void loadTR(uint32_t cpu);
     static GDTEntry entries[6 + MAX_CPUS];
     static TSSEntry tss[MAX_CPUS];
     static GDTPointer gdtPointer;

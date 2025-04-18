@@ -60,7 +60,10 @@ public:
 
     FileDescriptor* open([[maybe_unused]] const char* path) override
     {
-        return &g_console_device;
+        if(!g_console_device) {
+            g_console_device = new ConsoleDevice();
+        }
+        return g_console_device;
     }
 
     virtual int stat([[maybe_unused]] const char* path, FileAttribute* attr) override
@@ -85,10 +88,8 @@ public:
     {
         return -1;
     }
-public:
-    static ConsoleDevice * get_console_device() {  return &g_console_device;}
 private:
-    static ConsoleDevice g_console_device;
+    static ConsoleDevice *g_console_device ;
 };
 
 } // namespace kernel

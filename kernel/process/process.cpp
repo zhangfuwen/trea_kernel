@@ -328,15 +328,15 @@ int ProcessManager::fork()
 bool ProcessManager::schedule()
 {
     auto current = get_current_task();
-    if(current && --current->time_slice) {
-        debug_debug("time_slice %d\n", current->time_slice);
+    if(current && --current->time_slice > 0) {
+        //debug_debug("time_slice %d\n", current->time_slice);
         return false;
     }
     auto next = Kernel::instance().scheduler().pick_next_task();
-    if(!next) {
+    if(!next || next == current) {
         return false;
     }
-    debug_debug("schedule: current: %d, next:%d\n", current->task_id, next->task_id);
+    // debug_debug("schedule: current: %d, next:%d(0x%x)\n", current->task_id, next->task_id, next);
     current->time_slice = DEFAULT_TIME_SLICE;
     Kernel::instance().scheduler().enqueue_task(current);
     Kernel::instance().scheduler().set_current_task(next);
@@ -367,6 +367,10 @@ void ProcessManager::save_context(uint32_t* esp)
 
     // 保存段寄存器
     regs.ds = esp[8];
+    if (regs.ds == 0) {
+        debug_debug("ds error 0x%x\n", regs.ds);
+        current->print();
+    }
     regs.es = esp[9];
     regs.fs = esp[10];
     regs.gs = esp[11];
@@ -415,6 +419,10 @@ void ProcessManager::restore_context(uint32_t* esp)
     next->debug_status = 0;
 
     // 恢复段寄存器
+    if(regs.ds ==0) {
+        debug_debug("ds error 0x%x\n", regs.ds);
+        next->print();
+    }
     esp[8] = regs.ds;
     esp[9] = regs.es;
     esp[10] = regs.fs;
@@ -450,6 +458,14 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, Task* task)
     auto cpu = arch::apic_get_id();
     GDT::updateTSS(cpu, task->stacks.esp0, KERNEL_DS);
     GDT::updateTSSCR3(cpu, task->regs.cr3);
+
+    // update ds and es
+    asm volatile("mov %0, %%ds\n\t"
+                 "mov %0, %%es\n\t"
+                 "mov %0, %%fs\n\t"
+                 "mov %0, %%gs\n\t"
+        :
+        : "r"(USER_DS), "r"(USER_DS), "r"(USER_DS), "r"(USER_DS));
 
     asm volatile("mov %%eax, %%esp\n\t"    // 设置用户栈指针
                  "pushl $0x23\n\t"         // 用户数据段选择子

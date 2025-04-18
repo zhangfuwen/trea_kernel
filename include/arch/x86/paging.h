@@ -92,6 +92,8 @@ struct PageTable {
 } __attribute__((aligned(4096)));
 
 void printPDPTE(VADDR vaddr);
+void printPDE(PageDirectory* pdVirt, uint32_t index);
+void printPD(PageDirectory* pdVirt, uint32_t startIndex, uint32_t count);
 void __printPDPTE(VADDR vaddr, PageDirectory* pdVirt);
 void printPTEFlags(uint32_t pte);
 

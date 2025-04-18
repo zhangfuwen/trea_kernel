@@ -342,6 +342,31 @@ void __printPDPTE(VADDR vaddr, PageDirectory* pdVirt)
         pt_index, pt_index, pte, phys);
     printPTEFlags(pte);
 }
+
+void printPD(PageDirectory* pdVirt, uint32_t startIndex, uint32_t count)
+{
+    for(uint32_t i = startIndex; i < startIndex + count; i++) {
+        auto pde = pdVirt->entries[i];
+        debug_debug("PDE: 0x%x\n", pde);
+    }
+}
+
+void printPDE(PageDirectory* pdVirt, uint32_t index)
+{
+    auto pde = pdVirt->entries[index];
+    debug_debug("PDE: 0x%x\n", pde);
+    debug_debug("  Present:      %d\n",  pde & 0x1);
+    debug_debug("  RW:           %d\n", (pde >> 1) & 0x1);
+    debug_debug("  User/Super:   %d\n", (pde >> 2) & 0x1);
+    debug_debug("  PWT:          %d\n", (pde >> 3) & 0x1);
+    debug_debug("  PCD:          %d\n", (pde >> 4) & 0x1);
+    debug_debug("  Accessed:     %d\n", (pde >> 5) & 0x1);
+    debug_debug("  Dirty:        %d\n", (pde >> 6) & 0x1);
+    debug_debug("  Page Size:    %d\n", (pde >> 7) & 0x1);
+    debug_debug("  Global:       %d\n", (pde >> 8) & 0x1);
+    debug_debug("  Addr:      0x%x\n", (pde >> 12));
+}
+
 void printPDPTE(VADDR vaddr)
 {
 

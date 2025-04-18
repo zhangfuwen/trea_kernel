@@ -63,6 +63,12 @@ void GDT::init()
     asm volatile("ltr %%ax" : : "a"(0x28)); // TSS段选择子
 }
 
+void GDT::loadTR(uint32_t cpu)
+{
+    // 加载TSS
+    asm volatile("ltr %0" : : "r"(0x28 + cpu*8)); // TSS段选择子
+}
+
 void GDT::setEntry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
 {
     entries[index].base_low = base & 0xFFFF;

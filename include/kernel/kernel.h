@@ -52,10 +52,10 @@ public:
         // instance0 = new Kernel();
     }
 
-    inline void tick() { timer_ticks++;}
+    inline void tick() { (*timer_ticks)++;}
     uint32_t get_ticks()
     {
-        return timer_ticks;
+        return *timer_ticks;
     }
 
 private:
@@ -71,5 +71,5 @@ private:
 
     kernel::SMP_Scheduler smp_scheduler;
 
-    uint32_t timer_ticks;
+    arch::PerCPU<uint32_t> timer_ticks;
 };

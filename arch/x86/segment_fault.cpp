@@ -11,25 +11,37 @@ extern "C" void general_fault_errno_handler(uint32_t isr_no, uint32_t error_code
 // 新增通用保护故障处理函数
 extern "C" void general_protection_fault_handler(uint32_t error_code)
 {
-    debug_debug("General Protection Fault! Error code: %d\n", error_code);
+    debug_debug("General Protection Fault! Error code: %08x\n", error_code);
 
     // 解析错误代码位
     if(error_code & 0x1) {
-        debug_debug("External event (hardware interrupt)\n");
+        debug_debug("  [Bit 0] External event (hardware interrupt)\n");
+    } else {
+        debug_debug("  [Bit 0] Caused by program\n");
     }
     if(error_code & 0x2) {
-        debug_debug("Descriptor type: %s\n", (error_code & 0x4) ? "IDT" : "GDT/LDT");
+        debug_debug("  [Bit 1] Descriptor table: IDT\n");
+    } else {
+        debug_debug("  [Bit 1] Descriptor table: GDT/LDT\n");
+    }
+    if(error_code & 0x4) {
+        debug_debug("  [Bit 2] LDT segment\n");
+    } else {
+        debug_debug("  [Bit 2] Not LDT segment\n");
     }
     if(error_code & 0x8) {
-        // 直接打印选择子值（高16位）
-        debug_debug("Segment selector out of bounds (0x%x)\n", (error_code >> 16) & 0xFFFF);
+        debug_debug("  [Bit 3] Segment not present\n");
     }
 
-    if((error_code & 0xFFFF0000) != 0) {
-        debug_debug("Accessed segment: 0x%04X\n", (error_code >> 16) & 0xFFFF);
-    }
+    // 打印选择子相关信息（高16位）
+    uint16_t selector = (error_code >> 16) & 0xFFFF;
+    debug_debug("  Selector: 0x%04X\n", selector);
+    debug_debug("  TI (Table Indicator): %s\n", (selector & 0x4) ? "LDT" : "GDT");
+    debug_debug("  RPL (Request Privilege Level): %d\n", selector & 0x3);
+    debug_debug("  Index: 0x%04X\n", selector >> 3);
+
     auto pcb = ProcessManager::get_current_task();
-    pcb->print();
+    if (pcb) pcb->print();
 
     // 停止系统
 

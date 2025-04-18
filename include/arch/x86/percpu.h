@@ -47,10 +47,10 @@ template<typename T>
 class PerCPU {
 public:
     void init(T* data) { data_[get_cpu_id()] = data; }
-    void init_all()
+    void init_all(T* init_value)
     {
         for (unsigned int i = 0; i < MAX_CPUS; i++) {
-            data_[i] = new T();
+            data_[i] = init_value;
             print_pointer(data_[i]);
         }
     }
@@ -61,6 +61,10 @@ public:
     void set(T *t)
     {
         data_[get_cpu_id()] = t;
+    }
+    void set(uint32_t cpu, T *t)
+    {
+        data_[cpu] = t;
     }
     T& operator*() {
         return *data_[get_cpu_id()];

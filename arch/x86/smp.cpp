@@ -57,7 +57,6 @@ void smp_init()
 }
 
 
-extern "C" void init_idle_task();
 void ap_entry()
 {
     // AP 从 0x8000 的启动代码跳转到这里继续执行
@@ -76,14 +75,18 @@ void ap_entry()
     // 这样所有 CPU 使用相同的 interrupt handlers
     cpu_init_percpu();
 
-    // 加载 BSP 的页表
-    debug_debug("加载 BSP 的页表\n");
-    uint32_t bsp_cr3;
-    asm volatile("movl %%cr3, %0" : "=r"(bsp_cr3));
-    asm volatile("movl %0, %%cr3" : : "r"(bsp_cr3));
-
-    // 初始化 SMP 调度器
-    auto& kernel = Kernel::instance();
+    auto &kernel = Kernel::instance();
+    GDT::loadGDT();
+    GDT::loadTR(current_cpu_id);
+    kernel.kernel_mm().paging().loadPageDirectory(0x400000);
+    kernel.kernel_mm().paging().enablePaging();
+    auto task = kernel.scheduler().get_current_task();
+    auto cr3 = task->regs.cr3;
+    debug_debug("cr3: 0x%x, task: %d(0x%x)\n", cr3, task->task_id, task);
+    task->print();
+    asm volatile("mov %0, %%cr3" ::"r"(cr3));
+    GDT::updateTSS(current_cpu_id, kernel.scheduler().get_current_task()->stacks.esp0, 0x10);
+    GDT::updateTSSCR3(current_cpu_id, cr3);
 
     // 原子增加就绪计数器
     __atomic_add_fetch(&cpu_ready_count, 1, __ATOMIC_SEQ_CST);
@@ -93,15 +96,15 @@ void ap_entry()
         __asm__ volatile("pause");
     }
 
-    init_idle_task();
     // 启用中断
     debug_debug("启用中断\n");
     asm volatile("sti");
+    // asm volatile("jmp %0" ::"m"(task->regs.eip));
 
-    // 进入空闲循环，等待中断
-    // 任务调度将在中断处理函数中进行，例如定时器中断
+    // // 进入空闲循环，等待中断
+    // // 任务调度将在中断处理函数中进行，例如定时器中断
     while(true) {
-        debug_debug("CPU %d 空闲中，等待中断...\n", current_cpu_id);
+//        debug_rate_limited("CPU %d 空闲中，等待中断...\n", current_cpu_id);
         asm volatile("hlt");
     }
 }

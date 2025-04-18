@@ -30,10 +30,8 @@ void Slab::print() const {
     debug_info("  Free objects: \n");
     SlabObject* obj = freelist;
     while (obj) {
-        debug_info("%p -> 0x%x", obj);
         obj = obj->next;
     }
-    debug_info("null\n");
 }
 
 void SlabCache::print() const {
@@ -142,12 +140,10 @@ void* SlabCache::alloc()
     }
 
     // 从空闲链表中获取一个对象
-    slab->print();
     SlabObject* obj = slab->freelist;
     slab->freelist = obj->next;
     slab->inuse++;
     slab->free--;
-    slab->print();
 
     // 更新slab状态
     if (slab->free == 0) {
@@ -230,6 +226,7 @@ void SlabCache::free(void* ptr)
 Slab* SlabCache::create_slab()
 {
     // 分配一个页面
+    auto &paging = Kernel::instance().kernel_mm().paging();
     PADDR pa = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
     void * page = Kernel::instance().kernel_mm().phys2Virt(pa);
     if (!page) {
@@ -239,6 +236,11 @@ Slab* SlabCache::create_slab()
 
     // 初始化slab描述符
     Slab* slab = (Slab*)page;
+    if(slab == (Slab*)0xc17cf000) {
+        printPDPTE((VADDR)slab);
+        printPD(paging.getCurrentPageDirectory(), 0, 0x400);
+
+    }
     slab->inuse = 0;
     slab->free = objects_per_slab;
     auto tmp = page + sizeof(Slab);
@@ -268,7 +270,6 @@ Slab* SlabCache::create_slab()
     ((SlabObject*)obj)->next = nullptr;
 
     debug_debug("Created new slab at %p in cache '%s'\n", slab, name);
-    slab->print();
     return slab;
 }
 
