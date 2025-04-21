@@ -120,7 +120,6 @@ int main() {
 
         // 解析命令
         int argc = parse_cmd(cmd_buf, argv);
-        printf("argc %d, argv[0]:%s\n", argc,argv[0]);
         if (argc == 0) continue;
 
         // 执行命令

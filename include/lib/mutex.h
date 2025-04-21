@@ -93,6 +93,19 @@ private:
     bool wouldDeadlock() const;
 };
 
+class LockGuard
+{
+public:
+    LockGuard(Mutex& mutex) : mutex_(mutex) {
+        mutex_.lock();
+    }
+    ~LockGuard() {
+        mutex_.unlock();
+    }
+private:
+    Mutex& mutex_;
+};
+
 } // namespace kernel
 
 #endif // KERNEL_MUTEX_H

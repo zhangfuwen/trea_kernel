@@ -3,6 +3,7 @@
 #include <kernel/dirent.h>
 #include <lib/debug.h>
 #include <lib/string.h>
+#include "kernel/fs/SimplePageCache.h"
 
 namespace kernel
 {
@@ -11,6 +12,7 @@ Ext2FileSystem::Ext2FileSystem(BlockDevice* device) : device(device)
 {
     log_debug("[ext2] 初始化文件系统 device:%p\n", device);
     super_block = new Ext2SuperBlock();
+    page_cache = new SimplePageCache(device,4096, 1024);
     auto ret = read_super_block();
     log_debug("read_super_block ret %d, super block:0x%x\n", ret, super_block);
     if(ret) {
@@ -101,6 +103,9 @@ void Ext2Inode::print()
     log_debug("    l_i_gid_high: %u (0x%x)\n", osd2.l_i_gid_high, osd2.l_i_gid_high);
     log_debug("    l_i_reserved2: %u (0x%x)\n", osd2.l_i_reserved2, osd2.l_i_reserved2);
     log_debug("  }\n");
+    for(int i = 0; i < 15; ++i) {
+        log_debug("  i_block[%d]: %d\n", i, i_block[i]);
+    }
 }
 
 void Ext2SuperBlock::print()
@@ -399,7 +404,7 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
         uint8_t* block = new uint8_t[block_size];
         bool found = false;
         for(uint32_t i = 0; i < inode->blocks; i++) {
-            log_debug("reading block %d:\n", inode->i_block[i]);
+            log_debug("reading block %d, %d:\n",i, inode->i_block[i]);
             device->read_block(inode->i_block[i], block);
 
             Ext2DirEntry* entry = (Ext2DirEntry*)block;
@@ -674,38 +679,72 @@ int Ext2FileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
     return bytes_written; // 返回写入的字节数
 }
 
+/**
+ * get block id (index number under block device)
+ * @param block_idx block index under an inode
+ * @param inode
+ * @return block index under block device
+ */
+uint32_t Ext2FileDescriptor::get_block_id(uint32_t block_idx, Ext2Inode *inode)
+{
+    auto dev = m_fs->device;
+    if (block_idx < 12) {
+        return inode->i_block[block_idx];
+    } else if (block_idx < 12+ 256) {
+        uint32_t indirect_block_id = inode->i_block[12];
+        uint32_t indirect_offset = (block_idx - 12) * sizeof(uint32_t);
+
+        uint32_t block_id;
+
+        auto key = PageKey{indirect_block_id};
+        auto page = m_fs->page_cache->get_page(key);
+
+        block_id = *((uint32_t*)(page->data + indirect_offset));
+        log_debug("inode_block_idx:%d, indirect_block_id:%d, block_id:%d\n", block_idx, indirect_block_id, block_id);
+        return block_id;
+    } else if (block_idx < 12 + 256 + 256*256) {
+        uint32_t indirect_block = inode->i_block[13];
+        auto page = m_fs->page_cache->get_page(PageKey{indirect_block});
+        uint32_t indirect_block_offset = ((block_idx - 12 - 256)%(256*256));
+        uint32_t double_indirect_block = *(uint32_t*)(page->data + indirect_block_offset*sizeof(uint32_t));
+        uint32_t double_indirect_offset = (block_idx - 12 - 256)%256;
+        auto page2 = m_fs->page_cache->get_page(PageKey{double_indirect_block});
+        uint32_t block_id = *((uint32_t*)(page2->data + double_indirect_offset*sizeof(uint32_t)));
+        return block_id;
+    }
+    return 0;
+}
+
 ssize_t Ext2FileDescriptor::read(void* buffer, size_t size)
 {
     Ext2Inode* inode = m_fs->read_inode(m_inode);
     if(!inode)
         return -1;
 
-    uint32_t block_size = m_fs->device->get_info().sector_size;
+    inode->print();
+
+    uint32_t block_size = m_fs->device->block_size();
     size_t bytes_remaining = inode->size - m_position;
     size_t bytes_to_read = min(size, bytes_remaining);
     size_t total_read = 0;
 
+
+
     while(bytes_to_read > 0) {
         // 计算当前块号
-        uint32_t block_idx = m_position / block_size;
-        uint32_t block_offset = m_position % block_size;
-        uint32_t block_num = inode->i_block[block_idx];
+        uint32_t inode_block_idx = m_position / block_size;
+        uint32_t data_offset = m_position % block_size;
 
-        // 读取整个块
-        uint8_t* block = new uint8_t[block_size];
-        if(!m_fs->device->read_block(block_num, block)) {
-            delete[] block;
-            break;
-        }
+        auto device_block_id = get_block_id(m_position/block_size, inode);
+        auto page = m_fs->page_cache->get_page(PageKey{device_block_id});
 
         // 复制数据到缓冲区
-        size_t copy_size = min(block_size - block_offset, bytes_to_read);
-        memcpy(static_cast<uint8_t*>(buffer) + total_read, block + block_offset, copy_size);
+        size_t copy_size = min(block_size - data_offset, bytes_to_read);
+        memcpy(static_cast<uint8_t*>(buffer) + total_read, page->data + data_offset, copy_size);
 
         m_position += copy_size;
         total_read += copy_size;
         bytes_to_read -= copy_size;
-        delete[] block;
     }
 
     delete inode;

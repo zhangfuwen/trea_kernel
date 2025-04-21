@@ -26,6 +26,8 @@ public:
     // 写入指定块
     virtual bool write_block(uint32_t block_num, const void* buffer) = 0;
 
+    virtual uint32_t block_size() { return 4096;}
+
     // 同步缓存数据到设备
     virtual void sync() = 0;
 };

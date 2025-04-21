@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # 检查参数
-if [ $# -lt 1 ]; then
-    echo "Usage: $0 <disk_image_file>"
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <rootfs_dir> <disk_image_file>"
     exit 1
 fi
 
 # 定义变量
-disk_image=$1
+rootfs_dir=$1
+disk_image=$2
 disk_size=100M
 
 # 创建空的磁盘镜像文件
@@ -23,9 +24,9 @@ tmp_mount=$(mktemp -d)
 sudo mount -o loop $disk_image $tmp_mount
 
 # 检查rootfs/binary目录是否存在
-if [ -d "rootfs/binary" ]; then
+if [ -d "$rootfs_dir" ]; then
     # 复制文件到磁盘镜像
-    sudo cp -r rootfs/binary/* $tmp_mount/
+    sudo cp -r $rootfs_dir/* $tmp_mount/
 else
     echo "错误：rootfs/binary目录不存在"
 fi

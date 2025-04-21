@@ -64,7 +64,8 @@ void init()
         "load page directory 0x%x for pcb 0x%x(pid %d)\n", task->regs.cr3, task, task->task_id);
     while(true) {
         debug_rate_limited("init process!\n");
-        sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_task);
+        //sys_execve((uint32_t)"/init", (uint32_t)nullptr, (uint32_t)nullptr, init_task);
+        sys_execve((uint32_t)"/mnt/init", (uint32_t)nullptr, (uint32_t)nullptr, init_task);
         //    asm volatile("hlt");
     }
 };

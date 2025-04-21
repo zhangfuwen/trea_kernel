@@ -77,6 +77,7 @@ add_custom_command(
 )
 add_custom_target(run_cpio_fs_script
         DEPENDS ${CMAKE_BINARY_DIR}/rootfs.cpio
+        DEPENDS init
 )
 
 set(ROOTFS_CPIO_PATH "\"${CMAKE_BINARY_DIR}/\"")
@@ -85,14 +86,16 @@ set(ROOTFS_CPIO_PATH "\"${CMAKE_BINARY_DIR}/\"")
 #        ${CMAKE_CURRENT_BINARY_DIR}/rootfs.asm
 #)
 add_custom_command(
-    OUTPUT ${CMAKE_SOURCE_DIR}/rootfs/binary/init
+    OUTPUT ${CMAKE_SOURCE_DIR}/test.img
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/rootfs_bin/init ${CMAKE_SOURCE_DIR}/rootfs/binary/init
+        COMMAND bash ${CMAKE_SOURCE_DIR}/tools/create_disk.sh ${CMAKE_SOURCE_DIR}/rootfs/binary ${CMAKE_SOURCE_DIR}/test.img
         DEPENDS init
         COMMENT "Copying init to rootfs/binary"
         VERBATIM
 )
-add_custom_target(copy_init_to_rootfs_disk
-        DEPENDS ${CMAKE_SOURCE_DIR}/rootfs/binary/init
+add_custom_target(create_test_img
+        DEPENDS ${CMAKE_SOURCE_DIR}/test.img
+        DEPENDS init
 )
 
 # 主内核目标
@@ -154,6 +157,5 @@ add_custom_target(kernel.iso
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/boot/grub.cfg ${CMAKE_BINARY_DIR}/iso/boot/grub/
         COMMAND grub-mkrescue -o ${CMAKE_BINARY_DIR}/kernel.iso ${CMAKE_BINARY_DIR}/iso
         DEPENDS kernel.bin
-        DEPENDS copy_init_to_rootfs_disk
         DEPENDS run_cpio_fs_script
 )

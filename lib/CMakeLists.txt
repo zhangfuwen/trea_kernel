@@ -6,6 +6,7 @@ add_library(kernel_lib
     debug.cpp
     debug_test.cpp
     log_buffer.cpp
+        mutex.cpp
 )
 
 # 添加包含目录

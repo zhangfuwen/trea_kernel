@@ -17,6 +17,7 @@ add_library(arch_x86 STATIC
         segment_fault.cpp
         smp.cpp
         spinlock.cpp
+
 )
 
 # 为interrupt_names.c设置C语言编译标准

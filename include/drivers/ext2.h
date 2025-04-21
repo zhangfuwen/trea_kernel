@@ -1,9 +1,11 @@
 #pragma once
 #include "block_device.h"
+#include <cstdint>
+#include <kernel/fs/PageCache.h>
 #include <kernel/vfs.h>
 #include <stddef.h>
-#include <cstdint>
 
+class SimplePageCache;
 namespace kernel
 {
 
@@ -182,6 +184,8 @@ private:
     Ext2Inode root_inodes;
     uint32_t current_dir_inode = 2; // 默认根目录
 
+    PageCache* page_cache;
+
     // 内部辅助函数
     bool read_super_block();
     Ext2Inode* read_inode(uint32_t inode_num);
@@ -205,8 +209,10 @@ public:
 private:
     friend class Ext2FileSystem;
     uint32_t m_inode;
-    off_t m_position;
+    off_t m_position = 0;
     Ext2FileSystem* m_fs;
+    
+    uint32_t get_block_id(uint32_t block_idx, Ext2Inode *inode);
 };
 
 } // namespace kernel

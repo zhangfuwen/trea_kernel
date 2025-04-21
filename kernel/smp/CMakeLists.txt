@@ -1,6 +1,6 @@
 # 多处理器支持相关代码
 add_library(kernel_smp STATIC
-    mutex.cpp
+        ../../lib/mutex.cpp
     smp_scheduler.cpp
 )
 

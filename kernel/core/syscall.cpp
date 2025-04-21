@@ -253,6 +253,9 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* ta
         log_err("Failed to read executable file\n");
         return -1;
     }
+    hexdump(filep, size, [](const char* buf) {
+        log_debug("%s\n", buf);
+    });
     log_debug("File read size %d\n", size);
     kernel::sys_close(fd, task);
 

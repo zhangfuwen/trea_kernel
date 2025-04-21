@@ -25,9 +25,9 @@ void register_command(const Command& cmd) {
 }
 
 void execute_command(const char* name, int argc, char* argv[]) {
-    printf("num_commands: %d\n", num_commands);
+    // printf("num_commands: %d\n", num_commands);
     for (int i = 0; i < num_commands; i++) {
-        printf("compare command '%s', '%s'\n", name, commands[i].name);
+        // printf("compare command '%s', '%s'\n", name, commands[i].name);
         if (strcmp(commands[i].name, name) == 0) {
             commands[i].handler(argc, argv);
             return;

@@ -1,7 +1,7 @@
-#include <kernel/mutex.h>
+#include <../include/lib/mutex.h>
+#include <arch/x86/interrupt.h>
 #include <kernel/process.h>
 #include <lib/debug.h>
-#include <arch/x86/interrupt.h>
 
 namespace kernel {
 

@@ -14,8 +14,8 @@ void cmd_ls(int argc, char* argv[]) {
         return;
     }
 
-    printf("ls: path '%s'\n", path);
-    printf("ls: attr.mode 0x%x\n", attr.mode);
+    // printf("ls: path '%s'\n", path);
+    // printf("ls: attr.mode 0x%x\n", attr.mode);
     if (attr.type != kernel::FT_DIR) {
         char buf[256];
         sformat(buf, sizeof(buf), "%s\t%d bytes\n", path, attr.size);
@@ -28,7 +28,7 @@ void cmd_ls(int argc, char* argv[]) {
         printf("ls: cannot open directory '%s'\n", path);
         return;
     }
-    printf("ls: open directory '%s'\n", path);
+    // printf("ls: open directory '%s'\n", path);
 
     char title[256];
     sformat(title, sizeof(title), "Directory listing of %s:\n", path);

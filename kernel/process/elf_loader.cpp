@@ -50,6 +50,9 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
                 static_cast<const void*>(static_cast<const char*>(elf_data) + ph[i].offset);
             log_debug("Copying segment %x to %x (base: %x), size:%d\n", src, dest, base_address,
                 ph[i].filesz);
+            hexdump(src, ph[i].filesz, [](const char *buf) {
+                log_debug("%s\n", buf);
+            });
             // 复制段内容到目标地址
             for(uint32_t j = 0; j < ph[i].filesz; j++) {
                 static_cast<char*>(dest)[j] = static_cast<const char*>(src)[j];
