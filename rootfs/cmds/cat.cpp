@@ -5,14 +5,14 @@
 
 void cmd_cat(int argc, char* argv[]) {
     if (argc < 2) {
-        debug_debug("cat: missing operand\n");
+        log_debug("cat: missing operand\n");
         return;
     }
     
     const char* path = argv[1];
     int fd = syscall_open(path);
     if (fd < 0) {
-        debug_debug("cat: cannot open '%s'\n", path);
+        log_debug("cat: cannot open '%s'\n", path);
         return;
     }
     

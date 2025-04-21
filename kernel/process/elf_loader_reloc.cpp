@@ -16,7 +16,7 @@ bool ElfLoader::process_relocations(const void* elf_data, const Rel* rel, uint32
         // 获取符号值
         uint32_t sym_value = get_symbol_value(&symtab[sym_idx], base_address);
 
-        debug_debug("Relocation: type=%d, offset=%x, symbol=%d, value=%x\n", type, rel[i].offset,
+        log_debug("Relocation: type=%d, offset=%x, symbol=%d, value=%x\n", type, rel[i].offset,
             sym_idx, sym_value);
 
         // 根据重定位类型进行处理
@@ -43,7 +43,7 @@ bool ElfLoader::process_relocations(const void* elf_data, const Rel* rel, uint32
                 break;
 
             default:
-                debug_err("Unsupported relocation type: %d\n", type);
+                log_err("Unsupported relocation type: %d\n", type);
                 return false;
         }
     }
@@ -96,7 +96,7 @@ bool ElfLoader::process_dynamic(
 
     // 处理常规重定位表
     if(rel != nullptr && rel_size > 0 && dynsym != nullptr && dynstr != nullptr) {
-        debug_debug("Processing dynamic relocations, count: %d\n", rel_size);
+        log_debug("Processing dynamic relocations, count: %d\n", rel_size);
         if(!process_relocations(elf_data, rel, rel_size, dynsym, dynstr, base_address)) {
             return false;
         }
@@ -104,7 +104,7 @@ bool ElfLoader::process_dynamic(
 
     // 处理PLT重定位表
     if(plt_rel != nullptr && plt_rel_size > 0 && dynsym != nullptr && dynstr != nullptr) {
-        debug_debug("Processing PLT relocations, count: %d\n", plt_rel_size);
+        log_debug("Processing PLT relocations, count: %d\n", plt_rel_size);
         if(!process_relocations(elf_data, plt_rel, plt_rel_size, dynsym, dynstr, base_address)) {
             return false;
         }

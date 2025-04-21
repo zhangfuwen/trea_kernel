@@ -5,18 +5,18 @@
 // 全局new操作符实现
 void* operator new(size_t size)
 {
-    debug_debug("operator new called with size: %d\n", size);
+    log_debug("operator new called with size: %d\n", size);
     auto ret = Kernel::instance().kernel_mm().kmalloc(size);
-    debug_debug("operator new called with size: %d, ret: %p\n", size, ret);
+    log_debug("operator new called with size: %d, ret: %p\n", size, ret);
     return ret;
 }
 
 // 全局new[]操作符实现
 void* operator new[](size_t size)
 {
-    debug_debug("operator new[] called with size: %d\n", size);
+    log_debug("operator new[] called with size: %d\n", size);
     auto ret = Kernel::instance().kernel_mm().kmalloc(size);
-    debug_debug("operator new called with size: %d, ret: %p\n", size, ret);
+    log_debug("operator new called with size: %d, ret: %p\n", size, ret);
     return ret;
 }
 
@@ -35,7 +35,7 @@ void* operator new[](size_t size, void* ptr) noexcept
 // 全局delete操作符实现
 void operator delete(void* ptr) noexcept
 {
-    debug_debug("operator delete called with ptr: %p\n", ptr);
+    log_debug("operator delete called with ptr: %p\n", ptr);
     if(ptr) {
         Kernel::instance().kernel_mm().kfree(ptr);
     }
@@ -44,7 +44,7 @@ void operator delete(void* ptr) noexcept
 // 全局delete[]操作符实现
 void operator delete[](void* ptr) noexcept
 {
-    debug_debug("operator delete called with ptr: %p\n", ptr);
+    log_debug("operator delete called with ptr: %p\n", ptr);
     if(ptr) {
         Kernel::instance().kernel_mm().kfree(ptr);
     }

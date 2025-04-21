@@ -40,14 +40,14 @@ void print_hex_line(const unsigned char* data, int size, int offset) {
 
 void cmd_xxd(int argc, char* argv[]) {
     if (argc < 2) {
-        debug_debug("xxd: missing file operand\n");
+        log_debug("xxd: missing file operand\n");
         return;
     }
     
     const char* path = argv[1];
     int fd = syscall_open(path);
     if (fd < 0) {
-        debug_debug("xxd: cannot open '%s'\n", path);
+        log_debug("xxd: cannot open '%s'\n", path);
         return;
     }
     

@@ -17,7 +17,8 @@ enum LogLevel {
     LOG_WARNING = 4, // 警告条件
     LOG_NOTICE = 5,  // 正常但重要的条件
     LOG_INFO = 6,    // 信息性消息
-    LOG_DEBUG = 7    // 调试级别消息
+    LOG_DEBUG = 7,    // 调试级别消息
+    LOG_TRACE = 8    // 调试级别消息
 };
 
 // 当前日志级别，可以根据需要调整
@@ -106,21 +107,23 @@ inline void set_log_level(LogLevel level)
 }
 
 // 定义各种日志级别的宏
-#define debug_emerg(fmt, ...)                                                                      \
+#define log_emerg(fmt, ...)                                                                      \
     _debug_print(LOG_EMERG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_alert(fmt, ...)                                                                      \
+#define log_alert(fmt, ...)                                                                      \
     _debug_print(LOG_ALERT, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_crit(fmt, ...)                                                                       \
+#define log_crit(fmt, ...)                                                                       \
     _debug_print(LOG_CRIT, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_err(fmt, ...) _debug_print(LOG_ERR, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_warn(fmt, ...)                                                                       \
+#define log_err(fmt, ...) _debug_print(LOG_ERR, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define log_warn(fmt, ...)                                                                       \
     _debug_print(LOG_WARNING, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_notice(fmt, ...)                                                                     \
+#define log_notice(fmt, ...)                                                                     \
     _debug_print(LOG_NOTICE, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_info(fmt, ...)                                                                       \
+#define log_info(fmt, ...)                                                                       \
     _debug_print(LOG_INFO, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
-#define debug_debug(fmt, ...)                                                                      \
+#define log_debug(fmt, ...)                                                                      \
     _debug_print(LOG_DEBUG, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
+#define log_trace(fmt, ...)                                                                      \
+    _debug_print(LOG_TRACE, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)
 
 // 类似printk的函数
 #define printk(fmt, ...) _debug_print(LOG_INFO, __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__)

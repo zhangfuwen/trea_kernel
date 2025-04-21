@@ -13,7 +13,7 @@ bool Mutex::lock(uint32_t timeout) {
     // 获取当前进程
     auto current = ProcessManager::get_current_task();
     if (!current) {
-        debug_err("Mutex::lock: No current process\n");
+        log_err("Mutex::lock: No current process\n");
         return false;
     }
 
@@ -26,7 +26,7 @@ bool Mutex::lock(uint32_t timeout) {
 
     // 检查是否会导致死锁
     if (wouldDeadlock()) {
-        debug_err("Mutex::lock: Deadlock detected for pid %d\n", pid);
+        log_err("Mutex::lock: Deadlock detected for pid %d\n", pid);
         spin_lock.release_irqrestore(flags);
         return false;
     }
@@ -81,7 +81,7 @@ bool Mutex::unlock() {
     // 获取当前进程
     auto current = ProcessManager::get_current_task();
     if (!current) {
-        debug_err("Mutex::unlock: No current process\n");
+        log_err("Mutex::unlock: No current process\n");
         return false;
     }
 
@@ -93,7 +93,7 @@ bool Mutex::unlock() {
 
     // 检查是否是锁的拥有者
     if (owner != pid) {
-        debug_err("Mutex::unlock: Process %d is not the owner of this mutex\n", pid);
+        log_err("Mutex::unlock: Process %d is not the owner of this mutex\n", pid);
         spin_lock.release_irqrestore(flags);
         return false;
     }

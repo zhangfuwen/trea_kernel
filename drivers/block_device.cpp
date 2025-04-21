@@ -69,7 +69,7 @@ bool DiskDevice::init() {
 
     // 等待命令就绪
     if ((inb(0x1F7) & 0x88) != 0x08) {
-        debug_err("IDENTIFY command failed\n");
+        log_err("IDENTIFY command failed\n");
         return false;
     }
 
@@ -94,7 +94,7 @@ bool DiskDevice::init() {
     info.total_sectors = max_lba;
     info.sector_size = 512;
     
-    debug_info("Detected disk size: %llu sectors (%llu MB)\n", 
+    log_info("Detected disk size: %llu sectors (%llu MB)\n", 
              max_lba, (max_lba * 512) / (1024 * 1024));
     return true;
 }
@@ -117,7 +117,7 @@ bool DiskDevice::read_block(uint32_t block_num, void* buffer)
 bool DiskDevice::read_sector(uint32_t sector_num, void* buffer) {
     // debug_info("read_block\n");
     if (sector_num >= info.total_sectors || !buffer) {
-        debug_err("Invalid block number(%d, 0x%x) or buffer:0x%x\n", sector_num, buffer, buffer);
+        log_err("Invalid block number(%d, 0x%x) or buffer:0x%x\n", sector_num, buffer, buffer);
         return false;
     }
 

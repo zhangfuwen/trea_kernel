@@ -60,7 +60,7 @@ void run_format_string_tests() {
     int passed = 0;
     int total = sizeof(test_cases) / sizeof(test_cases[0]);
 
-    debug_info("开始运行format_string测试用例...\n");
+    log_info("开始运行format_string测试用例...\n");
 
     for (size_t i = 0; i < total; i++) {
         const TestCase& test = test_cases[i];
@@ -71,13 +71,13 @@ void run_format_string_tests() {
         bool test_passed = strcmp(buffer, test.expected) == 0;
         if (test_passed) {
             passed++;
-            debug_info("测试 '%s' 通过 (格式: '%s', 结果: '%s')\n",
+            log_info("测试 '%s' 通过 (格式: '%s', 结果: '%s')\n",
                       test.name, test.format, buffer);
         } else {
-            debug_err("测试 '%s' 失败 (格式: '%s', 期望: '%s', 实际: '%s')\n",
+            log_err("测试 '%s' 失败 (格式: '%s', 期望: '%s', 实际: '%s')\n",
                      test.name, test.format, test.expected, buffer);
         }
     }
 
-    debug_info("测试完成: %d/%d 通过\n", passed, total);
+    log_info("测试完成: %d/%d 通过\n", passed, total);
 }

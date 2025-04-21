@@ -32,7 +32,7 @@ void GDT::init()
         tss[i].iomap_base = sizeof(TSSEntry);
 
         // 设置TSS描述符
-        debug_debug("tss base for %d is  0x%x\n", i, &tss[i]);
+        log_debug("tss base for %d is  0x%x\n", i, &tss[i]);
         uint32_t tss_base = reinterpret_cast<uint32_t>(&tss[i]);
         setEntry(5 + i, tss_base, sizeof(TSSEntry), GDT_PRESENT | GDT_TYPE_TSS, 0x00);
 

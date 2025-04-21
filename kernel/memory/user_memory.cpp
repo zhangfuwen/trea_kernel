@@ -10,7 +10,7 @@ void UserMemory::init(PADDR page_dir_phys, VADDR page_dir, uint32_t (*alloc_page
 {
     pgd = page_dir;
     pgd_phys = page_dir_phys;
-    debug_debug("pgd:0x%x\n", pgd);
+    log_debug("pgd:0x%x\n", pgd);
     num_areas = 0;
     total_vm = 0;
     locked_vm = 0;
@@ -102,16 +102,16 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
     areas[num_areas].type = type;
     num_areas++;
 
-    debug_debug("allocated area, start:0x%x, end:0x%x, size:0x%x\n", start, end, size);
+    log_debug("allocated area, start:0x%x, end:0x%x, size:0x%x\n", start, end, size);
 
     // 更新总虚拟内存大小
     total_vm += size >> 12; // 已经按页对齐，直接除以页大小
 
     // 为VMA区域建立页表项，但不分配物理页面
     uint32_t num_pages = (size + 0xFFF) >> 12;
-    debug_debug("size: %d\n", size);
-    debug_debug("num_pages: %d\n", num_pages);
-    debug_debug("total_vm: %d\n", total_vm);
+    log_debug("size: %d\n", size);
+    log_debug("num_pages: %d\n", num_pages);
+    log_debug("total_vm: %d\n", total_vm);
     for(uint32_t i = 0; i < num_pages; i++) {
         uint32_t vaddr = start + (i << 12);
         uint32_t pde_idx = vaddr >> 22;
@@ -120,18 +120,18 @@ void* UserMemory::allocate_area(uint32_t size, uint32_t flags, uint32_t type)
         // 获取页目录项
         uint32_t* pde = (uint32_t*)(pgd) + pde_idx;
         if(vaddr == 0x40000000) {
-            debug_debug("pde_idx: %d\n", pde_idx);
+            log_debug("pde_idx: %d\n", pde_idx);
             printPDPTE((void*)vaddr);
         }
         // debug_debug("pgd:%x, pde_addr:%x,  pde %x\n", pgd, pde, *pde);
 
         // 如果页表不存在，创建新的页表
         if(!(*pde & PAGE_PRESENT)) {
-            debug_debug("allocating pt\n");
+            log_debug("allocating pt\n");
             uint32_t page_table = allocate_physical_page();
             auto virt = phys_to_virt(page_table);
             *pde = page_table | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
-            debug_debug("pdg:%x, pde:%x, *pde:%x, page_table: %x\n", pgd, pde, *pde, page_table);
+            log_debug("pdg:%x, pde:%x, *pde:%x, page_table: %x\n", pgd, pde, *pde, page_table);
             memset((void*)virt, 0, 0x1000);
         }
 
@@ -339,13 +339,13 @@ bool UserMemory::copyFrom(const UserMemory& src)
 }
 void UserMemory::print()
 {
-    debug_debug("UserMemory: total_vm: %d, locked_vm: %d\n", total_vm, locked_vm);
-    debug_debug("UserMemory: num_areas: %d\n", num_areas);
+    log_debug("UserMemory: total_vm: %d, locked_vm: %d\n", total_vm, locked_vm);
+    log_debug("UserMemory: num_areas: %d\n", num_areas);
     for(uint32_t i = 0; i < num_areas; i++) {
-        debug_debug("UserMemory: area[%d]: start: %x, end: %x, flags: %x, type: %d\n", i,
+        log_debug("UserMemory: area[%d]: start: %x, end: %x, flags: %x, type: %d\n", i,
             areas[i].start_addr, areas[i].end_addr, areas[i].flags, areas[i].type);
         if(i > 20) {
-            debug_debug("too many areas, stop here\n");
+            log_debug("too many areas, stop here\n");
             break;
         }
     }

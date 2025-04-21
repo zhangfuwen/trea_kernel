@@ -29,9 +29,9 @@ void PageManager::init()
     enablePaging();
     serial_puts("PageManager: enable paging\n");
     curPgdVirt = (PageDirectory*)(PAGE_DIRECTORY_ADDR + KERNEL_DIRECT_MAP_START); // 虚拟地址
-    debug_debug("PAGE_DIRECTORY_ADDR: %x\n", PAGE_DIRECTORY_ADDR);
-    debug_debug("KERNEL_DIRECT_MAP_START: %x\n", KERNEL_DIRECT_MAP_START);
-    debug_debug("PageManager: currentPageDirectory: %x\n", curPgdVirt);
+    log_debug("PAGE_DIRECTORY_ADDR: %x\n", PAGE_DIRECTORY_ADDR);
+    log_debug("KERNEL_DIRECT_MAP_START: %x\n", KERNEL_DIRECT_MAP_START);
+    log_debug("PageManager: currentPageDirectory: %x\n", curPgdVirt);
 }
 
 // 映射内核空间 896MB
@@ -101,7 +101,7 @@ void PageManager::mapPage(uint32_t virt_addr, uint32_t phys_addr, uint32_t flags
 
     // 获取页目录项
     if(!curPgdVirt) {
-        debug_err("PageManager: currentPageDirectory is null\n");
+        log_err("PageManager: currentPageDirectory is null\n");
         return;
     }
 
@@ -109,7 +109,7 @@ void PageManager::mapPage(uint32_t virt_addr, uint32_t phys_addr, uint32_t flags
     PageTable* pt;
     if(!(curPgdVirt->entries[pd_index] & 0x1)) {
         // 创建新页表
-        debug_debug("creating new page table\n");
+        log_debug("creating new page table\n");
         pt = (PageTable*)Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
         // debug_debug("created phys:%x\n", pt);
         curPgdVirt->entries[pd_index] =
@@ -209,10 +209,10 @@ int PageManager::copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dstPgd)
     constexpr uint32_t APIC_START = 0xFEC00000;
     constexpr uint32_t APIC_END = 0xFEEFFFFF;
     uint32_t pd_index = APIC_START >> 22;
-    debug_debug("APIC_START pd_index:0x%x\n", pd_index);
+    log_debug("APIC_START pd_index:0x%x\n", pd_index);
     auto src_pt_paddr = src->entries[pd_index] & 0xFFFFF000;
     auto dst_pt_paddr = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
-    debug_debug("src_pt_paddr:0x%x, dst_pt_paddr:0x%x\n", src_pt_paddr, dst_pt_paddr);
+    log_debug("src_pt_paddr:0x%x, dst_pt_paddr:0x%x\n", src_pt_paddr, dst_pt_paddr);
     PageTable* dst_pt = (PageTable*)kernel_mm.phys2Virt(dst_pt_paddr);
     PageTable* src_pt = (PageTable*)kernel_mm.phys2Virt(src_pt_paddr);
     memcpy(dst_pt, src_pt, 4096);
@@ -230,16 +230,16 @@ int PageManager::copyMemorySpaceCOW(PageDirectory* src, PageDirectory* dstPgd)
         if(src->entries[pde_idx] & PAGE_PRESENT) {
             auto src_pt_paddr = src->entries[pde_idx] & 0xFFFFF000;
             if (src_pt_paddr > 896 * 1024*1024) {
-                debug_err("PageManager: src_pt_paddr 0x%x, pde_idx:%d, pde:0x%x \n", src_pt_paddr, pde_idx, src->entries[pde_idx]);
+                log_err("PageManager: src_pt_paddr 0x%x, pde_idx:%d, pde:0x%x \n", src_pt_paddr, pde_idx, src->entries[pde_idx]);
                 continue;
             }
             auto dst_pt_paddr = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
-            debug_debug("src_pt_paddr:0x%x, dst_pt_paddr:0x%x\n", src_pt_paddr, dst_pt_paddr);
+            log_debug("src_pt_paddr:0x%x, dst_pt_paddr:0x%x\n", src_pt_paddr, dst_pt_paddr);
             PageTable* dst_pt = (PageTable*)kernel_mm.phys2Virt(dst_pt_paddr);
             PageTable* src_pt = (PageTable*)kernel_mm.phys2Virt(src_pt_paddr);
 
             // 复制所有页表项
-            debug_debug("copyMemorySpaceCOW: src_pt:%x, dst_pt:%x\n", src_pt, dst_pt);
+            log_debug("copyMemorySpaceCOW: src_pt:%x, dst_pt:%x\n", src_pt, dst_pt);
             for(uint32_t pte_idx = 0; pte_idx < 1024; pte_idx++) {
                 // 如果是可写页面，设置COW标志
                 if(src_pt->entries[pte_idx] & PAGE_WRITE) {
@@ -269,13 +269,13 @@ void PagingValidate(PageDirectory * pd)
         if (pd->entries[i] & 0x1) {
             PADDR pt_paddr = pd->entries[i] & 0xFFFFF000;
             if(pt_paddr > 896*1024*1024) {
-                debug_err("PageManager: pt_paddr 0x%x, pd_index:%d, pde:0x%x \n", pt_paddr, i, pd->entries[i]);
+                log_err("PageManager: pt_paddr 0x%x, pd_index:%d, pde:0x%x \n", pt_paddr, i, pd->entries[i]);
                 continue;
             }
             PageTable* pt = (PageTable*)Kernel::instance().kernel_mm().phys2Virt(pt_paddr);
             uint32_t pt_virt = (uint32_t)pt;
             if(pt_virt < USER_START && pt_virt > 0x500000) {
-                debug_err("PageManager: pt_paddr 0x%x, pd_index:%d, pde:0x%x \n", pt_paddr, i, pd->entries[i]);
+                log_err("PageManager: pt_paddr 0x%x, pd_index:%d, pde:0x%x \n", pt_paddr, i, pd->entries[i]);
                 continue;
             }
             for (int j = 0; j < 1024; j++) {
@@ -283,7 +283,7 @@ void PagingValidate(PageDirectory * pd)
                     uint32_t phys_addr = pt->entries[j] & 0xFFFFF000;
                     uint32_t virt_addr = (i << 22) | (j << 12);
                     if (phys_addr > 896 * 1024*1024 && phys_addr != virt_addr) {
-                        debug_err("PagingValidte error: virt_addr: 0x%x, phys_addr: 0x%x\n", virt_addr,
+                        log_err("PagingValidte error: virt_addr: 0x%x, phys_addr: 0x%x\n", virt_addr,
                         phys_addr);
                     }
 
@@ -313,19 +313,19 @@ void printPTEFlags(uint32_t pte)
     bool global = pte & PAGE_GLOBAL;
     bool cow = pte & PAGE_COW;
 
-    debug_debug("present : %d\n", present);
-    debug_debug("write : %d\n", write);
-    debug_debug("user : %d\n", user);
-    debug_debug("writeThrough : %d\n", writeThrough);
-    debug_debug("cache disable : %d\n", cacheDisable);
-    debug_debug("accessed : %d\n", accessed);
-    debug_debug("dirty : %d\n", dirty);
-    debug_debug("global : %d\n", global);
-    debug_debug("cow : %d\n", cow);
+    log_debug("present : %d\n", present);
+    log_debug("write : %d\n", write);
+    log_debug("user : %d\n", user);
+    log_debug("writeThrough : %d\n", writeThrough);
+    log_debug("cache disable : %d\n", cacheDisable);
+    log_debug("accessed : %d\n", accessed);
+    log_debug("dirty : %d\n", dirty);
+    log_debug("global : %d\n", global);
+    log_debug("cow : %d\n", cow);
 }
 void __printPDPTE(VADDR vaddr, PageDirectory* pdVirt)
 {
-    debug_debug("vaddr : 0x%x\n", vaddr);
+    log_debug("vaddr : 0x%x\n", vaddr);
     auto pdPhys = Kernel::instance().kernel_mm().virt2Phys(pdVirt);
 
     auto fault_addr = (uint32_t)vaddr;
@@ -336,9 +336,9 @@ void __printPDPTE(VADDR vaddr, PageDirectory* pdVirt)
     auto pt_index = (fault_addr >> 12) & 0x3FF;
     auto pte = pt_virt->entries[pt_index];
     auto phys = pte & 0xFFFFF000;
-    debug_debug("PD: 0x%x(phys:0x%x), PD index:%d(0x%x), PDE:0x%x\n", pdVirt, pdPhys, pd_index,
+    log_debug("PD: 0x%x(phys:0x%x), PD index:%d(0x%x), PDE:0x%x\n", pdVirt, pdPhys, pd_index,
         pd_index, pde);
-    debug_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x, phys:0x%x\n", pt_virt, pt_phys,
+    log_debug("PT: 0x%x(phys:0x%x), PT index:%d(0x%x), PTE:0x%x, phys:0x%x\n", pt_virt, pt_phys,
         pt_index, pt_index, pte, phys);
     printPTEFlags(pte);
 }
@@ -347,24 +347,24 @@ void printPD(PageDirectory* pdVirt, uint32_t startIndex, uint32_t count)
 {
     for(uint32_t i = startIndex; i < startIndex + count; i++) {
         auto pde = pdVirt->entries[i];
-        debug_debug("PDE: 0x%x\n", pde);
+        log_debug("PDE: 0x%x\n", pde);
     }
 }
 
 void printPDE(PageDirectory* pdVirt, uint32_t index)
 {
     auto pde = pdVirt->entries[index];
-    debug_debug("PDE: 0x%x\n", pde);
-    debug_debug("  Present:      %d\n",  pde & 0x1);
-    debug_debug("  RW:           %d\n", (pde >> 1) & 0x1);
-    debug_debug("  User/Super:   %d\n", (pde >> 2) & 0x1);
-    debug_debug("  PWT:          %d\n", (pde >> 3) & 0x1);
-    debug_debug("  PCD:          %d\n", (pde >> 4) & 0x1);
-    debug_debug("  Accessed:     %d\n", (pde >> 5) & 0x1);
-    debug_debug("  Dirty:        %d\n", (pde >> 6) & 0x1);
-    debug_debug("  Page Size:    %d\n", (pde >> 7) & 0x1);
-    debug_debug("  Global:       %d\n", (pde >> 8) & 0x1);
-    debug_debug("  Addr:      0x%x\n", (pde >> 12));
+    log_debug("PDE: 0x%x\n", pde);
+    log_debug("  Present:      %d\n",  pde & 0x1);
+    log_debug("  RW:           %d\n", (pde >> 1) & 0x1);
+    log_debug("  User/Super:   %d\n", (pde >> 2) & 0x1);
+    log_debug("  PWT:          %d\n", (pde >> 3) & 0x1);
+    log_debug("  PCD:          %d\n", (pde >> 4) & 0x1);
+    log_debug("  Accessed:     %d\n", (pde >> 5) & 0x1);
+    log_debug("  Dirty:        %d\n", (pde >> 6) & 0x1);
+    log_debug("  Page Size:    %d\n", (pde >> 7) & 0x1);
+    log_debug("  Global:       %d\n", (pde >> 8) & 0x1);
+    log_debug("  Addr:      0x%x\n", (pde >> 12));
 }
 
 void printPDPTE(VADDR vaddr)

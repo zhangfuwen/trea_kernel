@@ -61,7 +61,7 @@ Context* ProcessManager::create_context(const char* name)
     auto& kernel_mm = Kernel::instance().kernel_mm();
 
     uint32_t pid = pid_manager.alloc();
-    debug_info("creating process with pid: %d\n", pid);
+    log_info("creating process with pid: %d\n", pid);
 
     auto context = new Context();
     context->context_id = pid;
@@ -77,7 +77,7 @@ Task* ProcessManager::kernel_task(
     auto& kernel_mm = Kernel::instance().kernel_mm();
 
     auto pgd = Kernel::instance().kernel_mm().paging().getCurrentPageDirectory();
-    debug_debug("ProcessManager: Current Page Directory: %x\n", pgd);
+    log_debug("ProcessManager: Current Page Directory: %x\n", pgd);
     auto task = new Task();
     task->task_id = tid_manager.alloc();
     task->context = context;
@@ -116,7 +116,7 @@ Task* ProcessManager::kernel_task(
     }
     task->name[PROCNAME_LEN] = '\0';
 
-    debug_debug("initialized task:0x%x, tid: %d\n", task, task->task_id);
+    log_debug("initialized task:0x%x, tid: %d\n", task, task->task_id);
     task->print();
     // appendPCB((PCB*)pPcb);
     return task;
@@ -124,7 +124,7 @@ Task* ProcessManager::kernel_task(
 int Context::allocate_fd()
 {
     auto ret = next_fd;
-    debug_debug("allocate_fd: %x\n", ret);
+    log_debug("allocate_fd: %x\n", ret);
     next_fd++;
     return ret;
 }
@@ -133,29 +133,29 @@ kernel::ConsoleFS ProcessManager::console_fs;
 
 void Registers::print()
 {
-    debug_info("  Registers:\n");
-    debug_info("    EAX: 0x%x  EBX: 0x%x  ECX: 0x%x  EDX: 0x%x\n", eax, ebx, ecx, edx);
-    debug_info("    ESI: 0x%x  EDI: 0x%x  EBP: 0x%x  ESP: 0x%x\n", esi, edi, ebp, esp);
-    debug_info("    EIP: 0x%x  EFLAGS: 0x%x\n", eip, eflags);
+    log_info("  Registers:\n");
+    log_info("    EAX: 0x%x  EBX: 0x%x  ECX: 0x%x  EDX: 0x%x\n", eax, ebx, ecx, edx);
+    log_info("    ESI: 0x%x  EDI: 0x%x  EBP: 0x%x  ESP: 0x%x\n", esi, edi, ebp, esp);
+    log_info("    EIP: 0x%x  EFLAGS: 0x%x\n", eip, eflags);
 
     // 内核态信息
-    debug_info("  Kernel State:\n");
-    debug_info("    CR3: 0x%x\n", cr3);
+    log_info("  Kernel State:\n");
+    log_info("    CR3: 0x%x\n", cr3);
 
     // 段寄存器
-    debug_info("  Segment Selectors:\n");
-    debug_info("    CS: 0x%x  DS: 0x%x  SS: 0x%x\n", cs, ds, ss);
-    debug_info("    ES: 0x%x  FS: 0x%x  GS: 0x%x\n", es, fs, gs);
+    log_info("  Segment Selectors:\n");
+    log_info("    CS: 0x%x  DS: 0x%x  SS: 0x%x\n", cs, ds, ss);
+    log_info("    ES: 0x%x  FS: 0x%x  GS: 0x%x\n", es, fs, gs);
 }
 
 void Stacks::print()
 {
-    debug_info("  Stacks:\n");
-    debug_info(
+    log_info("  Stacks:\n");
+    log_info(
         "    User Stack: 0x%x, size:%d(0x%x)\n", user_stack, user_stack_size, user_stack_size);
     // debug_debug("    Kernel Stack: 0x%x, size:%d(0x%x)\n", kernel_stack, KERNEL_STACK_SIZE,
     //     KERNEL_STACK_SIZE);
-    debug_info("    Esp0:0x%x, Ebp0:0x%x, Ss0:0x%x\n", esp0, ebp0, ss0);
+    log_info("    Esp0:0x%x, Ebp0:0x%x, Ss0:0x%x\n", esp0, ebp0, ss0);
 }
 
 void Context::print()
@@ -171,10 +171,10 @@ void Context::cloneFiles(Context* source)
 void Context::cloneMemorySpace(Context* source)
 {
     if(!source) {
-        debug_err("ProcessManager: Invalid PCB pointer\n");
+        log_err("ProcessManager: Invalid PCB pointer\n");
         return;
     }
-    debug_debug("Copying memory space\n");
+    log_debug("Copying memory space\n");
 
     Kernel& kernel = Kernel::instance();
     auto& kernel_mm = kernel.kernel_mm();
@@ -182,19 +182,19 @@ void Context::cloneMemorySpace(Context* source)
     // 使用COW方式复制内存空间
     auto parent_pgd = source->user_mm.getPageDirectory();
     auto paddr = kernel_mm.alloc_pages(0, 0); // gfp_mask = 0, order = 0 (1 page)
-    debug_debug("alloc page at 0x%x\n", paddr);
+    log_debug("alloc page at 0x%x\n", paddr);
     auto child_pgd = kernel_mm.phys2Virt(paddr);
-    debug_debug("child_pgd: 0x%x\n", child_pgd);
+    log_debug("child_pgd: 0x%x\n", child_pgd);
     PagingValidate((PageDirectory*)parent_pgd);
-    debug_info("Copying memory space\n");
+    log_info("Copying memory space\n");
     kernel_mm.paging().copyMemorySpaceCOW((PageDirectory*)parent_pgd, (PageDirectory*)child_pgd);
-    debug_debug("Copying page at 0x%x\n", paddr);
+    log_debug("Copying page at 0x%x\n", paddr);
     user_mm.init(
         paddr, child_pgd,
         []() {
             auto page = Kernel::instance().kernel_mm().alloc_pages(
                 0, 0); // gfp_mask = 0, order = 0 (1 page)
-            debug_debug("ProcessManager: Allocated Page at %x\n", page);
+            log_debug("ProcessManager: Allocated Page at %x\n", page);
             return page;
         },
         [](uint32_t physAddr) {
@@ -208,8 +208,8 @@ void Context::cloneMemorySpace(Context* source)
 
 void Task::print()
 {
-    debug_info("Process: %s (PID: %d), pcb_addr:0x%x\n", name, task_id, this);
-    debug_info("  State: %d, Priority: %d, Time: %d/%d\n", state, priority, total_time, time_slice);
+    log_info("Process: %s (PID: %d), pcb_addr:0x%x\n", name, task_id, this);
+    log_info("  State: %d, Priority: %d, Time: %d/%d\n", state, priority, total_time, time_slice);
 
     regs.print();
     stacks.print();
@@ -230,10 +230,10 @@ int Task::allocUserStack()
     stacks.user_stack_size = USER_STACK_SIZE;
     stacks.user_stack =
         (uint32_t)mm.allocate_area(stacks.user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
-    debug_debug("user stack:0x%x\n", stacks.user_stack);
+    log_debug("user stack:0x%x\n", stacks.user_stack);
     printPDPTE((void*)stacks.user_stack);
     if(!stacks.user_stack) {
-        debug_debug("ProcessManager: Failed to allocate user stack\n");
+        log_debug("ProcessManager: Failed to allocate user stack\n");
         return -1;
     }
     return 0;
@@ -251,10 +251,10 @@ int Stacks::allocSpace(UserMemory& mm)
     user_stack_size = USER_STACK_SIZE;
     user_stack = (uint32_t)mm.allocate_area(user_stack_size, PAGE_WRITE, MEM_TYPE_STACK);
     if(!user_stack) {
-        debug_debug("ProcessManager: Failed to allocate user stack\n");
+        log_debug("ProcessManager: Failed to allocate user stack\n");
         return -1;
     }
-    debug_debug("Child user stack allocated at 0x%x, size:%d(0x%x)\n", user_stack, user_stack_size,
+    log_debug("Child user stack allocated at 0x%x, size:%d(0x%x)\n", user_stack, user_stack_size,
         user_stack_size);
 
     return 0;
@@ -264,7 +264,7 @@ int Stacks::allocSpace(UserMemory& mm)
 // 修改fork中的内存复制逻辑
 int ProcessManager::fork()
 {
-    debug_info("fork enter!\n");
+    log_info("fork enter!\n");
     // Kernel& kernel = Kernel::instance();
     // auto& kernel_mm = kernel.kernel_mm();
     //
@@ -336,7 +336,7 @@ bool ProcessManager::schedule()
         return false;
     }
     auto cpu = arch::apic_get_id();
-    debug_debug("got next task: %d(0x%x, pre_cpu:%d), cpu: %d\n", next->task_id, next, next->cpu, cpu);
+    log_debug("got next task: %d(0x%x, pre_cpu:%d), cpu: %d\n", next->task_id, next, next->cpu, cpu);
     // debug_debug("schedule: current: %d, next:%d(0x%x)\n", current->task_id, next->task_id, next);
     current->time_slice = DEFAULT_TIME_SLICE;
     Kernel::instance().scheduler().enqueue_task(current);
@@ -375,7 +375,7 @@ void ProcessManager::save_context(uint32_t int_num, uint32_t* esp)
     regs.fs = esp[10];
     regs.gs = esp[11];
     if((regs.cs != 0x08 && regs.cs != 0x1b) || regs.ds == 0) {
-        debug_debug("cs 0x%x, ds 0x%x, int 0x%x\n", regs.cs, regs.ds, int_num);
+        log_debug("cs 0x%x, ds 0x%x, int 0x%x\n", regs.cs, regs.ds, int_num);
         current->print();
         current->debug_status |= DEBUG_STATUS_HALT;
     }
@@ -411,7 +411,7 @@ void ProcessManager::restore_context(uint32_t int_num, uint32_t* esp)
     esp[12] = regs.eip;
 
     if(regs.cs != 0x08 && regs.cs != 0x1b) {
-        debug_debug("cs error 0x%x, int_num 0x%x\n", regs.cs, int_num);
+        log_debug("cs error 0x%x, int_num 0x%x\n", regs.cs, int_num);
         next->print();
         if(next->debug_status & DEBUG_STATUS_HALT) {
             while(true) {
@@ -423,7 +423,7 @@ void ProcessManager::restore_context(uint32_t int_num, uint32_t* esp)
 
     // 恢复段寄存器
     if(regs.ds ==0) {
-        debug_debug("ds error 0x%x, int_num 0x%x\n", regs.ds, int_num);
+        log_debug("ds error 0x%x, int_num 0x%x\n", regs.ds, int_num);
         next->print();
     }
     esp[8] = regs.ds;
@@ -435,9 +435,9 @@ void ProcessManager::restore_context(uint32_t int_num, uint32_t* esp)
     GDT::updateTSSCR3(cpu, next->regs.cr3);
 
     if(debug.is_task_switch && debug.cur_task->cpu != cpu) {
-        debug_debug("switching task: prev: %d, next:%d\n", debug.prev_task->task_id,
+        log_debug("switching task: prev: %d, next:%d\n", debug.prev_task->task_id,
             next->task_id);
-        debug_debug("prev cpu:%d, cur cpu:%d\n", next->cpu, cpu);
+        log_debug("prev cpu:%d, cur cpu:%d\n", next->cpu, cpu);
         debug.is_task_switch = false;
         next->print();
     }
@@ -455,10 +455,10 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, Task* task)
     // auto pcb = get_current_process();
     auto user_stack = task->stacks.user_stack + task->stacks.user_stack_size - 16;
     auto context = task->context;
-    debug_debug(
+    log_debug(
         "switch_to_user_mode called, user stack: %x, entry point %x\n", user_stack, entry_point);
 
-    debug_debug("will switch to user: kernel pcb:\n");
+    log_debug("will switch to user: kernel pcb:\n");
     get_current_task()->print();
 
     task->regs.eip = entry_point;
@@ -467,7 +467,7 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, Task* task)
     task->regs.eflags == 0x200;
 
     __printPDPTE((void*)entry_point, (PageDirectory*)context->user_mm.getPageDirectory());
-    debug_debug("user stack: 0x%x\n", user_stack);
+    log_debug("user stack: 0x%x\n", user_stack);
     __printPDPTE((void*)user_stack, (PageDirectory*)context->user_mm.getPageDirectory());
     auto cpu = arch::apic_get_id();
     GDT::updateTSS(cpu, task->stacks.esp0, KERNEL_DS);

@@ -19,7 +19,7 @@ void smp_init()
     // 获取当前 CPU (BSP) 的 LAPIC ID 作为主处理器标识
     bsp_lapic_id = apic_get_id();
     auto cpu_count = apic_get_cpu_count();
-    debug_debug("系统总 CPU 数量: %d, BSP ID: %d\n", cpu_count, bsp_lapic_id);
+    log_debug("系统总 CPU 数量: %d, BSP ID: %d\n", cpu_count, bsp_lapic_id);
 
     // 发送 INIT-SIPI-SIPI 序列启动 APs (Application Processors)
     // 1. 发送 INIT 重置 AP
@@ -28,7 +28,7 @@ void smp_init()
     for(uint32_t i = 0; i < cpu_count; i++) {
         uint32_t target_id = i;
         if(target_id != bsp_lapic_id) {
-            debug_debug("CPU %d 正在启动\n", target_id);
+            log_debug("CPU %d 正在启动\n", target_id);
             apic_send_init(target_id);         // 发送 INIT 重置 AP
             for(int j = 0; j < 1000000; j++) { // 短暂等待 AP 重置完成
                 __asm__ volatile("pause");
@@ -45,15 +45,15 @@ void smp_init()
     }
 
     // 等待所有 APs 完成初始化
-    debug_debug("等待所有 CPU 就绪...\n");
+    log_debug("等待所有 CPU 就绪...\n");
     while(cpu_ready_count < apic_get_cpu_count() - 1) {
-        debug_debug("当前就绪 CPU 数量: %d\n", cpu_ready_count);
+        log_debug("当前就绪 CPU 数量: %d\n", cpu_ready_count);
         for(int j = 0; j < 1000000; j++) { // 短暂等待所有 CPU 就绪
             __asm__ volatile("pause");
         }
         __asm__ volatile("pause");
     }
-    debug_debug("所有(%d) CPU 已就绪！\n", apic_get_cpu_count());
+    log_debug("所有(%d) CPU 已就绪！\n", apic_get_cpu_count());
 }
 
 
@@ -62,9 +62,9 @@ void ap_entry()
     // AP 从 0x8000 的启动代码跳转到这里继续执行
     // 初始化当前 AP 的 LAPIC，使其能够接收中断
     uint32_t current_cpu_id = apic_get_id();
-    debug_debug("ap_entry, CPU ID: %d\n", current_cpu_id);
+    log_debug("ap_entry, CPU ID: %d\n", current_cpu_id);
     apic_init();
-    debug_debug("CPU %d 已启动\n", current_cpu_id);
+    log_debug("CPU %d 已启动\n", current_cpu_id);
 
     // 初始化本地 APIC 定时器
     apic_init_timer(100);
@@ -82,10 +82,10 @@ void ap_entry()
     kernel.kernel_mm().paging().enablePaging();
     auto task = kernel.scheduler().get_current_task();
     auto cr3 = task->regs.cr3;
-    debug_debug("cr3: 0x%x, task: %d(0x%x)\n", cr3, task->task_id, task);
+    log_debug("cr3: 0x%x, task: %d(0x%x)\n", cr3, task->task_id, task);
     task->print();
     asm volatile("mov %0, %%cr3" ::"r"(cr3));
-    debug_debug("updating tss, esp0: 0x%x, cr3: 0x%x\n", task->stacks.esp0, cr3);
+    log_debug("updating tss, esp0: 0x%x, cr3: 0x%x\n", task->stacks.esp0, cr3);
     GDT::updateTSS(current_cpu_id, task->stacks.esp0, 0x10);
     GDT::updateTSSCR3(current_cpu_id, cr3);
     task->cpu = current_cpu_id;
@@ -94,14 +94,14 @@ void ap_entry()
 
     // 原子增加就绪计数器
     __atomic_add_fetch(&cpu_ready_count, 1, __ATOMIC_SEQ_CST);
-    debug_debug("CPU %d 已就绪\n", current_cpu_id);
+    log_debug("CPU %d 已就绪\n", current_cpu_id);
 
     for(int j = 0; j < 1000000; j++) { // 短暂等待 AP 启动
         __asm__ volatile("pause");
     }
 
     // 启用中断
-    debug_debug("启用中断\n");
+    log_debug("启用中断\n");
     asm volatile("sti");
     // asm volatile("jmp %0" ::"m"(task->regs.eip));
 

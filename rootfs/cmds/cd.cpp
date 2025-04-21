@@ -4,13 +4,13 @@
 
 void cmd_cd(int argc, char* argv[]) {
     if (argc < 2) {
-        debug_debug("cd: missing directory operand\n");
+        log_debug("cd: missing directory operand\n");
         return;
     }
 
     const char* path = argv[1];
     if (syscall_chdir(path) < 0) {
-        debug_debug("cd: cannot change directory to '%s'\n", path);
+        log_debug("cd: cannot change directory to '%s'\n", path);
         return;
     }
 }
@@ -18,7 +18,7 @@ void cmd_cd(int argc, char* argv[]) {
 void cmd_pwd(int argc, char* argv[]) {
     char cwd[1024];
     if (syscall_pwd(cwd, sizeof(cwd)) < 0) {
-        debug_debug("pwd: cannot get current directory\n");
+        log_debug("pwd: cannot get current directory\n");
         return;
     }
     syscall_write(1, cwd, strlen(cwd));

@@ -42,10 +42,10 @@ void InterruptManager::init(ControllerType type)
     // 根据类型创建中断控制器
     if(type == ControllerType::PIC8259) {
         controller = new arch::PIC8259();
-        debug_debug("Using PIC8259 interrupt controller\n");
+        log_debug("Using PIC8259 interrupt controller\n");
     } else {
         controller = new arch::APICController();
-        debug_debug("Using APIC interrupt controller\n");
+        log_debug("Using APIC interrupt controller\n");
     }
 
     // 初始化控制器
@@ -74,7 +74,7 @@ void InterruptManager::init(ControllerType type)
     // registerHandler(IRQ_ETH1, []() { debug_debug("IRQ 14\n"); });
     // registerHandler(IRQ_IPI, []() { debug_debug("IRQ 15\n"); });
 
-    debug_debug("Interrupt controller initialization completed\n");
+    log_debug("Interrupt controller initialization completed\n");
 }
 
 // void InterruptManager::remapPIC() {
@@ -109,7 +109,7 @@ extern "C" void handleInterrupt(uint32_t interrupt)
 
 void InterruptManager::registerHandler(uint8_t interrupt, InterruptHandler handler)
 {
-    debug_debug("registerHandler called with interrupt: %d\n", interrupt);
+    log_debug("registerHandler called with interrupt: %d\n", interrupt);
     handlers[interrupt] = handler;
 }
 

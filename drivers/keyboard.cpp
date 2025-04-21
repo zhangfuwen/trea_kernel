@@ -230,7 +230,7 @@ void keyboard_init()
 // 根据扫描码和 Shift 状态获取 ASCII 码
 char scancode_to_ascii(unsigned char scancode)
 {
-    debug_debug("scancode_to_ascii 0x%x\n", scancode);
+    log_debug("scancode_to_ascii 0x%x\n", scancode);
     bool is_release = (scancode & 0x80) != 0;
     uint8_t ascii = 0;
     if(scancode == 0x2A || scancode == 0x36) {

@@ -8,14 +8,14 @@ KernelMemory::KernelMemory()
     : dma_zone(), normal_zone(), high_zone(), page_manager(),
       vmalloc_tree(VMALLOC_START, VMALLOC_END)
 {
-    debug_debug("KernelMemory::KernelMemory()");
+    log_debug("KernelMemory::KernelMemory()");
 }
 
 // 分配连续的物理页面
 PADDR KernelMemory::alloc_pages(uint32_t gfp_mask, uint32_t order)
 {
     if(order > 20) { // MAX_ORDER is 20
-        debug_debug("order %d too large\n", order);
+        log_debug("order %d too large\n", order);
         return 0;
     }
 
@@ -23,19 +23,19 @@ PADDR KernelMemory::alloc_pages(uint32_t gfp_mask, uint32_t order)
     uint32_t size = (1 << order) * PAGE_SIZE;
     Zone* zone = get_zone_for_allocation(size);
     if(!zone) {
-        debug_debug("get_zone_for_allocation failed for size %d\n", size);
+        log_debug("get_zone_for_allocation failed for size %d\n", size);
         return 0;
     }
 
     // 从区域中分配物理页面
     uint32_t pfn = zone->allocPages(gfp_mask, order);
     if(!pfn) {
-        debug_debug("allocPages failed\n");
+        log_debug("allocPages failed\n");
         return 0;
     }
 
     PADDR phys_addr = pfn * PAGE_SIZE;
-    debug_debug("KernelMemory::alloc_pages() addr: 0x%x\n", phys_addr);
+    log_debug("KernelMemory::alloc_pages() addr: 0x%x\n", phys_addr);
     return phys_addr;
 }
 
@@ -329,7 +329,7 @@ Zone* KernelMemory::get_zone_for_allocation(uint32_t size)
     if(normal_zone.getFreePages() * PAGE_SIZE >= size) {
         return &normal_zone;
     } else {
-        debug_debug("num free pages: %d\n", normal_zone.getFreePages());
+        log_debug("num free pages: %d\n", normal_zone.getFreePages());
     }
 
     //    // 对于大块内存，使用高端区域

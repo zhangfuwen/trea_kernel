@@ -16,7 +16,7 @@ void user_entry_wrapper()
     char* name = nullptr;
     int ret1 = syscall_fork();
     if(ret1 == 0) {
-        debug_err("child process\n");
+        log_err("child process\n");
         name = "child process";
     } else {
         name = "parent process";
@@ -29,14 +29,14 @@ void user_entry_wrapper()
         asm volatile("nop");
         asm volatile("nop");
         asm volatile("hlt");
-        debug_debug("user_entry_wrapper called, %s\n", name);
+        log_debug("user_entry_wrapper called, %s\n", name);
     }
-    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
-    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
-    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
-    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
-    debug_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
-    debug_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point);
+    log_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    log_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    log_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    log_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    log_debug("user_entry_wrapper called with entry_point: %x\n", user_entry_point);
+    log_debug("user_entry_wrapper ended with entry_point: %x\n", user_entry_point);
     syscall_exit(0);
 };
 

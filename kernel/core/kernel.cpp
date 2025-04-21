@@ -29,7 +29,7 @@ int copyCOWPage(uint32_t fault_addr, uint32_t original_pgd, UserMemory& user_mm)
         // 分配新物理页
         uint32_t new_phys = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
         if(!new_phys) {
-            debug_err("COW failed to allocate new page\n");
+            log_err("COW failed to allocate new page\n");
             return E_PANIC;
         }
 
@@ -62,8 +62,8 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
     bool is_reserved = error_code & 0x8;     // 是否保留位被置位
     bool is_instruction = error_code & 0x10; // 是否是指令获取
 
-    debug_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
-    debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
+    log_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
+    log_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
 
     auto pcb = ProcessManager::get_current_task();
@@ -92,20 +92,20 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
                 }
 
                 user_mm.map_pages(fault_addr & ~0xFFF, phys_page, PAGE_SIZE, flags);
-                debug_debug("fixed page mapping\n");
+                log_debug("fixed page mapping\n");
                 return;
             }
         } else if(is_write) {
             auto ret = copyCOWPage(fault_addr, pgd, user_mm);
             if (ret == E_OK) {
-                debug_debug("copied page\n");
+                log_debug("copied page\n");
                 return;
             } else if (ret == E_PANIC) {
                 goto panic;
             }
         }
     } else {
-        debug_debug("kernel page fault unexpected\n");
+        log_debug("kernel page fault unexpected\n");
         // return;
         // // 内核态缺页中断
         // if(!is_present && !is_reserved) {
@@ -124,11 +124,11 @@ void page_fault_handler(uint32_t error_code, uint32_t fault_addr)
 
 panic:
     // 无法处理的缺页中断，输出错误信息
-    debug_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
-    debug_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
+    log_debug("Page Fault at 0x%x, Error Code: 0x%x\n", fault_addr, error_code);
+    log_debug("Present: %d, Write: %d, User: %d, Reserved: %d, Instruction: %d\n", is_present,
         is_write, is_user, is_reserved, is_instruction);
     printPDPTE((void*)fault_addr);
-    debug_debug("will panic\n");
+    log_debug("will panic\n");
     asm volatile("hlt");
 
     // 终止当前进程或触发内核panic
@@ -137,7 +137,7 @@ panic:
         // TODO: 实现进程终止逻辑
     } else {
         // 内核panic
-        debug_debug("Kernel Panic: Unhandled Page Fault!\n");
+        log_debug("Kernel Panic: Unhandled Page Fault!\n");
         while(1)
             ;
     }
@@ -145,7 +145,7 @@ panic:
 
 Kernel::Kernel() : memory_manager()
 {
-    debug_debug("Kernel::Kernel()");
+    log_debug("Kernel::Kernel()");
 }
 
 void Kernel::init()

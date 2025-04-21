@@ -6,7 +6,7 @@
 // exit系统调用处理函数
 int exitHandler(uint32_t status, uint32_t, uint32_t, uint32_t)
 {
-    debug_debug("Process exiting with status %d\n", status);
+    log_debug("Process exiting with status %d\n", status);
 
     // 获取当前进程
     Task* current = ProcessManager::get_current_task();

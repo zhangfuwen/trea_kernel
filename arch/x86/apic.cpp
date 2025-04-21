@@ -101,7 +101,7 @@ void apic_send_sipi(uint32_t physical_address, uint32_t target) {
     icr.level = APIC_ICR_LEVEL_ASSERT;
     icr.trigger_mode = APIC_ICR_TRIGGER_LEVEL;
 
-    debug_debug("Sending SIPI to APIC ID %d, vector 0x%x, physical address 0x%x, raw:0x%x\n", 
+    log_debug("Sending SIPI to APIC ID %d, vector 0x%x, physical address 0x%x, raw:0x%x\n", 
                 target, vector, physical_address, icr.raw);
     // 设置目标APIC ID
     apic_write(LAPIC_ICR1, target << APIC_ICR_DEST_SHIFT);
@@ -220,7 +220,7 @@ void ioapic_init() {
         ioapic_set_irq(i, value);
     }
 
-    debug_debug("IO APIC initialized with all 24 IRQs configured\n");
+    log_debug("IO APIC initialized with all 24 IRQs configured\n");
 }
 
 // 设置IO APIC中断重定向表

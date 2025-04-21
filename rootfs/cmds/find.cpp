@@ -11,7 +11,7 @@ using namespace kernel;
 void find_in_directory(const char* dir_path, const char* pattern) {
     int fd = syscall_open(dir_path);
     if (fd < 0) {
-        debug_debug("find: cannot open directory '%s'\n", dir_path);
+        log_debug("find: cannot open directory '%s'\n", dir_path);
         return;
     }
 
@@ -22,7 +22,7 @@ void find_in_directory(const char* dir_path, const char* pattern) {
     while (true) {
         bytes_read = syscall_getdents(fd, dirent_buf, sizeof(dirent_buf), &pos);
         if (bytes_read < 0) {
-            debug_debug("find: cannot read directory '%s'\n", dir_path);
+            log_debug("find: cannot read directory '%s'\n", dir_path);
             break;
         }
 

@@ -172,7 +172,7 @@ int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 
 int sys_getpid() {
     auto pcb =  ProcessManager::get_current_task();
-    debug_info("pcb is %x, pid is %d\n", pcb, pcb->task_id);
+    log_info("pcb is %x, pid is %d\n", pcb, pcb->task_id);
     return pcb->task_id;
 }
 
@@ -183,7 +183,7 @@ int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t) {
 }
 
 void sys_log(const char* message, uint32_t len) {
-    debug_info("%s\n", message);
+    log_info("%s\n", message);
 }
 
 // 注册系统调用处理程序
@@ -205,7 +205,7 @@ int SyscallManager::handleSyscall(
         // debug_debug("syscall_num: %d, ret:%d\n", syscall_num, ret);
         return ret;
     }
-    debug_debug("syscall end ret -1 : num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n");
+    log_debug("syscall end ret -1 : num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n");
     return -1;
 }
 
@@ -224,48 +224,48 @@ int chdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
 
 void SyscallManager::defaultHandler()
 {
-    debug_debug("unhandled system call\n");
+    log_debug("unhandled system call\n");
     Console::print("Unhandled system call\n");
 }
 
 // execve系统调用处理函数
 int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* task)
 {
-    debug_debug("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
+    log_debug("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
 
     // 打开可执行文件
     const char* path = reinterpret_cast<const char*>(path_ptr);
     int fd = kernel::sys_open((uint32_t)path, task);
     if(fd < 0) {
-        debug_err("Failed to open executable file: %s\n", path);
+        log_err("Failed to open executable file: %s\n", path);
         return -1;
     }
-    debug_debug("open successful, fd: %d\n", fd);
+    log_debug("open successful, fd: %d\n", fd);
     auto attr = new kernel::FileAttribute();
     int ret = kernel::VFSManager::instance().stat("/init", attr);
     if(ret < 0) {
-        debug_err("Failed to stat /init!\n");
+        log_err("Failed to stat /init!\n");
         return -1;
     }
-    debug_debug("File stat ret %d, size %d!\n", ret, attr->size);
+    log_debug("File stat ret %d, size %d!\n", ret, attr->size);
 
     // 读取文件内容
     auto filep = task->context->user_mm.allocate_area(attr->size, PAGE_WRITE, 0);
-    debug_debug("File allocated at %x\n", filep);
+    log_debug("File allocated at %x\n", filep);
     uint32_t num_pages = (attr->size + PAGE_SIZE - 1) / PAGE_SIZE;
     for(uint32_t i = 0; i < num_pages; i++) {
         auto phys_addr = Kernel::instance().kernel_mm().alloc_pages(0, 0); // 每次分配一页
         task->context->user_mm.map_pages((uint32_t)filep + i * PAGE_SIZE, phys_addr, PAGE_SIZE,
             PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
     }
-    debug_debug("File allocated at %x\n", filep);
+    log_debug("File allocated at %x\n", filep);
     int size = kernel::sys_read(fd, (uint32_t)filep, attr->size, task);
     if(size <= 0) {
         task->context->user_mm.free_area((uint32_t)filep);
-        debug_err("Failed to read executable file\n");
+        log_err("Failed to read executable file\n");
         return -1;
     }
-    debug_debug("File read size %d\n", size);
+    log_debug("File read size %d\n", size);
     kernel::sys_close(fd, task);
 
     // // 清理当前进程的地址空间
@@ -281,14 +281,14 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* ta
     auto loadAddr = 0;
     if(!ElfLoader::load_elf(filep, size, (uint32_t)loadAddr)) {
         task->context->user_mm.free_area((uint32_t)filep);
-        debug_err("Failed to load ELF file\n");
+        log_err("Failed to load ELF file\n");
         return -1;
     }
     task->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
 
     const ElfHeader* header = static_cast<const ElfHeader*>(filep);
     uint32_t entry_point = header->entry;
-    debug_debug("entry_point: %x\n", entry_point);
+    log_debug("entry_point: %x\n", entry_point);
 
     ProcessManager::switch_to_user_mode(entry_point + (uint32_t)loadAddr, task);
     // pcb->mm.free_area((uint32_t)filep);

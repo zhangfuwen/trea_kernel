@@ -13,7 +13,7 @@ unsigned int get_cpu_id() {
 
 void cpu_init_percpu() {
     // 初始化CPU本地存储
-    debug_debug("Initializing CPU %d...\n", apic_get_id());
+    log_debug("Initializing CPU %d...\n", apic_get_id());
     
     // 初始化GDT
     GDT::loadGDT();
@@ -33,7 +33,7 @@ void cpu_init_percpu() {
     // 启用本地APIC
     apic_enable();
     
-    debug_debug("CPU %d initialized\n", apic_get_id());
+    log_debug("CPU %d initialized\n", apic_get_id());
 }
 
 } // namespace arch

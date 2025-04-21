@@ -22,12 +22,12 @@ void Scheduler::timer_tick()
         // debug_debug("Timer tick: PID=%d, time_slice=%d\n", current->pid,
         // current_time_slice);
         if(current_time_slice >= 100) { // 时间片到期
-            debug_debug("Time slice expired for PID=%d\n", current->task_id);
+            log_debug("Time slice expired for PID=%d\n", current->task_id);
             current_time_slice = 0;
             ProcessManager::schedule();
         }
     } else {
-        debug_debug("No running process, trying to schedule\n");
+        log_debug("No running process, trying to schedule\n");
         // 如果当前没有运行的进程，尝试调度新进程
         ProcessManager::schedule();
     }

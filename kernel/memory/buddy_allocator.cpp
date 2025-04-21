@@ -6,7 +6,7 @@
 
 void BuddyAllocator::init(uint32_t start_addr, uint32_t size)
 {
-    debug_info("BuddyAllocator::init(start_addr 0x%x, size:%d(0x%x))\n", start_addr, size, size);
+    log_info("BuddyAllocator::init(start_addr 0x%x, size:%d(0x%x))\n", start_addr, size, size);
     // 先分配PageInfo元数据空间
     page_count = size / PAGE_SIZE;
     uint32_t info_bytes = page_count * sizeof(PageInfo);
@@ -16,17 +16,17 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size)
     real_start = start_addr;
     memory_start = start_addr + info_bytes;
     memory_size = size - info_bytes;
-    debug_info("page_info size:%d(0x%x), memory_start:0x%x\n", info_bytes, info_bytes, memory_start);
+    log_info("page_info size:%d(0x%x), memory_start:0x%x\n", info_bytes, info_bytes, memory_start);
 
     // 设置page_info指针并初始化
     page_info = reinterpret_cast<PageInfo*>(Kernel::instance().kernel_mm().phys2Virt(start_addr));
-    debug_debug("memset page_info(0x%x, phys:0x%x), size:%d(0x%x)\n", page_info, start_addr, info_bytes, info_bytes);
+    log_debug("memset page_info(0x%x, phys:0x%x), size:%d(0x%x)\n", page_info, start_addr, info_bytes, info_bytes);
     memset(page_info, 0, info_bytes);
-    debug_debug("memset page_info done\n");
+    log_debug("memset page_info done\n");
 
 
     // 初始化所有空闲链表为空
-    debug_debug("init free_lists\n");
+    log_debug("init free_lists\n");
     for(int i = 0; i <= MAX_ORDER; i++) {
         free_lists[i] = nullptr;
     }
@@ -36,11 +36,11 @@ void BuddyAllocator::init(uint32_t start_addr, uint32_t size)
     uint32_t total_pages = memory_size / PAGE_SIZE;
     uint32_t order = get_block_order(total_pages);
 
-    debug_debug("total_pages:%d\n", total_pages);
+    log_debug("total_pages:%d\n", total_pages);
     FreeBlock* block = (FreeBlock*)Kernel::instance().kernel_mm().phys2Virt(memory_start);
     block->next = nullptr;
     block->size = 1 << order;
-    debug_debug("BuddyAllocator: init, block size: %d, order:%d\n", block->size, order);
+    log_debug("BuddyAllocator: init, block size: %d, order:%d\n", block->size, order);
     free_lists[order] = block;
 }
 
@@ -48,7 +48,7 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t gfp_mask, uint32_t order)
 {
     // 检查order是否超出范围
     if(order > MAX_ORDER) {
-        debug_debug("BuddyAllocator: Requested order %d is too large!\n", order);
+        log_debug("BuddyAllocator: Requested order %d is too large!\n", order);
         return 0;
     }
 
@@ -64,7 +64,7 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t gfp_mask, uint32_t order)
 
     // 如果没有找到足够大的块
     if(current_order > MAX_ORDER) {
-        debug_debug("BuddyAllocator: No available blocks!, current order: %d, order:%d\n",
+        log_debug("BuddyAllocator: No available blocks!, current order: %d, order:%d\n",
             current_order, order);
         return 0;
     }
@@ -73,7 +73,7 @@ uint32_t BuddyAllocator::allocate_pages(uint32_t gfp_mask, uint32_t order)
     FreeBlock* block = free_lists[current_order];
     //    debug_debug("block: %x\n", block);
     if(block == nullptr) {
-        debug_debug("BuddyAllocator:  invalid block, current_order: %d!\n", current_order);
+        log_debug("BuddyAllocator:  invalid block, current_order: %d!\n", current_order);
         return 0;
     }
     //    debug_debug("block1: %x\n", block);
@@ -114,7 +114,7 @@ void BuddyAllocator::free_pages(uint32_t phys, uint32_t order)
     // 验证地址是否有效
     if(phys < memory_start || phys >= (memory_start + memory_size) ||
         (phys % PAGE_SIZE != 0)) {
-        debug_err("Invalid phys address: 0x%x\n", phys);
+        log_err("Invalid phys address: 0x%x\n", phys);
         return;
     }
 
@@ -203,7 +203,7 @@ void BuddyAllocator::increment_ref_count(uint32_t phys, uint32_t order)
 {
     // 验证地址在管理范围内且是合法页对齐地址
     if(phys < real_start || phys >= (memory_start + memory_size) || (phys % PAGE_SIZE != 0)) {
-        debug_err("Invalid phys address: 0x%x, memory start:0x%x, end:0x%x\n", phys, real_start,
+        log_err("Invalid phys address: 0x%x, memory start:0x%x, end:0x%x\n", phys, real_start,
             memory_start + memory_size);
         return;
     }
@@ -233,7 +233,7 @@ void BuddyAllocator::increment_ref_count(uint32_t phys, uint32_t order)
 void BuddyAllocator::decrement_ref_count(uint32_t phys, uint32_t order)
 {
     if(phys < real_start || phys >= (memory_start + memory_size) || (phys % PAGE_SIZE != 0)) {
-        debug_err("Invalid phys address: 0x%x\n", phys);
+        log_err("Invalid phys address: 0x%x\n", phys);
         return;
     }
     uint32_t index = phys / PAGE_SIZE;
@@ -242,7 +242,7 @@ void BuddyAllocator::decrement_ref_count(uint32_t phys, uint32_t order)
     if(order > 0) {
         // 确保这是一个复合页的首页
         if(!page_info[index].is_compound || page_info[index].compound_head != phys) {
-            debug_err("Invalid compound page head: 0x%x\n", phys);
+            log_err("Invalid compound page head: 0x%x\n", phys);
             return;
         }
         

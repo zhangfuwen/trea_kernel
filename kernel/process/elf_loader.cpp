@@ -11,9 +11,9 @@ extern "C" void set_user_entry(uint32_t entry, uint32_t stack);
 // 加载ELF文件到指定的基地址
 bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_address)
 {
-    debug_debug("Loading elf at %x, size:%d\n", elf_data, size);
+    log_debug("Loading elf at %x, size:%d\n", elf_data, size);
     if(!elf_data || size < sizeof(ElfHeader)) {
-        debug_err("Invalid ELF file\n");
+        log_err("Invalid ELF file\n");
         return false;
     }
 
@@ -21,13 +21,13 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
 
     // 检查ELF魔数
     if(header->magic != ELF_MAGIC) {
-        debug_err("Invalid ELF magic number, %x vs %x\n", header->magic, ELF_MAGIC);
+        log_err("Invalid ELF magic number, %x vs %x\n", header->magic, ELF_MAGIC);
         return false;
     }
 
     // 检查文件类型
     if(header->type != ET_EXEC && header->type != ET_DYN) {
-        debug_err("Not an executable or shared object file\n");
+        log_err("Not an executable or shared object file\n");
         return false;
     }
 
@@ -35,7 +35,7 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
     const ProgramHeader* ph = static_cast<const ProgramHeader*>(
         static_cast<const void*>(static_cast<const char*>(elf_data) + header->phoff));
 
-    debug_debug("num segments: %d\n", header->phnum);
+    log_debug("num segments: %d\n", header->phnum);
 
     // 记录动态段的位置和大小，用于后续处理
     const Dyn* dynamic = nullptr;
@@ -48,7 +48,7 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
             void* dest = reinterpret_cast<void*>(ph[i].vaddr + base_address);
             const void* src =
                 static_cast<const void*>(static_cast<const char*>(elf_data) + ph[i].offset);
-            debug_debug("Copying segment %x to %x (base: %x), size:%d\n", src, dest, base_address,
+            log_debug("Copying segment %x to %x (base: %x), size:%d\n", src, dest, base_address,
                 ph[i].filesz);
             // 复制段内容到目标地址
             for(uint32_t j = 0; j < ph[i].filesz; j++) {
@@ -68,7 +68,7 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
             void* dest = reinterpret_cast<void*>(ph[i].vaddr + base_address);
             const void* src =
                 static_cast<const void*>(static_cast<const char*>(elf_data) + ph[i].offset);
-            debug_debug("Copying dynamic segment %x to %x (base: %x)\n", src, dest, base_address);
+            log_debug("Copying dynamic segment %x to %x (base: %x)\n", src, dest, base_address);
             // 复制段内容到目标地址
             for(uint32_t j = 0; j < ph[i].filesz; j++) {
                 static_cast<char*>(dest)[j] = static_cast<const char*>(src)[j];
@@ -78,7 +78,7 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
             void* dest = reinterpret_cast<void*>(ph[i].vaddr + base_address);
             const void* src =
                 static_cast<const void*>(static_cast<const char*>(elf_data) + ph[i].offset);
-            debug_debug("Copying EH_FRAME segment %x to %x (base: %x)\n", src, dest, base_address);
+            log_debug("Copying EH_FRAME segment %x to %x (base: %x)\n", src, dest, base_address);
             // 复制段内容到目标地址
             for(uint32_t j = 0; j < ph[i].filesz; j++) {
                 static_cast<char*>(dest)[j] = static_cast<const char*>(src)[j];
@@ -88,9 +88,9 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
 
     // 如果是位置无关代码(ET_DYN)，需要处理重定位
     if(header->type == ET_DYN && dynamic != nullptr) {
-        debug_debug("Processing dynamic relocations...\n");
+        log_debug("Processing dynamic relocations...\n");
         if(!process_dynamic(elf_data, dynamic, dynamic_size, base_address)) {
-            debug_err("Failed to process dynamic relocations\n");
+            log_err("Failed to process dynamic relocations\n");
             return false;
         }
     }
@@ -131,10 +131,10 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
                         static_cast<const char*>(elf_data) + sh[i].offset));
                     uint32_t rel_size = sh[i].size / sizeof(Rel);
 
-                    debug_debug("Processing relocations from section %d...\n", i);
+                    log_debug("Processing relocations from section %d...\n", i);
                     if(!process_relocations(
                            elf_data, rel, rel_size, symtab, strtab, base_address)) {
-                        debug_err("Failed to process relocations\n");
+                        log_err("Failed to process relocations\n");
                         return false;
                     }
                 }
@@ -142,6 +142,6 @@ bool ElfLoader::load_elf(const void* elf_data, uint32_t size, uint32_t base_addr
         }
     }
 
-    debug_debug("ELF loading completed successfully!\n");
+    log_debug("ELF loading completed successfully!\n");
     return true;
 }

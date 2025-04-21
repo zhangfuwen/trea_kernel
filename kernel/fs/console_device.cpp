@@ -56,21 +56,21 @@ ssize_t ConsoleDevice::read(void* buffer, size_t size)
 
     read_pos = (read_pos + bytes_to_read) % INPUT_BUFFER_SIZE;
     buffer_size -= bytes_to_read;
-    hexdump(buffer, bytes_to_read, [](const char* str) { debug_err("%s", str); });
-    debug_err("read %d bytes, %s\n", bytes_to_read, char_buffer);
+    hexdump(buffer, bytes_to_read, [](const char* str) { log_err("%s", str); });
+    log_err("read %d bytes, %s\n", bytes_to_read, char_buffer);
 
     return bytes_to_read;
 }
 
 ssize_t ConsoleDevice::write(const void* buffer, size_t size)
 {
-    debug_debug("write: %x\n", size);
+    log_debug("write: %x\n", size);
     if(!buffer || size == 0) {
         return 0;
     }
 
     const char* chars = static_cast<const char*>(buffer);
-    debug_debug("write %d chars: %s\n", size, chars);
+    log_debug("write %d chars: %s\n", size, chars);
     for(size_t i = 0; i < size; i++) {
         Console::putchar(chars[i]);
     }

@@ -18,16 +18,16 @@ class Locker
 };
 
 void SlabObject::print() const {
-    debug_info("SlabObject at %p, next=%p\n", this, next);
+    log_info("SlabObject at %p, next=%p\n", this, next);
 }
 
 void Slab::print() const {
-    debug_info("Slab at %p:\n", this);
-    debug_info("  inuse=%d, free=%d\n", inuse, free);
-    debug_info("  freelist=%p, objects=%p, next=%p\n", freelist, objects, next);
+    log_info("Slab at %p:\n", this);
+    log_info("  inuse=%d, free=%d\n", inuse, free);
+    log_info("  freelist=%p, objects=%p, next=%p\n", freelist, objects, next);
     
     // 打印空闲对象链表
-    debug_info("  Free objects: \n");
+    log_info("  Free objects: \n");
     SlabObject* obj = freelist;
     while (obj) {
         obj = obj->next;
@@ -35,36 +35,36 @@ void Slab::print() const {
 }
 
 void SlabCache::print() const {
-    debug_info("SlabCache '%s':\n", name);
-    debug_info("  object_size=%d, object_align=%d, objects_per_slab=%d\n",
+    log_info("SlabCache '%s':\n", name);
+    log_info("  object_size=%d, object_align=%d, objects_per_slab=%d\n",
               object_size, object_align, objects_per_slab);
     
     // 打印完全使用的slabs
-    debug_info("  Full slabs: ");
+    log_info("  Full slabs: ");
     Slab* slab = slabs_full;
     while (slab) {
-        debug_info("%p -> ", slab);
+        log_info("%p -> ", slab);
         slab = slab->next;
     }
-    debug_info("null\n");
+    log_info("null\n");
     
     // 打印部分使用的slabs
-    debug_info("  Partial slabs: ");
+    log_info("  Partial slabs: ");
     slab = slabs_partial;
     while (slab) {
-        debug_info("%p -> ", slab);
+        log_info("%p -> ", slab);
         slab = slab->next;
     }
-    debug_info("null\n");
+    log_info("null\n");
     
     // 打印空闲的slabs
-    debug_info("  Free slabs: ");
+    log_info("  Free slabs: ");
     slab = slabs_free;
     while (slab) {
-        debug_info("%p -> ", slab);
+        log_info("%p -> ", slab);
         slab = slab->next;
     }
-    debug_info("null\n");
+    log_info("null\n");
 }
 
 /**
@@ -93,9 +93,9 @@ SlabCache::SlabCache(const char* name, size_t size, size_t align)
     // 计算每个slab中可以容纳的对象数量
     size_t page_size = PAGE_SIZE;
     size_t available = page_size - sizeof(Slab);
-    debug_info("SlabCache('%s') PAGE_SIZE=%d sizeof(Slab)=%d available=%d object_size=%d\n", name, page_size, sizeof(Slab), available, object_size);
+    log_info("SlabCache('%s') PAGE_SIZE=%d sizeof(Slab)=%d available=%d object_size=%d\n", name, page_size, sizeof(Slab), available, object_size);
     objects_per_slab = available / object_size;
-    debug_info("Created slab cache '%s' with object size %d, align %d, objects per slab %d\n",
+    log_info("Created slab cache '%s' with object size %d, align %d, objects per slab %d\n",
               name, size, align, objects_per_slab);
 }
 
@@ -118,7 +118,7 @@ SlabCache::~SlabCache()
         slabs_free = slab->next;
         destroy_slab(slab);
     }
-    debug_info("Destroyed slab cache '%s'\n", name);
+    log_info("Destroyed slab cache '%s'\n", name);
 }
 
 /**
@@ -132,11 +132,11 @@ void* SlabCache::alloc()
         // 没有可用的slab，创建新的
         slab = create_slab();
         if (!slab) {
-            debug_debug("Failed to create new slab in cache '%s'\n", name);
+            log_debug("Failed to create new slab in cache '%s'\n", name);
             return nullptr;
         }
         slabs_free = slab;
-        debug_info("Created new slab in cache '%s'\n", name);
+        log_info("Created new slab in cache '%s'\n", name);
     }
 
     // 从空闲链表中获取一个对象
@@ -154,21 +154,21 @@ void* SlabCache::alloc()
             slabs_free = slab->next;
         slab->next = slabs_full;
         slabs_full = slab;
-        debug_debug("Slab in cache '%s' became full\n", name);
+        log_debug("Slab in cache '%s' became full\n", name);
     } else if (slab == slabs_free) {
         // 将slab从free链表移到partial链表
         slabs_free = slab->next;
         slab->next = slabs_partial;
         slabs_partial = slab;
-        debug_debug("Slab in cache '%s' became partial\n", name);
+        log_debug("Slab in cache '%s' became partial\n", name);
     }
     if (obj == nullptr) {
-        debug_err("Failed to allocate object from slab in cache '%s'\n", name);
+        log_err("Failed to allocate object from slab in cache '%s'\n", name);
         slab->print();
         return nullptr;
     }
 
-    debug_debug("Allocated object %p from cache '%s'\n", obj, name);
+    log_debug("Allocated object %p from cache '%s'\n", obj, name);
     return obj;
 }
 
@@ -202,7 +202,7 @@ void SlabCache::free(void* ptr)
         }
         slab->next = slabs_free;
         slabs_free = slab;
-        debug_debug("Slab in cache '%s' became free\n", name);
+        log_debug("Slab in cache '%s' became free\n", name);
     } else if (slab->free == 1) {
         // 将slab从full链表移到partial链表
         Slab** prev = &slabs_full;
@@ -212,11 +212,11 @@ void SlabCache::free(void* ptr)
             *prev = slab->next;
             slab->next = slabs_partial;
             slabs_partial = slab;
-            debug_debug("Slab in cache '%s' became partial\n", name);
+            log_debug("Slab in cache '%s' became partial\n", name);
         }
     }
 
-    debug_debug("Freed object %p back to cache '%s'\n", ptr, name);
+    log_debug("Freed object %p back to cache '%s'\n", ptr, name);
 }
 
 /**
@@ -230,7 +230,7 @@ Slab* SlabCache::create_slab()
     PADDR pa = Kernel::instance().kernel_mm().alloc_pages(0, 0); // order=0表示分配单个页面
     void * page = Kernel::instance().kernel_mm().phys2Virt(pa);
     if (!page) {
-        debug_err("Failed to allocate page for new slab in cache '%s'\n", name);
+        log_err("Failed to allocate page for new slab in cache '%s'\n", name);
         return nullptr;
     }
 
@@ -247,20 +247,20 @@ Slab* SlabCache::create_slab()
     slab->next = nullptr;
     slab->cache = this;  // 设置指向所属的SlabCache的指针
     slab->objects = tmp;
-    debug_debug("debug ----0x%x\n", slab);
+    log_debug("debug ----0x%x\n", slab);
     slab->objects = tmp;
-    debug_debug("debug objects ---- 0x%x, 0x%x\n", tmp,slab->objects);
-    debug_debug("debug page ----0x%x\n", page);
-    debug_debug("debug sizeof(Slab) ----%d\n", sizeof(Slab));
+    log_debug("debug objects ---- 0x%x, 0x%x\n", tmp,slab->objects);
+    log_debug("debug page ----0x%x\n", page);
+    log_debug("debug sizeof(Slab) ----%d\n", sizeof(Slab));
 
     // 初始化空闲对象链表
     char* obj = (char*)slab->objects;
     if(obj == nullptr) {
-        debug_debug("page: %p, slab: %p, slab->objects: %p\n", page, slab, slab->objects);
+        log_debug("page: %p, slab: %p, slab->objects: %p\n", page, slab, slab->objects);
     }
     slab->freelist = (SlabObject*)obj;
     if(slab->freelist == nullptr) {
-        debug_debug("Failed to allocate page for new slab in cache '%s'\n", name);
+        log_debug("Failed to allocate page for new slab in cache '%s'\n", name);
         return nullptr;
     }
     for (size_t i = 0; i < objects_per_slab - 1; i++) {
@@ -269,7 +269,7 @@ Slab* SlabCache::create_slab()
     }
     ((SlabObject*)obj)->next = nullptr;
 
-    debug_debug("Created new slab at %p in cache '%s'\n", slab, name);
+    log_debug("Created new slab at %p in cache '%s'\n", slab, name);
     return slab;
 }
 
@@ -279,7 +279,7 @@ Slab* SlabCache::create_slab()
  */
 void SlabCache::destroy_slab(Slab* slab)
 {
-    debug_debug("Destroying slab at %p in cache '%s'\n", slab, name);
+    log_debug("Destroying slab at %p in cache '%s'\n", slab, name);
     auto va = (void *)slab;
     auto pa = Kernel::instance().kernel_mm().virt2Phys(va);
     Kernel::instance().kernel_mm().free_pages(pa, 0); // order=0表示释放单个页面
@@ -321,7 +321,7 @@ void SlabAllocator::init()
         format_string(name, sizeof(name), "size-%u", sizes[i]);
         general_caches[i] = new ((void*)&_general_caches[i]) SlabCache(name, sizes[i]);
     }
-    debug_info("Initialized slab allocator with %d general caches\n", NUM_GENERAL_CACHES);
+    log_info("Initialized slab allocator with %d general caches\n", NUM_GENERAL_CACHES);
 }
 
 /**
@@ -333,7 +333,7 @@ void* SlabAllocator::kmalloc(size_t size)
 {
     Locker lock;
     if (size == 0) {
-        debug_warn("Attempted to allocate 0 bytes\n");
+        log_warn("Attempted to allocate 0 bytes\n");
         return nullptr;
     }
 
@@ -344,25 +344,25 @@ void* SlabAllocator::kmalloc(size_t size)
         while ((1U << order) < num_pages) order++;
         auto phys_addr = Kernel::instance().kernel_mm().alloc_pages(0, order);
         if (!phys_addr) {
-            debug_err("Failed to allocate %d pages for large allocation\n", num_pages);
+            log_err("Failed to allocate %d pages for large allocation\n", num_pages);
             return nullptr;
         }
-        debug_info("Allocated %d pages for large allocation of size %d\n", num_pages, size);
+        log_info("Allocated %d pages for large allocation of size %d\n", num_pages, size);
         return (void*)Kernel::instance().kernel_mm().phys2Virt(phys_addr);
     }
 
     // 使用合适的通用缓存
     SlabCache* cache = get_general_cache(size);
     if (!cache) {
-        debug_err("Failed to find appropriate cache for size %d\n", size);
+        log_err("Failed to find appropriate cache for size %d\n", size);
         return nullptr;
     }
     void* ret = cache->alloc();
     if (!ret) {
-        debug_err("Failed to allocate object of size %d from cache\n", size);
+        log_err("Failed to allocate object of size %d from cache\n", size);
         return nullptr;
     }
-    debug_debug("Allocated memory of size %d at %p\n", size, ret);
+    log_debug("Allocated memory of size %d at %p\n", size, ret);
     return ret;
 }
 
@@ -374,7 +374,7 @@ void SlabAllocator::kfree(void* ptr)
 {
     Locker lock;
     if (!ptr) {
-        debug_warn("Attempted to free null pointer\n");
+        log_warn("Attempted to free null pointer\n");
         return;
     }
 
@@ -386,16 +386,16 @@ void SlabAllocator::kfree(void* ptr)
         // 获取对象所属的SlabCache
         SlabCache* cache = slab->cache;
         if (!cache) {
-            debug_err("Failed to find cache for object at %p\n", ptr);
+            log_err("Failed to find cache for object at %p\n", ptr);
             return;
         }
         cache->free(ptr);
-        debug_debug("Freed small object at %p\n", ptr);
+        log_debug("Freed small object at %p\n", ptr);
     } else {
         // 对于大内存分配，直接通过页分配器释放
         PADDR pa = Kernel::instance().kernel_mm().virt2Phys(ptr);
         Kernel::instance().kernel_mm().free_pages(pa, 0); // order=0表示释放单个页面
-        debug_debug("Freed large object at %p\n", ptr);
+        log_debug("Freed large object at %p\n", ptr);
     }
 }
 
@@ -412,7 +412,7 @@ SlabCache* SlabAllocator::get_general_cache(size_t size)
             return general_caches[i];
         }
     }
-    debug_err("No appropriate cache found for size %d\n", size);
+    log_err("No appropriate cache found for size %d\n", size);
     return nullptr;
 }
 

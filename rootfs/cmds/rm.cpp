@@ -5,13 +5,13 @@
 
 void cmd_rm(int argc, char* argv[]) {
     if (argc < 2) {
-        debug_debug("rm: missing operand\n");
+        log_debug("rm: missing operand\n");
         return;
     }
     
     const char* path = argv[1];
     if (syscall_unlink(path) < 0) {
-        debug_debug("rm: cannot remove '%s'\n", path);
+        log_debug("rm: cannot remove '%s'\n", path);
     }
 }
 __attribute__((constructor)) void rm_register() {

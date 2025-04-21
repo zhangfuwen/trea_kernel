@@ -9,13 +9,13 @@ namespace kernel
 
 Ext2FileSystem::Ext2FileSystem(BlockDevice* device) : device(device)
 {
-    debug_debug("[ext2] 初始化文件系统 device:%p\n", device);
+    log_debug("[ext2] 初始化文件系统 device:%p\n", device);
     super_block = new Ext2SuperBlock();
     auto ret = read_super_block();
-    debug_debug("read_super_block ret %d, super block:0x%x\n", ret, super_block);
+    log_debug("read_super_block ret %d, super block:0x%x\n", ret, super_block);
     if(ret) {
         hexdump(super_block, sizeof(Ext2SuperBlock),
-            [](const char* line) { debug_debug("%s\n", line); });
+            [](const char* line) { log_debug("%s\n", line); });
         super_block->print();
     }
     // if(!ret) {
@@ -55,84 +55,84 @@ char* Ext2FileSystem::get_name() { return "ext2"; }
 void Ext2GroupDesc::print()
 {
     auto& group_desc = *(Ext2GroupDesc*)this;
-    debug_debug("Ext2 Group Descriptor:\n");
-    debug_debug("  bg_block_bitmap:      %d (0x%x)\n", group_desc.bg_block_bitmap,
+    log_debug("Ext2 Group Descriptor:\n");
+    log_debug("  bg_block_bitmap:      %d (0x%x)\n", group_desc.bg_block_bitmap,
         group_desc.bg_block_bitmap);
-    debug_debug("  bg_inode_bitmap:      %d (0x%x)\n", group_desc.bg_inode_bitmap,
+    log_debug("  bg_inode_bitmap:      %d (0x%x)\n", group_desc.bg_inode_bitmap,
         group_desc.bg_inode_bitmap);
-    debug_debug("  bg_inode_table:       %d (0x%x)\n", group_desc.bg_inode_table,
+    log_debug("  bg_inode_table:       %d (0x%x)\n", group_desc.bg_inode_table,
         group_desc.bg_inode_table);
-    debug_debug("  bg_free_blocks_count: %d (0x%x)\n", group_desc.bg_free_blocks_count,
+    log_debug("  bg_free_blocks_count: %d (0x%x)\n", group_desc.bg_free_blocks_count,
         group_desc.bg_free_blocks_count);
-    debug_debug("  bg_free_inodes_count: %d (0x%x)\n", group_desc.bg_free_inodes_count,
+    log_debug("  bg_free_inodes_count: %d (0x%x)\n", group_desc.bg_free_inodes_count,
         group_desc.bg_free_inodes_count);
-    debug_debug("  bg_used_dirs_count:   %d (0x%x)\n", group_desc.bg_used_dirs_count,
+    log_debug("  bg_used_dirs_count:   %d (0x%x)\n", group_desc.bg_used_dirs_count,
         group_desc.bg_used_dirs_count);
-    debug_debug("  bg_pad:               %d (0x%x)\n", group_desc.bg_pad, group_desc.bg_pad);
+    log_debug("  bg_pad:               %d (0x%x)\n", group_desc.bg_pad, group_desc.bg_pad);
     for(int i = 0; i < 3; ++i) {
-        debug_debug("  bg_reserved[%d]:    %d (0x%x)\n", i, group_desc.bg_reserved[i],
+        log_debug("  bg_reserved[%d]:    %d (0x%x)\n", i, group_desc.bg_reserved[i],
             group_desc.bg_reserved[i]);
     }
 }
 void Ext2Inode::print()
 {
-    debug_debug("Ext2Inode:\n");
-    debug_debug("  mode: 0x%04x (%d)\n", mode, mode);
-    debug_debug("  uid: %u (0x%x)\n", uid, uid);
-    debug_debug("  size: %u (0x%x)\n", size, size);
-    debug_debug("  atime: %u (0x%x)\n", atime, atime);
-    debug_debug("  ctime: %u (0x%x)\n", ctime, ctime);
-    debug_debug("  mtime: %u (0x%x)\n", mtime, mtime);
-    debug_debug("  dtime: %u (0x%x)\n", dtime, dtime);
-    debug_debug("  gid: %u (0x%x)\n", gid, gid);
-    debug_debug("  i_links_count: %u (0x%x)\n", i_links_count, i_links_count);
-    debug_debug("  i_blocks: %u (0x%x)\n", blocks, blocks);
-    debug_debug("  flags: %u (0x%x)\n", flags, flags);
-    debug_debug("  osd1: %u (0x%x)\n", osd1, osd1);
-    debug_debug("  i_generation: %u (0x%x)\n", i_generation, i_generation);
-    debug_debug("  i_file_acl: %u (0x%x)\n", i_file_acl, i_file_acl);
-    debug_debug("  i_dir_acl: %u (0x%x)\n", i_dir_acl, i_dir_acl);
-    debug_debug("  i_faddr: %u (0x%x)\n", i_faddr, i_faddr);
-    debug_debug("  osd2: {\n");
-    debug_debug("    l_i_frag: %u (0x%x)\n", osd2.l_i_frag, osd2.l_i_frag);
-    debug_debug("    l_i_fsize: %u (0x%x)\n", osd2.l_i_fsize, osd2.l_i_fsize);
-    debug_debug("    i_pad1: %u (0x%x)\n", osd2.i_pad1, osd2.i_pad1);
-    debug_debug("    l_i_uid_high: %u (0x%x)\n", osd2.l_i_uid_high, osd2.l_i_uid_high);
-    debug_debug("    l_i_gid_high: %u (0x%x)\n", osd2.l_i_gid_high, osd2.l_i_gid_high);
-    debug_debug("    l_i_reserved2: %u (0x%x)\n", osd2.l_i_reserved2, osd2.l_i_reserved2);
-    debug_debug("  }\n");
+    log_debug("Ext2Inode:\n");
+    log_debug("  mode: 0x%04x (%d)\n", mode, mode);
+    log_debug("  uid: %u (0x%x)\n", uid, uid);
+    log_debug("  size: %u (0x%x)\n", size, size);
+    log_debug("  atime: %u (0x%x)\n", atime, atime);
+    log_debug("  ctime: %u (0x%x)\n", ctime, ctime);
+    log_debug("  mtime: %u (0x%x)\n", mtime, mtime);
+    log_debug("  dtime: %u (0x%x)\n", dtime, dtime);
+    log_debug("  gid: %u (0x%x)\n", gid, gid);
+    log_debug("  i_links_count: %u (0x%x)\n", i_links_count, i_links_count);
+    log_debug("  i_blocks: %u (0x%x)\n", blocks, blocks);
+    log_debug("  flags: %u (0x%x)\n", flags, flags);
+    log_debug("  osd1: %u (0x%x)\n", osd1, osd1);
+    log_debug("  i_generation: %u (0x%x)\n", i_generation, i_generation);
+    log_debug("  i_file_acl: %u (0x%x)\n", i_file_acl, i_file_acl);
+    log_debug("  i_dir_acl: %u (0x%x)\n", i_dir_acl, i_dir_acl);
+    log_debug("  i_faddr: %u (0x%x)\n", i_faddr, i_faddr);
+    log_debug("  osd2: {\n");
+    log_debug("    l_i_frag: %u (0x%x)\n", osd2.l_i_frag, osd2.l_i_frag);
+    log_debug("    l_i_fsize: %u (0x%x)\n", osd2.l_i_fsize, osd2.l_i_fsize);
+    log_debug("    i_pad1: %u (0x%x)\n", osd2.i_pad1, osd2.i_pad1);
+    log_debug("    l_i_uid_high: %u (0x%x)\n", osd2.l_i_uid_high, osd2.l_i_uid_high);
+    log_debug("    l_i_gid_high: %u (0x%x)\n", osd2.l_i_gid_high, osd2.l_i_gid_high);
+    log_debug("    l_i_reserved2: %u (0x%x)\n", osd2.l_i_reserved2, osd2.l_i_reserved2);
+    log_debug("  }\n");
 }
 
 void Ext2SuperBlock::print()
 {
-    debug_debug("Ext2SuperBlock:\n");
-    debug_debug("  inodes_count: %d (0x%x)\n", inodes_count, inodes_count);
-    debug_debug("  blocks_count: %d (0x%x)\n", blocks_count, blocks_count);
-    debug_debug("  r_blocks_count: %d (0x%x)\n", r_blocks_count, r_blocks_count);
-    debug_debug("  free_blocks_count: %d (0x%x)\n", free_blocks_count, free_blocks_count);
-    debug_debug("  free_inodes_count: %d (0x%x)\n", free_inodes_count, free_inodes_count);
-    debug_debug("  first_data_block: %d (0x%x)\n", first_data_block, first_data_block);
-    debug_debug("  log_block_size: %d (0x%x)\n", log_block_size, log_block_size);
-    debug_debug("  blocks_per_group: %d (0x%x)\n", blocks_per_group, blocks_per_group);
-    debug_debug("  frags_per_group: %d (0x%x)\n", frags_per_group, frags_per_group);
-    debug_debug("  inodes_per_group: %d (0x%x)\n", inodes_per_group, inodes_per_group);
-    debug_debug("  mtime: %d (0x%x)\n", mtime, mtime);
-    debug_debug("  wtime: %d (0x%x)\n", wtime, wtime);
-    debug_debug("  mnt_count: %d (0x%x)\n", mnt_count, mnt_count);
-    debug_debug("  max_mnt_count: %d (0x%x)\n", max_mnt_count, max_mnt_count);
-    debug_debug("  magic: 0x%x\n", magic);
-    debug_debug("  state: %d (0x%x)\n", state, state);
-    debug_debug("  errors: %d (0x%x)\n", errors, errors);
-    debug_debug("  minor_rev_level: %d (0x%x)\n", minor_rev_level, minor_rev_level);
-    debug_debug("  lastcheck: %d (0x%x)\n", lastcheck, lastcheck);
-    debug_debug("  checkinterval: %d (0x%x)\n", checkinterval, checkinterval);
-    debug_debug("  creator_os: %d (0x%x)\n", creator_os, creator_os);
-    debug_debug("  rev_level: %d (0x%x)\n", rev_level, rev_level);
-    debug_debug("  def_resuid: %d (0x%x)\n", def_resuid, def_resuid);
-    debug_debug("  def_resgid: %d (0x%x)\n", def_resgid, def_resgid);
-    debug_debug("  first_ino: %d (0x%x)\n", first_ino, first_ino);
-    debug_debug("  inode_size: %d (0x%x)\n", inode_size, inode_size);
-    debug_debug("  block_group_nr: %d (0x%x)\n", block_group_nr, block_group_nr);
+    log_debug("Ext2SuperBlock:\n");
+    log_debug("  inodes_count: %d (0x%x)\n", inodes_count, inodes_count);
+    log_debug("  blocks_count: %d (0x%x)\n", blocks_count, blocks_count);
+    log_debug("  r_blocks_count: %d (0x%x)\n", r_blocks_count, r_blocks_count);
+    log_debug("  free_blocks_count: %d (0x%x)\n", free_blocks_count, free_blocks_count);
+    log_debug("  free_inodes_count: %d (0x%x)\n", free_inodes_count, free_inodes_count);
+    log_debug("  first_data_block: %d (0x%x)\n", first_data_block, first_data_block);
+    log_debug("  log_block_size: %d (0x%x)\n", log_block_size, log_block_size);
+    log_debug("  blocks_per_group: %d (0x%x)\n", blocks_per_group, blocks_per_group);
+    log_debug("  frags_per_group: %d (0x%x)\n", frags_per_group, frags_per_group);
+    log_debug("  inodes_per_group: %d (0x%x)\n", inodes_per_group, inodes_per_group);
+    log_debug("  mtime: %d (0x%x)\n", mtime, mtime);
+    log_debug("  wtime: %d (0x%x)\n", wtime, wtime);
+    log_debug("  mnt_count: %d (0x%x)\n", mnt_count, mnt_count);
+    log_debug("  max_mnt_count: %d (0x%x)\n", max_mnt_count, max_mnt_count);
+    log_debug("  magic: 0x%x\n", magic);
+    log_debug("  state: %d (0x%x)\n", state, state);
+    log_debug("  errors: %d (0x%x)\n", errors, errors);
+    log_debug("  minor_rev_level: %d (0x%x)\n", minor_rev_level, minor_rev_level);
+    log_debug("  lastcheck: %d (0x%x)\n", lastcheck, lastcheck);
+    log_debug("  checkinterval: %d (0x%x)\n", checkinterval, checkinterval);
+    log_debug("  creator_os: %d (0x%x)\n", creator_os, creator_os);
+    log_debug("  rev_level: %d (0x%x)\n", rev_level, rev_level);
+    log_debug("  def_resuid: %d (0x%x)\n", def_resuid, def_resuid);
+    log_debug("  def_resgid: %d (0x%x)\n", def_resgid, def_resgid);
+    log_debug("  first_ino: %d (0x%x)\n", first_ino, first_ino);
+    log_debug("  inode_size: %d (0x%x)\n", inode_size, inode_size);
+    log_debug("  block_group_nr: %d (0x%x)\n", block_group_nr, block_group_nr);
 }
 
 bool Ext2FileSystem::read_super_block()
@@ -143,19 +143,19 @@ bool Ext2FileSystem::read_super_block()
     auto buffer = new uint8_t[block_size];
     auto ret = device->read_block(super_block_offset / block_size, buffer);
     if(!ret) {
-        debug_err("read_super_block failed\n");
+        log_err("read_super_block failed\n");
         return false;
     }
 
     auto copy_offset = super_block_offset % block_size;
     memcpy(super_block, buffer + copy_offset, sizeof(Ext2SuperBlock));
-    debug_debug("read_super_block buffer, copy_offset:%d(0x%x):\n", copy_offset, copy_offset);
+    log_debug("read_super_block buffer, copy_offset:%d(0x%x):\n", copy_offset, copy_offset);
     hexdump(buffer + copy_offset, sizeof(*super_block),
-        [](const char* line) { debug_debug("%s\n", line); });
+        [](const char* line) { log_debug("%s\n", line); });
     delete[] buffer;
 
     if(super_block->magic != EXT2_MAGIC) {
-        debug_err("read_super_block failed, magic error:0x%x, expect:0x%x\n", super_block->magic,
+        log_err("read_super_block failed, magic error:0x%x, expect:0x%x\n", super_block->magic,
             EXT2_MAGIC);
         return false;
     }
@@ -171,9 +171,9 @@ bool Ext2FileSystem::read_super_block()
     uint32_t group_desc_block = super_block->first_data_block + 1;
     uint8_t* group_desc_buffer = new uint8_t[block_size];
 
-    debug_debug("group_desc_block:%d(0x%x)\n", group_desc_block, group_desc_block);
+    log_debug("group_desc_block:%d(0x%x)\n", group_desc_block, group_desc_block);
     if(!device->read_block(group_desc_block, group_desc_buffer)) {
-        debug_err("读取块组描述符表失败 block:%u\n", group_desc_block);
+        log_err("读取块组描述符表失败 block:%u\n", group_desc_block);
         delete[] group_desc_buffer;
         return false;
     }
@@ -182,7 +182,7 @@ bool Ext2FileSystem::read_super_block()
     memcpy(&group_desc, group_desc_buffer, sizeof(Ext2GroupDesc));
     delete[] group_desc_buffer;
 
-    debug_debug("块组描述符 bg_inode_table=%u\n", group_desc.bg_inode_table);
+    log_debug("块组描述符 bg_inode_table=%u\n", group_desc.bg_inode_table);
     group_desc.print();
 
     // 读取根目录inode（inode号2）
@@ -192,7 +192,7 @@ bool Ext2FileSystem::read_super_block()
 
     uint8_t* inode_table_buffer = new uint8_t[block_size];
     if(!device->read_block(inode_table_block, inode_table_buffer)) {
-        debug_err("读取inode表块失败 block:%u\n", inode_table_block);
+        log_err("读取inode表块失败 block:%u\n", inode_table_block);
         delete[] inode_table_buffer;
         return false;
     }
@@ -200,7 +200,7 @@ bool Ext2FileSystem::read_super_block()
     memcpy(&root_inodes, inode_table_buffer + root_inode_offset, sizeof(Ext2Inode));
     delete[] inode_table_buffer;
 
-    debug_debug("根目录inode信息：\n");
+    log_debug("根目录inode信息：\n");
     root_inodes.print();
 
     return true;
@@ -218,16 +218,16 @@ Ext2Inode* Ext2FileSystem::read_inode(uint32_t inode_num)
     // debug_debug("num_sectors_per_block: %d(0x%x)\n", num_sectors_per_block,
     // num_sectors_per_block);
 
-    debug_debug("[ext2] 读取inode %u (总数:%u)\n", inode_num, super_block->inodes_count);
+    log_debug("[ext2] 读取inode %u (总数:%u)\n", inode_num, super_block->inodes_count);
     if(inode_num == 0 || inode_num > super_block->inodes_count) {
-        debug_err("无效的inode编号 %u (范围1-%u)\n", inode_num, super_block->inodes_count);
+        log_err("无效的inode编号 %u (范围1-%u)\n", inode_num, super_block->inodes_count);
         return nullptr;
     }
 
     uint32_t inodes_per_block = block_size / super_block->inode_size;
     uint32_t block_num = (inode_num - 1) / inodes_per_block + group_desc.bg_inode_table;
     uint32_t offset = (inode_num - 1) % inodes_per_block;
-    debug_debug("计算块号:%u 偏移:%u (块大小:%u inode大小:%u)\n", block_num, offset, block_size,
+    log_debug("计算块号:%u 偏移:%u (块大小:%u inode大小:%u)\n", block_num, offset, block_size,
         super_block->inode_size);
 
     // block_num = block_num*num_sectors_per_block + offset/device->get_info().block_size;
@@ -235,7 +235,7 @@ Ext2Inode* Ext2FileSystem::read_inode(uint32_t inode_num)
     auto block_buffer = new uint8_t[super_block->block_size()];
 
     if(!device->read_block(block_num, block_buffer)) {
-        debug_err("读取块%u失败\n", block_num);
+        log_err("读取块%u失败\n", block_num);
         delete[] block_buffer;
         return nullptr;
     }
@@ -243,7 +243,7 @@ Ext2Inode* Ext2FileSystem::read_inode(uint32_t inode_num)
     auto inode = new Ext2Inode();
     memcpy(inode, block_buffer + offset * super_block->inode_size, sizeof(Ext2Inode));
     // inode->print();
-    debug_debug("读取inode %u完成 mode:0x%x size:%u blocks:%u\n", inode_num, inode->mode,
+    log_debug("读取inode %u完成 mode:0x%x size:%u blocks:%u\n", inode_num, inode->mode,
         inode->size, inode->blocks);
 
     delete[] block_buffer;
@@ -252,9 +252,9 @@ Ext2Inode* Ext2FileSystem::read_inode(uint32_t inode_num)
 
 bool Ext2FileSystem::write_inode(uint32_t inode_num, const Ext2Inode* inode)
 {
-    debug_debug("[ext2] 写入inode %u\n", inode_num);
+    log_debug("[ext2] 写入inode %u\n", inode_num);
     if(inode_num == 0 || inode_num > super_block->inodes_count || !inode) {
-        debug_err("无效参数 inode_num:%u ptr:%p\n", inode_num, inode);
+        log_err("无效参数 inode_num:%u ptr:%p\n", inode_num, inode);
         return false;
     }
 
@@ -262,18 +262,18 @@ bool Ext2FileSystem::write_inode(uint32_t inode_num, const Ext2Inode* inode)
     uint32_t inodes_per_block = block_size / sizeof(Ext2Inode);
     uint32_t block_num = (inode_num - 1) / inodes_per_block + super_block->first_data_block;
     uint32_t offset = (inode_num - 1) % inodes_per_block;
-    debug_debug("写入块号:%u 偏移:%u\n", block_num, offset);
+    log_debug("写入块号:%u 偏移:%u\n", block_num, offset);
 
     auto block_buffer = new uint8_t[block_size];
     if(!device->read_block(block_num, block_buffer)) {
-        debug_err("读取目标块%u失败\n", block_num);
+        log_err("读取目标块%u失败\n", block_num);
         delete[] block_buffer;
         return false;
     }
 
     memcpy(block_buffer + offset * sizeof(Ext2Inode), inode, sizeof(Ext2Inode));
     bool result = device->write_block(block_num, block_buffer);
-    debug_debug("写入inode %u结果:%s\n", inode_num, result ? "成功" : "失败");
+    log_debug("写入inode %u结果:%s\n", inode_num, result ? "成功" : "失败");
 
     delete[] block_buffer;
     return result;
@@ -281,11 +281,11 @@ bool Ext2FileSystem::write_inode(uint32_t inode_num, const Ext2Inode* inode)
 
 uint32_t Ext2FileSystem::allocate_block()
 {
-    debug_debug("[ext2] 开始分配数据块 (first_data_block:%u blocks_count:%u)\n",
+    log_debug("[ext2] 开始分配数据块 (first_data_block:%u blocks_count:%u)\n",
         super_block->first_data_block, super_block->blocks_count);
     auto block_buffer = new uint8_t[device->get_info().sector_size];
     for(uint32_t i = super_block->first_data_block; i < super_block->blocks_count; i++) {
-        debug_debug("检查块%u...", i);
+        log_debug("检查块%u...", i);
         if(device->read_block(i, block_buffer)) {
             bool is_free = true;
             for(size_t j = 0; j < device->get_info().sector_size; j++) {
@@ -294,26 +294,26 @@ uint32_t Ext2FileSystem::allocate_block()
                     break;
                 }
             }
-            debug_debug(is_free ? "空闲块发现!\n" : "已占用\n");
+            log_debug(is_free ? "空闲块发现!\n" : "已占用\n");
             if(is_free) {
                 delete[] block_buffer;
-                debug_debug("成功分配块%u\n", i);
+                log_debug("成功分配块%u\n", i);
                 return i;
             }
         }
     }
     delete[] block_buffer;
-    debug_err("没有可用数据块!\n");
+    log_err("没有可用数据块!\n");
     return 0;
 }
 
 int Ext2FileSystem::mkdir(const char* path)
 {
-    debug_debug("[ext2] 创建目录 %s (当前目录inode:%u)\n", path, current_dir_inode);
+    log_debug("[ext2] 创建目录 %s (当前目录inode:%u)\n", path, current_dir_inode);
     uint32_t new_inode = allocate_inode();
-    debug_debug("分配的新inode:%u\n", new_inode);
+    log_debug("分配的新inode:%u\n", new_inode);
     if(!new_inode) {
-        debug_err("分配inode失败\n");
+        log_err("分配inode失败\n");
         return -1;
     }
 
@@ -376,7 +376,7 @@ void free_inode(uint32_t inode_num)
 
 FileDescriptor* Ext2FileSystem::open(const char* path)
 {
-    debug_debug("open %s\n", path);
+    log_debug("open %s\n", path);
     // 从根目录开始查找（inode 2）
     uint32_t current_inode = EXT2_ROOT_INO;
 
@@ -386,7 +386,7 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
 
     while(token) {
         Ext2Inode* inode = read_inode(current_inode);
-        debug_debug("inode %d(0x%x)\n", current_inode, current_inode);
+        log_debug("inode %d(0x%x)\n", current_inode, current_inode);
         inode->print();
         if(!inode || (inode->mode & 0xF000) != 0x4000) {
             delete inode;
@@ -399,12 +399,12 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
         uint8_t* block = new uint8_t[block_size];
         bool found = false;
         for(uint32_t i = 0; i < inode->blocks; i++) {
-            debug_debug("reading block %d:\n", inode->i_block[i]);
+            log_debug("reading block %d:\n", inode->i_block[i]);
             device->read_block(inode->i_block[i], block);
 
             Ext2DirEntry* entry = (Ext2DirEntry*)block;
             while((uint8_t*)entry < block + block_size) {
-                debug_debug("entry inode:%u name:%s\n", entry->inode, entry->name);
+                log_debug("entry inode:%u name:%s\n", entry->inode, entry->name);
                 if(entry->inode && entry->name_len == strlen(token) &&
                     memcmp(entry->name, token, entry->name_len) == 0) {
                     current_inode = entry->inode;
@@ -435,17 +435,17 @@ FileDescriptor* Ext2FileSystem::open(const char* path)
 
 int Ext2FileSystem::stat(const char* path, FileAttribute* attr)
 {
-    debug_debug("Ext2FileSystem::stat path:%s\n", path);
+    log_debug("Ext2FileSystem::stat path:%s\n", path);
     Ext2FileDescriptor* fd = (Ext2FileDescriptor*)open(path);
     if(!fd) {
-        debug_debug("Ext2FileSystem::open failed\n");
+        log_debug("Ext2FileSystem::open failed\n");
         return -1;
     }
 
     Ext2Inode* inode = read_inode(fd->m_inode);
     attr->size = inode->size;
     attr->type = (inode->mode & 0xF000) == 0x4000 ? FT_DIR : FT_REG;
-    debug_debug("inode->mode:0x%x\n", inode->mode);
+    log_debug("inode->mode:0x%x\n", inode->mode);
     delete inode;
     delete fd;
     return 0;
@@ -574,7 +574,7 @@ int Ext2FileDescriptor::close()
 
 int Ext2FileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
 {
-    debug_debug("enter, buffer:%x, size:%d, pos:0x%x\n", buffer, buffer_size, *pos);
+    log_debug("enter, buffer:%x, size:%d, pos:0x%x\n", buffer, buffer_size, *pos);
     // 检查是否为目录
     Ext2Inode* inode = m_fs->read_inode(m_inode);
     if(!inode || (inode->mode & 0xF000) != 0x4000) {
@@ -596,12 +596,12 @@ int Ext2FileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
     uint32_t block_idx = current_pos / block_size;
     uint32_t block_offset = current_pos % block_size;
 
-    debug_debug("inode->blocks: %d(0x%x), block_idx:%d, current_pos:0x%x\n", inode->blocks,
+    log_debug("inode->blocks: %d(0x%x), block_idx:%d, current_pos:0x%x\n", inode->blocks,
         inode->blocks, block_idx, current_pos);
 
     // 遍历目录中的块，从当前位置开始
     for(uint32_t i = block_idx; i < inode->blocks && bytes_written < buffer_size; i++) {
-        debug_debug("read block %d(0x%x)\n", inode->i_block[i], inode->i_block[i]);
+        log_debug("read block %d(0x%x)\n", inode->i_block[i], inode->i_block[i]);
         if(!m_fs->device->read_block(inode->i_block[i], block)) {
             continue; // 跳过读取失败的块
         }
@@ -612,7 +612,7 @@ int Ext2FileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
             break; // 空目录项，结束遍历
         }
         while((uint8_t*)entry < block + block_size) {
-            debug_debug("read entry at 0x%x\n", entry);
+            log_debug("read entry at 0x%x\n", entry);
             entry->print();
             if(entry->inode) { // 有效的目录项
                 // 获取文件类型
@@ -666,7 +666,7 @@ int Ext2FileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
     }
 
     // 更新位置指针
-    debug_debug("update pos: %d(0x%x)\n", current_pos, current_pos);
+    log_debug("update pos: %d(0x%x)\n", current_pos, current_pos);
     *pos = current_pos;
 
     delete[] block;
@@ -777,7 +777,7 @@ ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size)
 }
 void Ext2DirEntry::print()
 {
-    debug_debug(
+    log_debug(
         "dir:%s, inode: %u, rec_len: %u, name_len: %u\n", name, inode, rec_len, name_len, name_len);
 }
 
