@@ -1,8 +1,6 @@
 #define NO_PID
 #include "kernel/syscall_user.h"
 #include "lib/string.h"
-#include "lib/debug.h"
-#include "kernel/dirent.h"
 #include "utils.h"
 #include "commands.h"
 
@@ -16,6 +14,15 @@ using namespace kernel;
 void *operator new[](size_t size) {
     static char buffer[MAX_CMD_LEN];
     return buffer;
+}
+
+void cmd_help(int argc, char *argv[]) {
+    printf("Usage: help [command]\n");
+    printf("Available commands:\n");
+    for (int i = 0; i < num_commands; i++) {
+        printf("  %s %s\n", commands[i].name, commands[i].description);
+    }
+    // return 0;
 }
 
 // 解析命令行参数
@@ -44,41 +51,43 @@ int parse_cmd(char* cmd, char* argv[]) {
 }
 
 
+
+
 int main() {
     char cmd_buf[MAX_CMD_LEN];
     char* argv[MAX_ARGS + 1];
-    //自动注册命令
-    // extern Command __cmd_table_start;
-    // extern Command __cmd_table_end;
-    // debug_debug("command table start: 0x%x, end: 0x%x\n", &__cmd_table_start, &__cmd_table_end);
-    // for (Command* cmd = &__cmd_table_start; cmd < &__cmd_table_end; cmd++) {
-    //
-    //     register_command(*cmd);
-    // }
 
-    extern void cmd_ls(int argc, char* argv[]);
-    extern void cmd_rm(int argc, char* argv[]);
+#define EXTERN_REGISTER(name, desc) \
+    extern void cmd_##name(int argc, char* argv[]); \
+    register_command({#name, cmd_##name, desc})
+
     extern void cmd_cat(int argc, char* argv[]);
     extern void cmd_cd(int argc, char* argv[]);
+    extern void cmd_echo(int argc, char* argv[]);
+    extern void cmd_find(int argc, char* argv[]);
+    extern void cmd_ls(int argc, char* argv[]);
+    extern void cmd_rm(int argc, char* argv[]);
     extern void cmd_pwd(int argc, char* argv[]);
+    extern void cmd_xxd(int argc, char* argv[]);
     // debug_debug("xxxxxxxxxxxxxxxxxxxxxx\n");
     // cmd_ls(0, nullptr);
 
-    register_command({"ls", cmd_ls, "List directory contents"});
-    register_command({"rm", cmd_rm, "Remove file"});
     register_command({"cat", cmd_cat, "Concatenate and print files"});
     register_command({"cd", cmd_cd, "Concatenate and print files"});
+    EXTERN_REGISTER(echo, "print message");
+    EXTERN_REGISTER(find, "find files");
+    register_command({"ls", cmd_ls, "List directory contents"});
+    register_command({"rm", cmd_rm, "Remove file"});
     register_command({"pwd", cmd_pwd, "Concatenate and print files"});
+    EXTERN_REGISTER(xxd, "print in hex format");
+    EXTERN_REGISTER(help, "print help message");
 
-    set_log_output_handler(my_log_output_interface);
 
     while (true) {
 
         // 显示提示符
         const char* prompt = "shell> ";
-        syscall_write(1, prompt, strlen(prompt));
-        // printf("%s", prompt);
-
+        printf(prompt);
         int n = 0;
         while(true) {
             int ret = syscall_read(0, cmd_buf + n, sizeof(cmd_buf));
@@ -87,12 +96,13 @@ int main() {
                 if (ret == 1 && cmd_buf[n] == '\b') {
                     if (n > 0) {
                         n--;
-                        // syscall_write(1, "\b \b", 3);
+                        printf("\b \b", 3);
                     }
                     continue;
+                } else {
+                    printf("%c", *(char*)(cmd_buf + n));
+                    n += ret;
                 }
-                // syscall_write(1, cmd_buf + n, ret);
-                n += ret;
             }
             my_sleep(1000);
 
@@ -110,6 +120,7 @@ int main() {
 
         // 解析命令
         int argc = parse_cmd(cmd_buf, argv);
+        printf("argc %d, argv[0]:%s\n", argc,argv[0]);
         if (argc == 0) continue;
 
         // 执行命令

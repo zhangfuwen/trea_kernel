@@ -9,6 +9,9 @@ struct Command {
     CommandHandler handler;
     const char* description;
 };
+#define MAX_COMMANDS 1000
+extern Command commands[MAX_COMMANDS];
+extern int num_commands;
 
 void register_command(const Command& cmd);
 void execute_command(const char* name, int argc, char* argv[]);

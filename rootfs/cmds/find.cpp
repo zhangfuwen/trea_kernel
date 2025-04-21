@@ -1,7 +1,6 @@
 #include "commands.h"
 #include "kernel/dirent.h"
 #include "kernel/syscall_user.h"
-#include "lib/debug.h"
 #include "lib/string.h"
 #include "utils.h"
 // #include <cstring>
@@ -11,7 +10,7 @@ using namespace kernel;
 void find_in_directory(const char* dir_path, const char* pattern) {
     int fd = syscall_open(dir_path);
     if (fd < 0) {
-        log_debug("find: cannot open directory '%s'\n", dir_path);
+        printf("find: cannot open directory '%s'\n", dir_path);
         return;
     }
 
@@ -22,7 +21,7 @@ void find_in_directory(const char* dir_path, const char* pattern) {
     while (true) {
         bytes_read = syscall_getdents(fd, dirent_buf, sizeof(dirent_buf), &pos);
         if (bytes_read < 0) {
-            log_debug("find: cannot read directory '%s'\n", dir_path);
+            printf("find: cannot read directory '%s'\n", dir_path);
             break;
         }
 
@@ -32,7 +31,7 @@ void find_in_directory(const char* dir_path, const char* pattern) {
             
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
                 char full_path[256];
-                format_string(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
+                sformat(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
 
                 if (pattern == nullptr || strstr(entry->d_name, pattern) != nullptr) {
                     syscall_write(1, full_path, strlen(full_path));

@@ -64,13 +64,13 @@ ssize_t ConsoleDevice::read(void* buffer, size_t size)
 
 ssize_t ConsoleDevice::write(const void* buffer, size_t size)
 {
-    log_debug("write: %x\n", size);
+    log_trace("write: %x\n", size);
     if(!buffer || size == 0) {
         return 0;
     }
 
     const char* chars = static_cast<const char*>(buffer);
-    log_debug("write %d chars: %s\n", size, chars);
+    // log_debug("write %d chars: %s\n", size, chars);
     for(size_t i = 0; i < size; i++) {
         Console::putchar(chars[i]);
     }

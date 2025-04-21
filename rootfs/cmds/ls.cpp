@@ -2,7 +2,6 @@
 #include "kernel/syscall_user.h"
 #include "kernel/dirent.h"
 #include "lib/string.h"
-#include "lib/debug.h"
 #include "utils.h"
 
 using namespace kernel;
@@ -11,25 +10,25 @@ void cmd_ls(int argc, char* argv[]) {
     
     kernel::FileAttribute attr;
     if (syscall_stat(path, &attr) < 0) {
-        log_debug("ls: cannot access '%s'\n", path);
+        printf("ls: cannot access '%s'\n", path);
         return;
     }
 
-    log_debug("ls: path '%s'\n", path);
-    log_debug("ls: attr.mode 0x%x\n", attr.mode);
+    printf("ls: path '%s'\n", path);
+    printf("ls: attr.mode 0x%x\n", attr.mode);
     if (attr.type != kernel::FT_DIR) {
         char buf[256];
-        format_string(buf, sizeof(buf), "%s\t%d bytes\n", path, attr.size);
+        sformat(buf, sizeof(buf), "%s\t%d bytes\n", path, attr.size);
         syscall_write(1, buf, strlen(buf));
         return;
     }
 
     int fd = syscall_open(path);
     if (fd < 0) {
-        log_debug("ls: cannot open directory '%s'\n", path);
+        printf("ls: cannot open directory '%s'\n", path);
         return;
     }
-    log_debug("ls: open directory '%s'\n", path);
+    printf("ls: open directory '%s'\n", path);
 
     char title[256];
     format_string(title, sizeof(title), "Directory listing of %s:\n", path);

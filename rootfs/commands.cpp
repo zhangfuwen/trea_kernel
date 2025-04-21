@@ -1,23 +1,22 @@
 #include "commands.h"
 #include "utils.h"
 
-#define MAX_COMMANDS 16
 
-static Command commands[MAX_COMMANDS];
-static int num_commands = 0;
+Command commands[MAX_COMMANDS];
+int num_commands = 0;
 
 void register_command(const Command& cmd) {
     // debug_debug("register command: %s\n", cmd.name);
     if (num_commands >= MAX_COMMANDS) {
-        log_debug("Cannot register command '%s': command table full\n", "asdfasd");
-        log_debug("Cannot register command '%s': command table full\n", cmd.name);
+        printf("Cannot register command '%s': command table full\n", "asdfasd");
+        printf("Cannot register command '%s': command table full\n", cmd.name);
         return;
     }
     
     // 检查重复注册
     for (int i = 0; i < num_commands; i++) {
         if (strcmp(commands[i].name, cmd.name) == 0) {
-            log_debug("Command '%s' already registered\n", cmd.name);
+            printf("Command '%s' already registered\n", cmd.name);
             return;
         }
     }
@@ -26,13 +25,13 @@ void register_command(const Command& cmd) {
 }
 
 void execute_command(const char* name, int argc, char* argv[]) {
-    log_debug("num_commands: %d\n", num_commands);
+    printf("num_commands: %d\n", num_commands);
     for (int i = 0; i < num_commands; i++) {
-        log_debug("compare command '%s', '%s'\n", name, commands[i].name);
+        printf("compare command '%s', '%s'\n", name, commands[i].name);
         if (strcmp(commands[i].name, name) == 0) {
             commands[i].handler(argc, argv);
             return;
         }
     }
-    log_debug("unknown command: %s\n", name);
+    printf("unknown command: %s\n", name);
 }

@@ -1,18 +1,18 @@
 #include "commands.h"
 #include "kernel/dirent.h"
 #include "kernel/syscall_user.h"
-#include "lib/debug.h"
+#include "utils.h"
 
 void cmd_cat(int argc, char* argv[]) {
     if (argc < 2) {
-        log_debug("cat: missing operand\n");
+        printf("cat: missing operand\n");
         return;
     }
     
     const char* path = argv[1];
     int fd = syscall_open(path);
     if (fd < 0) {
-        log_debug("cat: cannot open '%s'\n", path);
+        printf("cat: cannot open '%s'\n", path);
         return;
     }
     

@@ -336,7 +336,7 @@ bool ProcessManager::schedule()
         return false;
     }
     auto cpu = arch::apic_get_id();
-    log_debug("got next task: %d(0x%x, pre_cpu:%d), cpu: %d\n", next->task_id, next, next->cpu, cpu);
+    // log_debug("got next task: %d(0x%x, pre_cpu:%d), cpu: %d\n", next->task_id, next, next->cpu, cpu);
     // debug_debug("schedule: current: %d, next:%d(0x%x)\n", current->task_id, next->task_id, next);
     current->time_slice = DEFAULT_TIME_SLICE;
     Kernel::instance().scheduler().enqueue_task(current);
@@ -435,11 +435,11 @@ void ProcessManager::restore_context(uint32_t int_num, uint32_t* esp)
     GDT::updateTSSCR3(cpu, next->regs.cr3);
 
     if(debug.is_task_switch && debug.cur_task->cpu != cpu) {
-        log_debug("switching task: prev: %d, next:%d\n", debug.prev_task->task_id,
+        log_trace("switching task: prev: %d, next:%d\n", debug.prev_task->task_id,
             next->task_id);
-        log_debug("prev cpu:%d, cur cpu:%d\n", next->cpu, cpu);
+        log_trace("prev cpu:%d, cur cpu:%d\n", next->cpu, cpu);
         debug.is_task_switch = false;
-        next->print();
+        // next->print();
     }
     next->cpu = cpu;
     // update cr3

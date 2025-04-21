@@ -43,5 +43,6 @@ qemu-system-i386 \
     -m 1G \
     -serial stdio  \
     -smp cores=4 \
-    -s 2>&1 | tee qemu.log
+    -d int \
+    -s 2>&1 | grep "v=0d" -A 100
 

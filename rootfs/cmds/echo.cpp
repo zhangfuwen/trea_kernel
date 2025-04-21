@@ -1,23 +1,22 @@
 #include "commands.h"
-#include "kernel/syscall_user.h"
-#include "lib/string.h"
+#include "utils.h"
 
 void cmd_echo(int argc, char* argv[]) {
     if (argc < 2) {
         const char* newline = "\n";
-        syscall_write(1, newline, 1);
+        printf(newline);
         return;
     }
 
     for (int i = 1; i < argc; i++) {
-        syscall_write(1, argv[i], strlen(argv[i]));
+        printf( argv[i]);
         if (i < argc - 1) {
             const char* space = " ";
-            syscall_write(1, space, 1);
+            printf( space);
         }
     }
     const char* newline = "\n";
-    syscall_write(1, newline, 1);
+    printf(newline);
 }
 
 REGISTER_COMMAND("echo", cmd_echo, "Display a line of text");

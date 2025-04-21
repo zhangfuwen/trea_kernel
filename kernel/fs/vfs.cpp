@@ -29,7 +29,7 @@ int openHandler(uint32_t path_ptr, uint32_t b, uint32_t c, uint32_t d)
 }
 int sys_open(uint32_t path_ptr, Task* task)
 {
-    log_debug("openHandler called with path: 0x%x, pcb:0x%x(pid:%d)\n", path_ptr, task, task->task_id);
+    log_trace("openHandler called with path: 0x%x, pcb:0x%x(pid:%d)\n", path_ptr, task, task->task_id);
 
     const char* path = reinterpret_cast<const char*>(path_ptr);
     log_debug("Opening file: %s\n", path);
@@ -44,7 +44,7 @@ int sys_open(uint32_t path_ptr, Task* task)
     int fd_num = task->context->allocate_fd();
     task->context->fd_table[fd_num] = fd;
 
-    log_debug("File opened successfully, pcb:0x%x, pid:%d, fd: %d\n", task, task->task_id, fd_num);
+    log_trace("File opened successfully, pcb:0x%x, pid:%d, fd: %d\n", task, task->task_id, fd_num);
     return fd_num;
 }
 
@@ -56,7 +56,7 @@ int readHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d)
 }
 int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* pcb)
 {
-    log_debug("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
+    log_trace("readHandler called with fd: %d, buffer: %x, size: %d\n", fd_num, buffer_ptr, size);
 
     if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         log_debug("Invalid file descriptor: %d\n", fd_num);
@@ -84,12 +84,12 @@ int sys_read(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* pcb)
         log_err("File descriptor %d not open\n", fd_num);
         return -1;
     }
-    log_debug("fd: %x\n", fd);
+    //log_debug("fd: %x\n", fd);
 
     ssize_t bytes_read = 0;
     bytes_read = fd->read(buffer, size);
 
-    log_debug("Read %d bytes from fd %d, buffer:0x%x, exit\n", bytes_read, fd_num, buffer);
+    log_trace("Read %d bytes from fd %d, buffer:0x%x, exit\n", bytes_read, fd_num, buffer);
     return bytes_read;
 }
 
@@ -101,23 +101,23 @@ int writeHandler(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, uint32_t d
 }
 int sys_write(uint32_t fd_num, uint32_t buffer_ptr, uint32_t size, Task* task)
 {
-    log_debug(
+    log_trace(
         "writeHandler called with fd: %d, buffer: 0x%x, size: %d\n", fd_num, buffer_ptr, size);
 
     auto context = task->context;
-    log_debug("context: 0x%x\n", context);
+    // log_debug("context: 0x%x\n", context);
     if(fd_num >= 256 || !context->fd_table[fd_num]) {
         log_debug("Invalid file descriptor, pcb:0x%x, pid:%d, fd: %d\n", task, task->task_id, fd_num);
         return -1;
     }
 
     const void* buffer = reinterpret_cast<const void*>(buffer_ptr);
-    log_debug("Writing %d bytes to fd %d, buffer: 0x%x\n", size, fd_num, buffer);
+    // log_debug("Writing %d bytes to fd %d, buffer: 0x%x\n", size, fd_num, buffer);
     auto fd = context->fd_table[fd_num];
-    log_debug("fd 0x%x\n", fd);
+    // log_debug("fd 0x%x\n", fd);
     ssize_t bytes_written = fd->write(buffer, size);
 
-    log_debug("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
+    log_trace("Wrote %d bytes to fd %d\n", bytes_written, fd_num);
     return bytes_written;
 }
 
@@ -129,7 +129,7 @@ int closeHandler(uint32_t fd_num, uint32_t b, uint32_t c, uint32_t d)
 }
 int sys_close(uint32_t fd_num, Task* pcb)
 {
-    log_debug("closeHandler called with fd: %d\n", fd_num);
+    log_trace("closeHandler called with fd: %d\n", fd_num);
 
     if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         log_debug("Invalid file descriptor: %d\n", fd_num);
@@ -139,7 +139,7 @@ int sys_close(uint32_t fd_num, Task* pcb)
     int result = pcb->context->fd_table[fd_num]->close();
     pcb->context->fd_table[fd_num] = nullptr;
 
-    log_debug("File descriptor %d closed\n", fd_num);
+    log_trace("File descriptor %d closed\n", fd_num);
     return result;
 }
 
@@ -152,7 +152,7 @@ int seekHandler(uint32_t fd_num, uint32_t offset, uint32_t c, uint32_t d)
 }
 int sys_seek(uint32_t fd_num, uint32_t offset, Task* pcb)
 {
-    log_debug("seekHandler called with fd: %d, offset: %d\n", fd_num, offset);
+    log_trace("seekHandler called with fd: %d, offset: %d\n", fd_num, offset);
 
     if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         log_debug("Invalid file descriptor: %d\n", fd_num);
@@ -161,7 +161,7 @@ int sys_seek(uint32_t fd_num, uint32_t offset, Task* pcb)
 
     int result = pcb->context->fd_table[fd_num]->seek(offset);
 
-    log_debug("Seek result: %d\n", result);
+    log_trace("Seek result: %d\n", result);
     return result;
 }
 // 初始化VFS
@@ -178,7 +178,7 @@ void init_vfs()
     SyscallManager::registerHandler(SYS_SEEK, seekHandler);
     SyscallManager::registerHandler(SYS_GETDENTS, getdentsHandler);
 
-    log_debug("VFS initialized and system calls registered\n");
+    log_trace("VFS initialized and system calls registered\n");
 }
 
 // 查找挂载点
@@ -218,7 +218,7 @@ static FileSystem* find_fs(const char* path, const char** remaining_path)
         }
     }
 
-    log_debug("VFSManager::find_fs: matched_fs %x\n", matched_fs);
+    log_trace("VFSManager::find_fs: matched_fs %x\n", matched_fs);
     return matched_fs;
 }
 
@@ -237,7 +237,7 @@ void VFSManager::register_fs(const char* mount_point, FileSystem* fs)
 
 FileDescriptor* VFSManager::open(const char* path)
 {
-    log_debug("VFSManager::open called with %s\n", path);
+    log_trace("VFSManager::open called with %s\n", path);
     const char* remaining_path;
     FileSystem* fs = find_fs(path, &remaining_path);
     if(!fs) {
@@ -292,7 +292,7 @@ int VFSManager::rmdir(const char* path)
 
 int VFSManager::chdir(const char* path)
 {
-    log_debug("VFSManager::chdir: changing to %s\n", path);
+    log_trace("VFSManager::chdir: changing to %s\n", path);
 
     // 获取对应的文件系统
     const char* remaining_path;
@@ -320,7 +320,7 @@ int VFSManager::chdir(const char* path)
     strncpy(pcb->context->cwd, path, sizeof(context->cwd) - 1);
     context->cwd[sizeof(context->cwd) - 1] = '\0';
 
-    log_debug("VFSManager::chdir: changed to %s\n", path);
+    log_trace("VFSManager::chdir: changed to %s\n", path);
     strcpy(current_working_directory, path);
     return 0;
 }

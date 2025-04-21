@@ -205,7 +205,7 @@ int SyscallManager::handleSyscall(
         // debug_debug("syscall_num: %d, ret:%d\n", syscall_num, ret);
         return ret;
     }
-    log_debug("syscall end ret -1 : num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n");
+    log_trace("syscall end ret -1 : num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n");
     return -1;
 }
 
@@ -231,7 +231,7 @@ void SyscallManager::defaultHandler()
 // execve系统调用处理函数
 int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* task)
 {
-    log_debug("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
+    log_trace("execve: path=%x, argv=%x, envp=%x\n", path_ptr, argv_ptr, envp_ptr);
 
     // 打开可执行文件
     const char* path = reinterpret_cast<const char*>(path_ptr);
