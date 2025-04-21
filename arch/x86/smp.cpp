@@ -85,8 +85,12 @@ void ap_entry()
     debug_debug("cr3: 0x%x, task: %d(0x%x)\n", cr3, task->task_id, task);
     task->print();
     asm volatile("mov %0, %%cr3" ::"r"(cr3));
-    GDT::updateTSS(current_cpu_id, kernel.scheduler().get_current_task()->stacks.esp0, 0x10);
+    debug_debug("updating tss, esp0: 0x%x, cr3: 0x%x\n", task->stacks.esp0, cr3);
+    GDT::updateTSS(current_cpu_id, task->stacks.esp0, 0x10);
     GDT::updateTSSCR3(current_cpu_id, cr3);
+    task->cpu = current_cpu_id;
+    // 内核态 -> 内核态中断，不会加载esp0，需要手动加载。
+    asm volatile("mov %0, %%esp" ::"r"(task->stacks.esp0));
 
     // 原子增加就绪计数器
     __atomic_add_fetch(&cpu_ready_count, 1, __ATOMIC_SEQ_CST);

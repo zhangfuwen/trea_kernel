@@ -26,9 +26,10 @@ void RunQueue::print_list()
 
 
 void SMP_Scheduler::init() {
-    scheduler_runqueue.init_all(new RunQueue());
+    // scheduler_runqueue.init_all(new RunQueue());
 
     for (unsigned int cpu = 0; cpu < arch::apic_get_cpu_count(); cpu++) {
+        scheduler_runqueue.set(cpu, new RunQueue());
         RunQueue* rq = scheduler_runqueue.get_for_cpu(cpu);
         debug_debug("Initializing SMP scheduler for CPU %d, rq: 0x%x\n", cpu, rq);
         rq->lock = SPINLOCK_INIT;
@@ -58,6 +59,11 @@ Task* SMP_Scheduler::pick_next_task() {
     rq->nr_running--;
     spin_unlock(&rq->lock);
     // debug_debug("Picked task %d(0x%x) on CPU %d, rq: 0x%x\n", next->task_id, next, arch::apic_get_id(), rq);
+    auto cpu = arch::apic_get_id();
+    if (cpu != next->cpu) {
+        debug_debug("stolen from cpu %d to cpu %d, rq:0x%x\n", next->cpu, cpu, rq);
+    }
+
     return next;
 }
 void SMP_Scheduler::enqueue_task(Task* p, int cpu_id)

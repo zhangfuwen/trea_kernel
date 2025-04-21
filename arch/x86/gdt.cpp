@@ -1,5 +1,6 @@
 #include "arch/x86/gdt.h"
 #include <cstdint>
+#include <lib/debug.h>
 
 // 定义TSS
 TSSEntry GDT::tss[MAX_CPUS];
@@ -18,9 +19,9 @@ void GDT::init()
         0xCF); // 内核代码段
     setEntry(2, 0, 0xFFFFFFFF, GDT_PRESENT | GDT_DPL_0 | GDT_TYPE_DATA,
         0xCF); // 内核数据段
-    setEntry(3, 0, 0xFFFFFFFF, GDT_PRESENT | GDT_DPL_3 | GDT_TYPE_CODE,
+    setEntry(3, 0, 0xBFFFFFFF, GDT_PRESENT | GDT_DPL_3 | GDT_TYPE_CODE,
         0xCF); // 用户代码段
-    setEntry(4, 0, 0xFFFFFFFF, GDT_PRESENT | GDT_DPL_3 | GDT_TYPE_DATA,
+    setEntry(4, 0, 0xBFFFFFFF, GDT_PRESENT | GDT_DPL_3 | GDT_TYPE_DATA,
         0xCF); // 用户数据段
     setEntry(5, 0, 0, 0, 0); // Null段
 
@@ -31,6 +32,7 @@ void GDT::init()
         tss[i].iomap_base = sizeof(TSSEntry);
 
         // 设置TSS描述符
+        debug_debug("tss base for %d is  0x%x\n", i, &tss[i]);
         uint32_t tss_base = reinterpret_cast<uint32_t>(&tss[i]);
         setEntry(5 + i, tss_base, sizeof(TSSEntry), GDT_PRESENT | GDT_TYPE_TSS, 0x00);
 
@@ -105,6 +107,7 @@ void GDT::loadGDT()
 // 更新TSS的内核栈指针
 void GDT::updateTSS(uint32_t cpu, uint32_t esp0, uint32_t ss0)
 {
+    // debug_debug("updating tss at 0x%x\n", &tss[cpu]);
     tss[cpu].esp0 = esp0;
     tss[cpu].ss0 = ss0;
 }

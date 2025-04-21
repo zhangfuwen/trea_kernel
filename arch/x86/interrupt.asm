@@ -26,21 +26,28 @@ fault_errno: dd 0
 
 [section .text]
 
-%macro SAVE_REGS_FOR_CONTEXT_SWITCH 0
+%macro SAVE_REGS_FOR_CONTEXT_SWITCH 1
     push gs
     push fs
     push es
     push ds
     pushad
     push esp
+    push %1
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
     call save_context_wrapper
-    add esp, 4
+    add esp, 8
 %endmacro
 
-%macro RESTORE_REGS_FOR_CONTEXT_SWITCH 0
+%macro RESTORE_REGS_FOR_CONTEXT_SWITCH 1
     push esp
+    push %1
     call restore_context_wrapper
-    add esp, 4
+    add esp, 8
     popad
     pop ds
     pop es
@@ -54,6 +61,10 @@ fault_errno: dd 0
     push es
     push ds
     pushad
+    push eax
+    mov ax, 0x10
+    mov ds, ax
+    pop eax
 %endmacro
 
 %macro RESTORE_REGS 0
@@ -68,7 +79,7 @@ fault_errno: dd 0
 [global %2]
 %2:
     cli
-    SAVE_REGS_FOR_CONTEXT_SWITCH
+    SAVE_REGS_FOR_CONTEXT_SWITCH %1
 
     push 0
     push %1
@@ -78,7 +89,7 @@ fault_errno: dd 0
     ; 对于APIC中断，C函数中已经调用了apic_send_eoi
     ; 所以这里不需要额外的EOI调用
 
-    RESTORE_REGS_FOR_CONTEXT_SWITCH
+    RESTORE_REGS_FOR_CONTEXT_SWITCH %1
     sti
     iretd            ; 返回
 %endmacro
@@ -173,7 +184,7 @@ syscall_interrupt:
     mov [arg2], ecx
     mov [arg3], edx
     mov [arg4], esi
-    SAVE_REGS_FOR_CONTEXT_SWITCH
+    SAVE_REGS_FOR_CONTEXT_SWITCH 0x80
 
     mov esi, [arg4]
     push esi ; arg4
@@ -189,7 +200,7 @@ syscall_interrupt:
     mov [arg1], eax
     add esp, 20
 
-    RESTORE_REGS_FOR_CONTEXT_SWITCH
+    RESTORE_REGS_FOR_CONTEXT_SWITCH 0x80
     mov eax, [arg1]
     sti
     iretd            ; 返回

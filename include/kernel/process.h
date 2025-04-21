@@ -98,6 +98,8 @@ struct Task {
     void print();
     void alloc_stack(KernelMemory& mm);
     int allocUserStack();
+
+    int cpu = -1;
 };
 struct Context {
     uint32_t context_id;
@@ -143,12 +145,18 @@ public:
     static PidManager pid_manager;
     static PidManager tid_manager;
     static void switch_to_user_mode(uint32_t entry_point, Task* task);
-    static void save_context(uint32_t* esp);
-    static void restore_context(uint32_t* esp);
+    static void save_context(uint32_t int_num, uint32_t* esp);
+    static void restore_context(uint32_t int_num, uint32_t* esp);
 
     // static void cloneMemory(ProcessControlBlock* pcb);
     static void sleep_current_process(uint32_t ticks);
     static Context* kernel_context;
+    static struct Debug
+    {
+        bool is_task_switch = false;
+        Task * prev_task = nullptr;
+        Task * cur_task = nullptr;
+    } debug;
 
 private:
     static kernel::ConsoleFS console_fs;

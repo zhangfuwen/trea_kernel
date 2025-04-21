@@ -43,7 +43,6 @@ void PidManager::free(uint32_t pid)
 void PidManager::initialize()
 {
     memset(pid_bitmap, 0, sizeof(pid_bitmap));
-    pid_bitmap[0] |= 1; // 保留PID 0
 }
 
 void ProcessManager::init()
@@ -336,15 +335,20 @@ bool ProcessManager::schedule()
     if(!next || next == current) {
         return false;
     }
+    auto cpu = arch::apic_get_id();
+    debug_debug("got next task: %d(0x%x, pre_cpu:%d), cpu: %d\n", next->task_id, next, next->cpu, cpu);
     // debug_debug("schedule: current: %d, next:%d(0x%x)\n", current->task_id, next->task_id, next);
     current->time_slice = DEFAULT_TIME_SLICE;
     Kernel::instance().scheduler().enqueue_task(current);
     Kernel::instance().scheduler().set_current_task(next);
+    debug.is_task_switch = true;
+    debug.cur_task = next;
+    debug.prev_task = current;
     return true;
 }
 
 // 保存当前进程的寄存器状态（由中断处理程序调用）
-void ProcessManager::save_context(uint32_t* esp)
+void ProcessManager::save_context(uint32_t int_num, uint32_t* esp)
 {
     // if (current_pid == 0) return;
 
@@ -367,15 +371,11 @@ void ProcessManager::save_context(uint32_t* esp)
 
     // 保存段寄存器
     regs.ds = esp[8];
-    if (regs.ds == 0) {
-        debug_debug("ds error 0x%x\n", regs.ds);
-        current->print();
-    }
     regs.es = esp[9];
     regs.fs = esp[10];
     regs.gs = esp[11];
-    if(regs.cs != 0x08 && regs.cs != 0x1b) {
-        debug_debug("cs error 0x%x\n", regs.cs);
+    if((regs.cs != 0x08 && regs.cs != 0x1b) || regs.ds == 0) {
+        debug_debug("cs 0x%x, ds 0x%x, int 0x%x\n", regs.cs, regs.ds, int_num);
         current->print();
         current->debug_status |= DEBUG_STATUS_HALT;
     }
@@ -387,8 +387,11 @@ void ProcessManager::save_context(uint32_t* esp)
 }
 
 // 恢复新进程的寄存器状态（由中断处理程序调用）
-void ProcessManager::restore_context(uint32_t* esp)
+void ProcessManager::restore_context(uint32_t int_num, uint32_t* esp)
 {
+    //中断返回的可以是用户态，也可能是内核态
+    // 内核态的典型场景是内核在执行idle任务。
+
     Task* next = get_current_task();
     auto& regs = next->regs;
 
@@ -408,7 +411,7 @@ void ProcessManager::restore_context(uint32_t* esp)
     esp[12] = regs.eip;
 
     if(regs.cs != 0x08 && regs.cs != 0x1b) {
-        debug_debug("cs error 0x%x\n", regs.cs);
+        debug_debug("cs error 0x%x, int_num 0x%x\n", regs.cs, int_num);
         next->print();
         if(next->debug_status & DEBUG_STATUS_HALT) {
             while(true) {
@@ -420,7 +423,7 @@ void ProcessManager::restore_context(uint32_t* esp)
 
     // 恢复段寄存器
     if(regs.ds ==0) {
-        debug_debug("ds error 0x%x\n", regs.ds);
+        debug_debug("ds error 0x%x, int_num 0x%x\n", regs.ds, int_num);
         next->print();
     }
     esp[8] = regs.ds;
@@ -430,6 +433,17 @@ void ProcessManager::restore_context(uint32_t* esp)
     auto cpu = arch::apic_get_id();
     GDT::updateTSS(cpu, next->stacks.esp0, KERNEL_DS);
     GDT::updateTSSCR3(cpu, next->regs.cr3);
+
+    if(debug.is_task_switch && debug.cur_task->cpu != cpu) {
+        debug_debug("switching task: prev: %d, next:%d\n", debug.prev_task->task_id,
+            next->task_id);
+        debug_debug("prev cpu:%d, cur cpu:%d\n", next->cpu, cpu);
+        debug.is_task_switch = false;
+        next->print();
+    }
+    next->cpu = cpu;
+    // update cr3
+    asm volatile("mov %%eax, %%cr3\n\t" ::"a"(next->regs.cr3));
 }
 Task* ProcessManager::get_current_task()
 {
@@ -459,13 +473,13 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, Task* task)
     GDT::updateTSS(cpu, task->stacks.esp0, KERNEL_DS);
     GDT::updateTSSCR3(cpu, task->regs.cr3);
 
-    // update ds and es
-    asm volatile("mov %0, %%ds\n\t"
-                 "mov %0, %%es\n\t"
-                 "mov %0, %%fs\n\t"
-                 "mov %0, %%gs\n\t"
-        :
-        : "r"(USER_DS), "r"(USER_DS), "r"(USER_DS), "r"(USER_DS));
+    // // update ds and es
+    // asm volatile("mov %0, %%ds\n\t"
+    //              "mov %0, %%es\n\t"
+    //              "mov %0, %%fs\n\t"
+    //              "mov %0, %%gs\n\t"
+    //     :
+    //     : "r"(USER_DS), "r"(USER_DS), "r"(USER_DS), "r"(USER_DS));
 
     asm volatile("mov %%eax, %%esp\n\t"    // 设置用户栈指针
                  "pushl $0x23\n\t"         // 用户数据段选择子
@@ -474,9 +488,10 @@ void ProcessManager::switch_to_user_mode(uint32_t entry_point, Task* task)
                  "orl $0x200, (%%esp)\n\t" // 开启中断标志
                  "pushl $0x1B\n\t"         // 用户代码段选择子
                  "pushl %%ebx\n\t"         // 入口地址
+                 "mov %%cx, %%ds\n\t"         // 入口地址
                  "iret\n\t"                // 切换特权级
         :
-        : "a"(user_stack), "b"(entry_point)
+        : "a"(user_stack), "b"(entry_point), "c"(0x23)
         : "memory", "cc");
     // __builtin_unreachable();  // 避免编译器警告
 }
@@ -496,3 +511,5 @@ void ProcessManager::sleep_current_process(uint32_t ticks)
     // 触发调度让出CPU
     schedule();
 }
+
+ProcessManager::Debug ProcessManager::debug;

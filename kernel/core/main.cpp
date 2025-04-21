@@ -81,6 +81,7 @@ extern "C" Task* create_init_task(Context* context, KernelMemory& mm)
     init_task->regs.cr3 = init_task->context->user_mm.getPageDirectoryPhysical();
 
     debug_debug("init_task: %d(0x%x)\n", init_task->task_id, init_task);
+    init_task->print();
     return init_task;
 }
 extern "C" Task* create_idle_task(Context* context, int apic_id)
@@ -95,8 +96,8 @@ extern "C" Task* create_idle_task(Context* context, int apic_id)
     idle_task->state = PROCESS_READY;
     idle_task->regs.cr3 = idle_task->context->user_mm.getPageDirectoryPhysical();
 
-    kernel.scheduler().set_current_task(idle_task);
-    kernel.scheduler().set_idle_task(idle_task);
+    // kernel.scheduler().set_current_task(idle_task);
+    // kernel.scheduler().set_idle_task(idle_task);
     debug_debug("idle_task: %d(0x%x)\n", idle_task->task_id, idle_task);
     idle_task->print();
     return idle_task;

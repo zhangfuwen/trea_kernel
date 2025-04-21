@@ -2,6 +2,8 @@
 
 #include "lib/ioport.h"
 
+#include <arch/x86/spinlock.h>
+
 // 定义串口 COM1 的端口地址
 #define COM1_BASE 0x3F8
 
@@ -33,9 +35,12 @@ void serial_putc(char c)
 }
 
 // 向串口发送一个字符串
+SpinLock lock;
 void serial_puts(const char* str)
 {
+    spin_lock(&lock);
     while(*str) {
         serial_putc(*str++);
     }
+    spin_unlock(&lock);
 }

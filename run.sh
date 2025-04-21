@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # 输入参数
 if [ $# -lt 2 ]; then
     echo "Usage: $0 <iso_file> <disk_image>"
@@ -45,3 +44,4 @@ qemu-system-i386 \
     -serial stdio  \
     -smp cores=4 \
     -s 2>&1 | tee qemu.log
+
