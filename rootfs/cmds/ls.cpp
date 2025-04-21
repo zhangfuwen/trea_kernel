@@ -31,7 +31,7 @@ void cmd_ls(int argc, char* argv[]) {
     printf("ls: open directory '%s'\n", path);
 
     char title[256];
-    format_string(title, sizeof(title), "Directory listing of %s:\n", path);
+    sformat(title, sizeof(title), "Directory listing of %s:\n", path);
     syscall_write(1, title, strlen(title));
 
     char dirent_buf[1024];

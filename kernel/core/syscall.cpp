@@ -1,6 +1,6 @@
-#include "lib/time.h"
 #include "kernel/syscall.h"
 #include "lib/string.h"
+#include "lib/time.h"
 
 #include <kernel/elf_loader.h>
 
@@ -18,15 +18,12 @@
 #include "kernel/vfs.h"
 #include "lib/debug.h"
 
-extern "C" uint32_t handleSyscall(uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3)
+extern "C" uint32_t handleSyscall(uint32_t syscall_num, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4)
 {
-    return SyscallManager::handleSyscall(syscall_num, arg1, arg2, arg3, 0);
+    return SyscallManager::handleSyscall(syscall_num, arg1, arg2, arg3, arg4);
 }
 // 系统调用处理函数声明
-int sys_mkdir(const char* path)
-{
-    return kernel::VFSManager::instance().mkdir(path);
-}
+int sys_mkdir(const char* path) { return kernel::VFSManager::instance().mkdir(path); }
 
 // getdents系统调用处理函数
 int getdentsHandler(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr)
@@ -35,17 +32,18 @@ int getdentsHandler(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos
 }
 int sys_getdents(uint32_t fd_num, uint32_t dirp, uint32_t count, uint32_t pos_ptr)
 {
+    log_debug("getdentsHandler called with fd_num=%d, dirp=0x%x, count=%d, pos_ptr=0x%x,value(%d)\n", fd_num, dirp, count, pos_ptr, *(uint32_t*)pos_ptr);
     auto pcb = ProcessManager::get_current_task();
     if(fd_num >= 256 || !pcb->context->fd_table[fd_num]) {
         return -1; // 无效的文件描述符
     }
-    
+
     // 获取文件描述符
     auto fd = pcb->context->fd_table[fd_num];
-    
+
     // 获取位置指针
     uint32_t* pos = reinterpret_cast<uint32_t*>(pos_ptr);
-    
+
     // 调用文件描述符的iterate方法
     return fd->iterate(reinterpret_cast<void*>(dirp), count, pos);
 }
@@ -56,10 +54,7 @@ int mkdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
     return sys_mkdir(path);
 }
 
-int sys_unlink(const char* path)
-{
-    return kernel::VFSManager::instance().unlink(path);
-}
+int sys_unlink(const char* path) { return kernel::VFSManager::instance().unlink(path); }
 
 int unlinkHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
 {
@@ -67,10 +62,7 @@ int unlinkHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
     return sys_unlink(path);
 }
 
-int sys_rmdir(const char* path)
-{
-    return kernel::VFSManager::instance().rmdir(path);
-}
+int sys_rmdir(const char* path) { return kernel::VFSManager::instance().rmdir(path); }
 
 int rmdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
 {
@@ -85,10 +77,10 @@ int sys_stat(const char* path, kernel::FileAttribute* attr)
 
 int statHandler(uint32_t path_ptr, uint32_t attr_ptr, uint32_t, uint32_t)
 {
-    auto pcb = ProcessManager::get_current_task();
+    log_debug("statHandler called with path_ptr=%s, attr_ptr=0x%x\n", path_ptr, attr_ptr);
     const char* path = reinterpret_cast<const char*>(path_ptr);
     kernel::FileAttribute* attr = reinterpret_cast<kernel::FileAttribute*>(attr_ptr);
-    
+
     return sys_stat(path, attr);
 }
 
@@ -107,21 +99,22 @@ int getcwdHandler(uint32_t buf_ptr, uint32_t size, uint32_t, uint32_t)
 int sys_getcwd(char* buf, size_t size)
 {
     auto pcb = ProcessManager::get_current_task();
-    if (!buf || size == 0) {
+    if(!buf || size == 0) {
         return -1;
     }
-    
+
     size_t cwd_len = strlen(pcb->context->cwd);
-    
-    if (cwd_len + 1 > size) {
+
+    if(cwd_len + 1 > size) {
         return -1; // 缓冲区太小
     }
-    
+
     strncpy(buf, pcb->context->cwd, size);
     return 0;
 }
 
-int nanosleepHandler(uint32_t req_ptr, uint32_t rem_ptr, uint32_t, uint32_t) {
+int nanosleepHandler(uint32_t req_ptr, uint32_t rem_ptr, uint32_t, uint32_t)
+{
     // 将用户空间指针转换为内核可访问的指针
     timespec* req = reinterpret_cast<timespec*>(req_ptr);
 
@@ -136,7 +129,6 @@ int nanosleepHandler(uint32_t req_ptr, uint32_t rem_ptr, uint32_t, uint32_t) {
 
     return 0; // 返回成功
 }
-
 
 // 静态成员初始化
 SyscallHandler SyscallManager::handlers[256];
@@ -165,26 +157,23 @@ void SyscallManager::init()
     Console::print("SyscallManager initialized\n");
 }
 
-int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
-{
-    return sys_getpid();
-}
+int getpid_handler(uint32_t a, uint32_t b, uint32_t c, uint32_t d) { return sys_getpid(); }
 
-int sys_getpid() {
-    auto pcb =  ProcessManager::get_current_task();
+int sys_getpid()
+{
+    auto pcb = ProcessManager::get_current_task();
     log_info("pcb is %x, pid is %d\n", pcb, pcb->task_id);
     return pcb->task_id;
 }
 
-int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t) {
+int logHandler(uint32_t message_ptr, uint32_t len, uint32_t, uint32_t)
+{
     const char* message = reinterpret_cast<const char*>(message_ptr);
     sys_log(message, len);
     return 0;
 }
 
-void sys_log(const char* message, uint32_t len) {
-    log_info("%s\n", message);
-}
+void sys_log(const char* message, uint32_t len) { log_info("%s\n", message); }
 
 // 注册系统调用处理程序
 void SyscallManager::registerHandler(uint32_t syscall_num, SyscallHandler handler)
@@ -205,16 +194,15 @@ int SyscallManager::handleSyscall(
         // debug_debug("syscall_num: %d, ret:%d\n", syscall_num, ret);
         return ret;
     }
-    log_trace("syscall end ret -1 : num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n");
+    log_err("syscall end ret -1 : num: %d, arg1:%d, arg2:%d, arg3:%d, arg4:%d\n", syscall_num, arg1,
+        arg2, arg3, arg4);
+    log_err("handler is %x\n", handlers[syscall_num]);
     return -1;
 }
 
 // 默认系统调用处理程序
 // chdir系统调用处理函数
-int sys_chdir(const char* path)
-{
-    return kernel::VFSManager::instance().chdir(path);
-}
+int sys_chdir(const char* path) { return kernel::VFSManager::instance().chdir(path); }
 
 int chdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t)
 {
@@ -284,7 +272,8 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* ta
         log_err("Failed to load ELF file\n");
         return -1;
     }
-    task->context->user_mm.map_pages(0x100000, 0x100000, 0x100000, PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
+    task->context->user_mm.map_pages(
+        0x100000, 0x100000, 0x100000, PAGE_USER | PAGE_WRITE | PAGE_PRESENT);
 
     const ElfHeader* header = static_cast<const ElfHeader*>(filep);
     uint32_t entry_point = header->entry;

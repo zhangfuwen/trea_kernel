@@ -591,7 +591,6 @@ int Ext2FileDescriptor::iterate(void* buffer, size_t buffer_size, uint32_t* pos)
     uint8_t* block = new uint8_t[block_size];
 
     // 计算当前位置对应的块索引和块内偏移
-    *pos = 0;
     uint32_t current_pos = *pos;
     uint32_t block_idx = current_pos / block_size;
     uint32_t block_offset = current_pos % block_size;

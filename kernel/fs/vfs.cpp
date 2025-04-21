@@ -258,8 +258,11 @@ int VFSManager::stat(const char* path, FileAttribute* attr)
 {
     const char* remaining_path;
     FileSystem* fs = find_fs(path, &remaining_path);
-    if(!fs)
+    if(!fs) {
+        log_debug("VFSManager::stat: no filesystem found for path %s\n", path);
         return -1;
+    }
+    log_debug(" fs is %s\n", fs->get_name());
     return fs->stat(remaining_path, attr);
 }
 

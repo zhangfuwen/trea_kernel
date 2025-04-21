@@ -159,6 +159,7 @@ extern "C" void kernel_main()
     run_format_string_tests();
     log_debug("Kernel initialized!\n");
     // 注册系统调用处理函数
+    SyscallManager::init();
     SyscallManager::registerHandler(SYS_EXIT, exitHandler);
     SyscallManager::registerHandler(SYS_FORK, [](uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
         log_debug("fork syscall called!\n");
