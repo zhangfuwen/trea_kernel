@@ -751,6 +751,17 @@ ssize_t Ext2FileDescriptor::read(void* buffer, size_t size)
     return total_read;
 }
 
+void* Ext2FileDescriptor::mmap(void* addr, size_t length, int prot, int flags, size_t offset)
+{
+    log_trace("mmap: addr:%x, length:%d, prot:%d, flags:%d, offset:%d\n", addr, length, prot, flags, offset);
+    Ext2Inode* inode = m_fs->read_inode(m_inode);
+    if(!inode) {
+        return (void*)(-1);
+    }
+    return (void*)(-1);
+}
+
+
 // 在Ext2FileSystem类实现之外添加
 ssize_t Ext2FileDescriptor::write(const void* buffer, size_t size)
 {

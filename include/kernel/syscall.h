@@ -26,6 +26,7 @@ enum SyscallNumber {
     SYS_CHDIR = 17,
     SYS_PWD = 18,
     SYS_GETCWD = 19,
+    SYS_MMAP = 20,
 };
 
 // 系统调用处理函数类型
@@ -49,6 +50,11 @@ int chdirHandler(uint32_t path_ptr, uint32_t, uint32_t, uint32_t);
 int sys_chdir(const char* path);
 int getcwdHandler(uint32_t buf_ptr, uint32_t size, uint32_t, uint32_t);
 int sys_getcwd(char* buf, size_t size);
+
+#define MAP_FAILED -1
+void* sys_mmap(void* addr, size_t length, int prot, int flags, int fd, size_t offset);
+int mmapHandler(uint32_t addr, uint32_t length, uint32_t prot, uint32_t user_buf_p);
+
 
 // 系统调用管理器
 class SyscallManager

@@ -202,6 +202,7 @@ public:
 
     ssize_t read(void* buffer, size_t size) override;
     ssize_t write(const void* buffer, size_t size) override;
+    void *mmap(void* addr, size_t length, int prot, int flags, size_t offset) override;
     int seek([[maybe_unused]] size_t offset) override;
     int close() override;
     int iterate([[maybe_unused]] void* buffer, [[maybe_unused]] size_t buffer_size, [[maybe_unused]] uint32_t* pos) override;
@@ -211,7 +212,7 @@ private:
     uint32_t m_inode;
     off_t m_position = 0;
     Ext2FileSystem* m_fs;
-    
+
     uint32_t get_block_id(uint32_t block_idx, Ext2Inode *inode);
 };
 

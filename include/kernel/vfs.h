@@ -52,6 +52,10 @@ public:
     virtual int seek(size_t offset) = 0;
     virtual int close() = 0;
     virtual int iterate(void* buffer, size_t buffer_size, uint32_t* pos) = 0;
+    // mmap接口：将文件内容映射到用户空间
+    virtual void* mmap(void* addr, size_t length, int prot, int flags, size_t offset) {
+        return nullptr;
+    }
 };
 
 // 文件系统接口

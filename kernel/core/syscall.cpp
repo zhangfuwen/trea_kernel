@@ -113,6 +113,47 @@ int sys_getcwd(char* buf, size_t size)
     return 0;
 }
 
+int mmapHandler(uint32_t addr, uint32_t length, uint32_t prot, uint32_t user_buf_p)
+{
+    uint32_t* user_buf = reinterpret_cast<uint32_t*>(user_buf_p);
+    uint32_t flags = user_buf[0];
+    uint32_t fd = user_buf[1];
+    uint32_t offset = user_buf[2];
+    return (int)sys_mmap(reinterpret_cast<void*>(addr), length, prot, flags, fd, offset);
+}
+
+void* sys_mmap(void* addr, size_t length, int prot, int flags, int fd, size_t offset) {
+    // 1. 参数校验
+    // 2. 找到可用虚拟地址区间
+    // 3. 建立虚拟内存映射（页表、VMA等）
+    // 4. 若是文件映射，关联到fd对应的文件/页缓存
+    // 5. 返回映射起始地址或MAP_FAILED
+
+    // 这里只给出伪代码框架
+
+    log_trace("addr = %x, length = %x, prot = %x, flags = %x, fd = %x, offset = %x\n", addr, length, prot, flags, fd, offset);
+
+    if(fd < 0) {
+        auto task = ProcessManager::get_current_task();
+        auto mapped_addr = task->context->user_mm.allocate_area(length, 0, MEM_TYPE_ANONYMOUS);
+        log_trace("return mapped_addr = %x\n", mapped_addr);
+        return mapped_addr;
+    }
+    if(fd >= 256 || !ProcessManager::get_current_task()->context->fd_table[fd]) {
+        log_err("Invalid file descriptor\n");
+        return (void*)MAP_FAILED;
+    }
+    auto fd_ptr = ProcessManager::get_current_task()->context->fd_table[fd];
+    // if(fd_ptr-> != FILE_TYPE_REGULAR) {
+    //     log_err("Invalid file type\n");
+    //     return (void*)MAP_FAILED;
+    // }
+    auto ret = fd_ptr->mmap(addr, length, prot, flags, offset);
+
+    log_trace("return 0x%x\n", ret);
+    return ret;
+}
+
 int nanosleepHandler(uint32_t req_ptr, uint32_t rem_ptr, uint32_t, uint32_t)
 {
     // 将用户空间指针转换为内核可访问的指针
@@ -153,6 +194,7 @@ void SyscallManager::init()
     registerHandler(SYS_GETDENTS, getdentsHandler);
     registerHandler(SYS_LOG, logHandler);
     registerHandler(SYS_CHDIR, chdirHandler);
+    registerHandler(SYS_MMAP, mmapHandler);
 
     Console::print("SyscallManager initialized\n");
 }
@@ -253,9 +295,9 @@ int sys_execve(uint32_t path_ptr, uint32_t argv_ptr, uint32_t envp_ptr, Task* ta
         log_err("Failed to read executable file\n");
         return -1;
     }
-    hexdump(filep, size, [](const char* buf) {
-        log_debug("%s\n", buf);
-    });
+    // hexdump(filep, size, [](const char* buf) {
+    //     log_debug("%s\n", buf);
+    // });
     log_debug("File read size %d\n", size);
     kernel::sys_close(fd, task);
 
