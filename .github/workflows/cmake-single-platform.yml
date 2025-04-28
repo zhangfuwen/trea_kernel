@@ -33,7 +33,7 @@ jobs:
     - name: Build
       # Build your program with the given configuration
       run: |
-        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target kernel.iso
         sudo bash tools/create_disk.sh ./rootfs/binary ${{github.workspace}}/build/test.img
         file build/test.img
         file build/kernel.iso
@@ -42,9 +42,9 @@ jobs:
       uses: actions/upload-artifact@v4.6.2
       with:
         name: build-artifacts
-        path: |
-          ${{github.workspace}}/build/kernel.iso
-          ${{github.workspace}}/build/test.img
+        path: 
+          - ${{github.workspace}}/build/kernel.iso
+          - ${{github.workspace}}/build/test.img
         if-no-files-found: error
         compression-level: 6
         overwrite: true
