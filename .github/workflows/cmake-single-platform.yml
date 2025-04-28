@@ -35,28 +35,30 @@ jobs:
       run: |
         cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
         sudo bash tools/create_disk.sh ./rootfs/binary ${{github.workspace}}/build/test.img
+        file build/test.img
+        file build/kernel.iso
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4.6.2
       with:
         name: build-artifacts
-        path: |
-          build/kernel.iso
-          build/test.img
-        if-no-files-found: warn
+        path: 
+          - ${{github.workspace}}/build/kernel.iso
+          - ${{github.workspace}}/build/test.img
+        if-no-files-found: error
         compression-level: 6
-        overwrite: false
+        overwrite: true
         include-hidden-files: false
 
-    - name: Release
-      uses: googleapis/release-please-action@v3.1.2
-      with:
-        # GitHub token for creating and grooming release PRs, defaults to using secrets.GITHUB_TOKEN
-        token: ${{ github.token }}
-        # what type of release is this, one of (ruby, python, node, terraform-module)
-        release-type: simple
-        # Should stale release PRs be closed post release? Defaults to true
-        clean: true
+    # - name: Release
+    #   uses: googleapis/release-please-action@v3.1.2
+    #   with:
+    #     # GitHub token for creating and grooming release PRs, defaults to using secrets.GITHUB_TOKEN
+    #     token: ${{ github.token }}
+    #     # what type of release is this, one of (ruby, python, node, terraform-module)
+    #     release-type: simple
+    #     # Should stale release PRs be closed post release? Defaults to true
+    #     clean: true
           
 
     # - name: Test
