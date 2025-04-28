@@ -41,13 +41,66 @@ jobs:
       with:
         name: build-artifacts
         path: |
-          ${{github.workspace}}/build/kernel.iso
-          ${{github.workspace}}/build/test.img
+          build/kernel.iso
+          build/test.img
         if-no-files-found: warn
         compression-level: 6
         overwrite: false
         include-hidden-files: false
 
+    -name: Release
+      if: github.ref == 'refs/heads/master'
+      uses: googleapis/release-please-action@v3.1.2
+      with:
+        # GitHub token for creating and grooming release PRs, defaults to using secrets.GITHUB_TOKEN
+        token: # optional, default is ${{ github.token }}
+        # should the PR be proposed from a fork, Default to false
+        fork: # optional
+        # Should stale release PRs be closed post release? Defaults to true
+        clean: # optional, default is true
+        # name of the distributions releases are being created for, e.g., "name" in package.json, or "setup.py"
+        package-name: # optional
+        # what type of release is this, one of (ruby, python, node, terraform-module)
+        release-type: simple 
+        # should breaking changes before 1.0.0 produce minor bumps
+        bump-minor-pre-major: # optional
+        # should feat changes before 1.0.0 produce patch bumps instead of minor bumps
+        bump-patch-for-minor-pre-major: # optional
+        # create a release from a path other than the repository's root
+        path: # optional, default is 
+        # specify a CHANGELOG path other than the root CHANGELOG.md
+        changelog-path: # optional, default is 
+        # release-please command to run, either "github-release", or "release-pr" (defaults to running both)
+        command: # optional, default is 
+        # provide a path to a version file to increment (used by ruby releaser)
+        version-file: # optional, default is 
+        # extra files to bump using the generic updater
+        extra-files: # optional, default is 
+        # branch to open pull release PR against (detected by default)
+        default-branch: # optional, default is 
+        # changlelog commit types
+        changelog-types: # optional, default is 
+        # where can the config file be found in the project?
+        config-file: # optional, default is 
+        # where can the manifest file be found in the project?
+        manifest-file: # optional, default is 
+        # Add [`Signed-off-by`](https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---signoff) line at the end of the commit log message using the user and email provided. (format "Name \<email@example.com\>")
+        signoff: # optional, default is 
+        # configure github API URL. Default `https://api.github.com`
+        github-api-url: # optional, default is 
+        # configure github GraphQL URL. Default `https://api.github.com`
+        github-graphql-url: # optional, default is 
+        # configure github repository URL. Default `process.env.GITHUB_REPOSITORY`
+        repo-url: # optional, default is 
+        # add prefix to tags and branches, allowing multiple libraries to be released from the same repository
+        monorepo-tags: # optional
+        # add title pattern to make release PR, defaults to using "chore${scope}: release${component} ${version}"
+        pull-request-title-pattern: # optional, default is 
+        # mark release as a draft
+        draft: # optional
+        # mark pull request as a draft
+        draft-pull-request: # optional
+          
 
     # - name: Test
     #   working-directory: ${{github.workspace}}/build
