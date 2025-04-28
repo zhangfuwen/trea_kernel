@@ -49,7 +49,6 @@ jobs:
         include-hidden-files: false
 
     -name: Release
-      if: github.ref == 'refs/heads/master'
       uses: googleapis/release-please-action@v3.1.2
       with:
         # GitHub token for creating and grooming release PRs, defaults to using secrets.GITHUB_TOKEN
