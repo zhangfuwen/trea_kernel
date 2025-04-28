@@ -1,16 +1,20 @@
 #!/bin/bash
 # 输入参数
-if [ $# -lt 2 ]; then
-    echo "Usage: $0 <iso_file> <disk_image>"
-    echo "using test.img"
-fi
-# 定义变量
-iso_file=$1
-
-if [ $# -eq 1 ]; then
+if [ $# -eq 0 ]; then
+    # 无参数时使用默认值
+    echo "使用默认值: iso_file=build/kernel.iso disk_image=test.img"
+    iso_file="build/kernel.iso"
     disk_image="test.img"
+elif [ $# -eq 1 ]; then
+    # 只提供一个参数时，将其作为iso文件路径
+    iso_file=$1
+    disk_image="test.img"
+    echo "使用iso文件: $iso_file, 默认磁盘镜像: $disk_image"
 else
+    # 提供两个参数时
+    iso_file=$1
     disk_image=$2
+    echo "使用iso文件: $iso_file, 磁盘镜像: $disk_image"
 fi
 
 # 检查qemu-system-i386是否已安装

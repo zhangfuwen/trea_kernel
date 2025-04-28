@@ -2,6 +2,7 @@
 #define CUSTOM_KERNEL_TEST_FRAMEWORK_H
 
 #include <cstdio>
+#include "string.h"
 // #include <cstring>
 
 // 测试结果统计

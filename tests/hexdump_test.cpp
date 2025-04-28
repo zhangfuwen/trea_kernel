@@ -1,6 +1,5 @@
 #include "lib/test_framework.h"
 #include <cstdarg>
-#include <cstring>
 #define NO_PID
 #include <lib/debug.h>
 
